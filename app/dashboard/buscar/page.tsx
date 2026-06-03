@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -24,7 +25,7 @@ type Oferta = {
 
 const FILTROS_TIPO = ["TODOS", "OEM", "IAM", "UNIVERSAL"];
 
-export default function BuscarPage() {
+function BuscarPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
@@ -392,3 +393,11 @@ const btnPedir = { border: "none", color: "white", padding: "14px 20px", borderR
 const btnVerFoto = { width: 42, height: 42, borderRadius: 10, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
 const btnMenu = { width: "42px", height: "42px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.08)", color: "white", fontSize: "20px", cursor: "pointer", flexShrink: 0 };
 const dropdownItem = { width: "100%", border: "none", background: "transparent", color: "white", padding: "14px 18px", textAlign: "left" as const, cursor: "pointer", fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: "14px" };
+
+export default function BuscarPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}><p>Cargando...</p></div>}>
+      <BuscarPageInner />
+    </Suspense>
+  );
+}
