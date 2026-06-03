@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -66,7 +67,7 @@ function esImagen(tipo?: string) {
   return tipo?.startsWith("image/");
 }
 
-export default function ChatPage() {
+function ChatPageInner() {
   const searchParams = useSearchParams();
   const convParam = searchParams.get("conv");
 
@@ -709,3 +710,15 @@ const fichaIcon = { fontSize: 18, flexShrink: 0 };
 const fichaHorario = { marginTop: 20, background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 14, padding: "16px" };
 const btnCerrarFicha = { background: "rgba(255,255,255,0.06)", border: "none", color: "#94a3b8", width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontSize: 14 };
 const btnLlamarStyle = { display: "block", marginTop: 20, background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", padding: "14px", borderRadius: 14, textAlign: "center" as const, fontWeight: 800, textDecoration: "none", fontSize: 15 };
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", background: "#020b2d", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+        <p>Cargando chat...</p>
+      </div>
+    }>
+      <ChatPageInner />
+    </Suspense>
+  );
+}
