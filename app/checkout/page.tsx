@@ -121,6 +121,9 @@ export default function CheckoutPage() {
     codigo: string,
     proveedorNombre: string,
     proveedorEmail: string,
+    proveedorCif: string,
+    proveedorTelefono: string,
+    proveedorDireccion: string,
     productosGrupo: Producto[],
     subtotalGrupo: number,
     ivaGrupo: number,
@@ -133,6 +136,9 @@ export default function CheckoutPage() {
         fecha,
         proveedorNombre,
         proveedorEmail,
+        proveedorCif,
+        proveedorTelefono,
+        proveedorDireccion,
         cliente: empresa,
         clienteEmail: clienteEmail,
         telefono,
@@ -207,10 +213,16 @@ export default function CheckoutPage() {
       // Obtener email del proveedor
       let emailProveedor = "";
       let nombreProveedor = grupo.nombre;
+      let proveedorCif = "";
+      let proveedorTelefono = "";
+      let proveedorDireccion = "";
       if (provId !== "sin_proveedor") {
-        const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", provId).single();
+        const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa, cif, telefono, direccion, ciudad").eq("id", provId).single();
         emailProveedor = prov?.email || "";
         nombreProveedor = prov?.nombre_empresa || grupo.nombre;
+        proveedorCif = prov?.cif || "";
+        proveedorTelefono = prov?.telefono || "";
+        proveedorDireccion = [prov?.direccion, prov?.ciudad].filter(Boolean).join(", ");
       }
 
       const pedido = {
@@ -243,7 +255,7 @@ export default function CheckoutPage() {
       if (pedidoInsertado?.id) {
         await generarYGuardarPDFs(
           pedidoInsertado.id, codigo,
-          nombreProveedor, emailProveedor,
+          nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
           grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha
         );
       }

@@ -63,6 +63,9 @@ export type AlbaranProps = {
   fecha: string;
   proveedorNombre: string;
   proveedorEmail: string;
+  proveedorCif?: string;
+  proveedorTelefono?: string;
+  proveedorDireccion?: string;
   cliente: string;
   clienteEmail: string;
   telefono: string;
@@ -83,7 +86,7 @@ const FORMA_PAGO_LABELS: Record<string, string> = {
 };
 
 export function AlbaranPDF({
-  codigo, fecha, proveedorNombre, proveedorEmail,
+  codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion,
   cliente, clienteEmail, telefono, cif, direccion,
   agencia, formaPago, productos, subtotal, iva, total,
 }: AlbaranProps) {
@@ -116,6 +119,9 @@ export function AlbaranPDF({
           <View style={styles.parteBox}>
             <Text style={styles.parteLabel}>VENDEDOR</Text>
             <Text style={styles.parteNombre}>{proveedorNombre}</Text>
+            {!!proveedorCif && <Text style={styles.parteInfo}>CIF: {proveedorCif.toUpperCase()}</Text>}
+            {!!proveedorDireccion && <Text style={styles.parteInfo}>{proveedorDireccion}</Text>}
+            {!!proveedorTelefono && <Text style={styles.parteInfo}>Tel: {proveedorTelefono}</Text>}
             <Text style={styles.parteInfo}>{proveedorEmail}</Text>
           </View>
           <View style={styles.parteBox}>
