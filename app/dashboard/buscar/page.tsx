@@ -38,6 +38,7 @@ function BuscarPageInner() {
   const [abriendo, setAbriendo] = useState(false);
   const [fotoVisor, setFotoVisor] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [contactoModal, setContactoModal] = useState<{ nombre: string; telefono: string; email: string } | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -164,10 +165,9 @@ function BuscarPageInner() {
   async function verTelefono(ofertaId: number) {
     setMenuAbierto(null);
     const oferta = ofertas.find(o => o.id === ofertaId);
-    if (!oferta?.proveedor_id) { alert("No hay información de contacto"); return; }
+    if (!oferta?.proveedor_id) return;
     const { data } = await supabase.from("usuarios").select("telefono, nombre_empresa, email").eq("id", oferta.proveedor_id).single();
-    if (data) alert(`📞 ${data.nombre_empresa}\nTeléfono: ${data.telefono || "No disponible"}\nEmail: ${data.email || ""}`);
-    else alert("No hay información de contacto disponible");
+    if (data) setContactoModal({ nombre: data.nombre_empresa || "-", telefono: data.telefono || "No disponible", email: data.email || "-" });
   }
 
   function toggleMenu(e: React.MouseEvent, id: number) {
@@ -188,6 +188,41 @@ function BuscarPageInner() {
 
   return (
     <main style={mainStyle}>
+
+      {/* MODAL CONTACTO */}
+      {contactoModal && (
+        <div onClick={() => setContactoModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#0f172a", borderRadius: 24, padding: 32, width: "100%", maxWidth: 400, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h3 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>Datos de contacto</h3>
+              <button onClick={() => setContactoModal(null)} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "#94a3b8", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏭</div>
+              <h2 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>{contactoModal.nombre}</h2>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 12 }}>
+              <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 20 }}>📞</span>
+                <div>
+                  <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, margin: 0, marginBottom: 4 }}>TELÉFONO</p>
+                  <a href={`tel:${contactoModal.telefono}`} style={{ color: "#60a5fa", fontWeight: 800, fontSize: 16, textDecoration: "none" }}>{contactoModal.telefono}</a>
+                </div>
+              </div>
+              <div style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 20 }}>✉️</span>
+                <div>
+                  <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, margin: 0, marginBottom: 4 }}>EMAIL</p>
+                  <a href={`mailto:${contactoModal.email}`} style={{ color: "#a78bfa", fontWeight: 800, fontSize: 15, textDecoration: "none" }}>{contactoModal.email}</a>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setContactoModal(null)} style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700, marginTop: 20 }}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* LIGHTBOX FOTO */}
       {fotoVisor && (
