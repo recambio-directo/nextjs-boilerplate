@@ -37,6 +37,14 @@ function BuscarPageInner() {
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
   const [abriendo, setAbriendo] = useState(false);
   const [fotoVisor, setFotoVisor] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => { cargarOfertas(); }, [q]);
 
@@ -242,110 +250,112 @@ function BuscarPageInner() {
           </span>
         </div>
 
-        <div style={tableContainer}>
-          <div style={tableHeader}>
-            <div>REFERENCIA</div>
-            <div>DESCRIPCIÓN</div>
-            <div>PROVEEDOR</div>
-            <div>STOCK</div>
-            <div>PROVINCIA</div>
-            <div>PRECIO</div>
-            <div>ACCIÓN</div>
+        {loading && <div style={emptyState}>Buscando...</div>}
+        {!loading && ofertasFiltradas.length === 0 && (
+          <div style={emptyState}>
+            No hay resultados para <strong>"{q}"</strong>
+            {filtroTipo !== "TODOS" && <span> con filtro <strong>{filtroTipo}</strong></span>}
           </div>
+        )}
 
-          {loading && <div style={emptyState}>Buscando...</div>}
-
-          {!loading && ofertasFiltradas.length === 0 && (
-            <div style={emptyState}>
-              No hay resultados para <strong>"{q}"</strong>
-              {filtroTipo !== "TODOS" && <span> con filtro <strong>{filtroTipo}</strong></span>}
+        {/* VISTA TABLA (desktop) */}
+        {!isMobile && (
+          <div style={tableContainer}>
+            <div style={tableHeader}>
+              <div>REFERENCIA</div><div>DESCRIPCIÓN</div><div>PROVEEDOR</div>
+              <div>STOCK</div><div>PROVINCIA</div><div>PRECIO</div><div>ACCIÓN</div>
             </div>
-          )}
-
-          {ofertasFiltradas.map((oferta) => {
-            const descripcion = oferta.descripcion || oferta.nombre || "-";
-            const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
-            const enCesta = cestaMensaje === oferta.id;
-            const tipoUp = (oferta.tipo || "").toUpperCase();
-
-            return (
-              <div key={oferta.id} style={tableRow}>
-                <div>
-                  <div style={colRef}>{oferta.referencia}</div>
-                  {oferta.tipo && (
-                    <div style={getTipoBadgeStyle(oferta.tipo)}>{tipoUp}</div>
-                  )}
-                  {/* Miniatura foto para UNIVERSAL */}
-                  {tipoUp === "UNIVERSAL" && oferta.foto_url && (
-                    <div
-                      onClick={() => setFotoVisor(oferta.foto_url!)}
-                      style={{ marginTop: 6, cursor: "zoom-in", display: "inline-block" }}
-                      title="Ver foto"
-                    >
-                      <img
-                        src={oferta.foto_url}
-                        alt="foto"
-                        style={{ width: 48, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)" }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <div style={colDescTitle}>{descripcion}</div>
-                  {oferta.marca && <div style={colDescSub}>{oferta.marca}</div>}
-                </div>
-                <div>
-                  <div style={colProvNombre}>{proveedor}</div>
-                  {oferta.poblacion && <div style={colProvSub}>{oferta.poblacion}</div>}
-                </div>
-                <div>
-                  <div style={stockBadge}>{oferta.stock} uds</div>
-                </div>
-                <div style={colProvincia}>{oferta.provincia || "-"}</div>
-                <div>
-                  <div style={colPrecio}>{Number(oferta.precio).toFixed(2)}€</div>
-                  {oferta.impuesto && Number(oferta.impuesto) > 0 && (
-                    <div style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700, marginTop: 2 }}>
-                      + {Number(oferta.impuesto).toFixed(2)}€ ecotasa
-                    </div>
-                  )}
-                  {oferta.impuesto && Number(oferta.impuesto) > 0 && (
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                      Total: {(Number(oferta.precio) + Number(oferta.impuesto)).toFixed(2)}€
-                    </div>
-                  )}
-                </div>
-                <div style={colAccion}>
-                  {tipoUp === "UNIVERSAL" && oferta.foto_url && (
-                    <button
-                      onClick={() => setFotoVisor(oferta.foto_url!)}
-                      style={btnVerFoto}
-                      title="Ver foto de la pieza"
-                    >
-                      📸
+            {ofertasFiltradas.map((oferta) => {
+              const descripcion = oferta.descripcion || oferta.nombre || "-";
+              const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
+              const enCesta = cestaMensaje === oferta.id;
+              const tipoUp = (oferta.tipo || "").toUpperCase();
+              return (
+                <div key={oferta.id} style={tableRow}>
+                  <div>
+                    <div style={colRef}>{oferta.referencia}</div>
+                    {oferta.tipo && <div style={getTipoBadgeStyle(oferta.tipo)}>{tipoUp}</div>}
+                    {tipoUp === "UNIVERSAL" && oferta.foto_url && (
+                      <div onClick={() => setFotoVisor(oferta.foto_url!)} style={{ marginTop: 6, cursor: "zoom-in", display: "inline-block" }}>
+                        <img src={oferta.foto_url} alt="foto" style={{ width: 48, height: 36, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={colDescTitle}>{descripcion}</div>
+                    {oferta.marca && <div style={colDescSub}>{oferta.marca}</div>}
+                  </div>
+                  <div>
+                    <div style={colProvNombre}>{proveedor}</div>
+                    {oferta.poblacion && <div style={colProvSub}>{oferta.poblacion}</div>}
+                  </div>
+                  <div><div style={stockBadge}>{oferta.stock} uds</div></div>
+                  <div style={colProvincia}>{oferta.provincia || "-"}</div>
+                  <div>
+                    <div style={colPrecio}>{Number(oferta.precio).toFixed(2)}€</div>
+                    {oferta.impuesto && Number(oferta.impuesto) > 0 && (
+                      <div style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700, marginTop: 2 }}>+ {Number(oferta.impuesto).toFixed(2)}€ ecotasa</div>
+                    )}
+                  </div>
+                  <div style={colAccion}>
+                    {tipoUp === "UNIVERSAL" && oferta.foto_url && (
+                      <button onClick={() => setFotoVisor(oferta.foto_url!)} style={btnVerFoto}>📸</button>
+                    )}
+                    <button onClick={() => pedirOferta(oferta)} style={{ ...btnPedir, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
+                      {enCesta ? "✓ AÑADIDO" : "PEDIR"}
                     </button>
-                  )}
-                  <button
-                    onClick={() => pedirOferta(oferta)}
-                    style={{
-                      ...btnPedir,
-                      background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)",
-                    }}
-                  >
-                    {enCesta ? "✓ AÑADIDO" : "PEDIR"}
-                  </button>
-                  <button
-                    data-menu="true"
-                    onClick={(e) => toggleMenu(e, oferta.id)}
-                    style={{ ...btnMenu, background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)" }}
-                  >
-                    ⋮
-                  </button>
+                    <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ ...btnMenu, background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)" }}>⋮</button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* VISTA TARJETAS (móvil) */}
+        {isMobile && (
+          <div style={{ display: "grid", gap: 12 }}>
+            {ofertasFiltradas.map((oferta) => {
+              const descripcion = oferta.descripcion || oferta.nombre || "-";
+              const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
+              const enCesta = cestaMensaje === oferta.id;
+              const tipoUp = (oferta.tipo || "").toUpperCase();
+              return (
+                <div key={oferta.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: "16px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: 18, color: "white" }}>{oferta.referencia}</div>
+                      {oferta.tipo && <div style={{ ...getTipoBadgeStyle(oferta.tipo), marginTop: 4 }}>{tipoUp}</div>}
+                    </div>
+                    <div style={{ textAlign: "right" as const }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
+                      {oferta.impuesto && Number(oferta.impuesto) > 0 && (
+                        <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ eco</div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 14, color: "#cbd5e1", marginBottom: 6 }}>{descripcion}</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 12, fontSize: 12 }}>
+                    <span style={{ color: "#94a3b8" }}>🏭 {proveedor}</span>
+                    {oferta.provincia && <span style={{ color: "#94a3b8" }}>📍 {oferta.provincia}</span>}
+                    <span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "2px 8px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
+                  </div>
+                  {tipoUp === "UNIVERSAL" && oferta.foto_url && (
+                    <div onClick={() => setFotoVisor(oferta.foto_url!)} style={{ marginBottom: 10, cursor: "zoom-in" }}>
+                      <img src={oferta.foto_url} alt="foto" style={{ width: "100%", maxHeight: 120, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)" }} />
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => pedirOferta(oferta)} style={{ flex: 1, border: "none", color: "white", padding: "12px", borderRadius: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
+                      {enCesta ? "✓ AÑADIDO" : "PEDIR"}
+                    </button>
+                    <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 42, height: 42, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)", color: "white", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>⋮</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {menuAbierto !== null && (
@@ -364,14 +374,14 @@ function BuscarPageInner() {
 }
 
 /* STYLES */
-const mainStyle = { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", padding: "40px", color: "white" };
+const mainStyle = { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", padding: "clamp(16px,4vw,40px)", color: "white" };
 const wrapper = { maxWidth: "1700px", margin: "0 auto" };
 const loadingOverlay = { position: "fixed" as const, inset: 0, background: "rgba(2,6,23,0.8)", zIndex: 99998, display: "flex", alignItems: "center", justifyContent: "center" };
 const loadingBox = { background: "#0f172a", borderRadius: 20, padding: "32px 48px", textAlign: "center" as const, border: "1px solid rgba(255,255,255,0.1)" };
 const badge = { display: "inline-block", padding: "10px 18px", borderRadius: "999px", background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: "20px" };
-const titleStyle = { fontSize: "70px", fontWeight: 900, marginBottom: "10px", lineHeight: 1 };
+const titleStyle = { fontSize: "clamp(32px,8vw,70px)", fontWeight: 900, marginBottom: "10px", lineHeight: 1 };
 const subtitleStyle = { color: "#94a3b8", fontSize: "20px", marginBottom: "0" };
-const filtrosRow = { display: "flex", gap: 10, marginBottom: 24, alignItems: "center" };
+const filtrosRow = { display: "flex", gap: 8, marginBottom: 20, alignItems: "center", flexWrap: "wrap" as const };
 const btnFiltro = { padding: "10px 22px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 14, transition: "all 0.2s" };
 const tableContainer = { width: "100%", borderRadius: "28px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" };
 const tableHeader = { display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: "20px", padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: "13px" };
