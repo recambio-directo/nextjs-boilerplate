@@ -613,7 +613,7 @@ export default function CheckoutPage() {
                     {creditoRD.toFixed(2)}EUR
                   </span>
                 </div>
-                {creditoRD <= 0 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Sin credito — contacta con Recambio Directo en info@recambiodirecto.es</p>}
+                {creditoRD <= 0 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Sin credito — contacta con Recambio Directo en info@recambio-directo.com</p>}
                 {creditoRD > 0 && creditoRD < 100 && <p style={{ color: "#fbbf24", fontSize: 11, marginTop: 6 }}>Saldo bajo — considera recargar tu credito pronto</p>}
                 {creditoRD > 0 && creditoRD < total && creditoRD >= 100 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Saldo insuficiente para este pedido ({total.toFixed(2)} EUR)</p>}
               </button>

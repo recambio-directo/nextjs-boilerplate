@@ -1,111 +1,75 @@
-"use client";
-
 export default function TerminosPage() {
   return (
-    <main style={mainStyle}>
-      <div style={wrapper}>
-        <div style={header}>
-          <div style={badge}>LEGAL</div>
-          <h1 style={title}>Términos y Condiciones</h1>
-          <p style={subtitle}>Última actualización: junio de 2026</p>
-        </div>
+    <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
+      <div style={{ maxWidth: 800, margin: "0 auto" }}>
+        <a href="/" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>← Volver al inicio</a>
+        <div style={{ background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: "48px", marginTop: 24 }}>
+          <div style={{ display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 16px", borderRadius: 999, fontWeight: 700, fontSize: 13, marginBottom: 24 }}>LEGAL</div>
+          <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 8 }}>Términos y Condiciones</h1>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 40 }}>Última actualización: Junio 2026</p>
 
-        <div style={content}>
+          <Section title="1. OBJETO Y ACEPTACIÓN">
+            Los presentes Términos y Condiciones regulan el acceso y uso de <strong>Recambio Directo</strong> (www.recambio-directo.com), plataforma marketplace B2B para la compraventa de recambios de automoción, titularidad de Vicente de Paco Cabeza (NIF: 77856096S).
+            <br /><br />
+            El registro en la plataforma implica la aceptación plena de estos términos. Si no está de acuerdo, no debe usar el servicio.
+          </Section>
 
-          <Seccion titulo="1. Objeto y ámbito de aplicación">
-            <p>Los presentes Términos y Condiciones regulan el acceso y uso de la plataforma Recambio Directo, un marketplace B2B de recambios de automoción exclusivamente para profesionales del sector (talleres mecánicos, carrocerías y proveedores de recambios).</p>
-            <p>El acceso y uso de la plataforma implica la aceptación plena de estos términos.</p>
-          </Seccion>
+          <Section title="2. ACCESO Y REGISTRO">
+            El acceso está reservado exclusivamente a <strong>profesionales del sector de la automoción</strong>: talleres mecánicos, empresas de recambios, distribuidores y autónomos del sector.
+            <br /><br />
+            Al registrarse, el usuario garantiza que es una empresa o autónomo legalmente constituido en España, que los datos aportados son verídicos y que tiene capacidad legal para contratar.
+            <br /><br />
+            Recambio Directo se reserva el derecho de verificar los datos y rechazar o cancelar cuentas que no cumplan los requisitos.
+          </Section>
 
-          <Seccion titulo="2. Registro y acceso">
-            <p>Para utilizar la plataforma es necesario registrarse como empresa profesional. Al registrarse, el usuario declara:</p>
-            <ul>
-              <li>Ser mayor de edad y actuar en nombre de una empresa legalmente constituida</li>
-              <li>Que los datos facilitados son verídicos y actualizados</li>
-              <li>Mantener la confidencialidad de sus credenciales de acceso</li>
-              <li>Notificar inmediatamente cualquier uso no autorizado de su cuenta</li>
-            </ul>
-          </Seccion>
+          <Section title="3. SUSCRIPCIÓN Y PRECIOS">
+            <strong>Periodo gratuito:</strong> Los primeros 2 meses desde el registro son completamente gratuitos, sin compromiso de permanencia.
+            <br /><br />
+            <strong>Suscripción mensual:</strong> A partir del tercer mes, el precio es de <strong>25€/mes + IVA</strong> por cuenta activa.
+            <br /><br />
+            <strong>Cancelación:</strong> El usuario puede cancelar su suscripción en cualquier momento desde su panel de cuenta, sin penalización. La cancelación será efectiva al final del periodo en curso.
+          </Section>
 
-          <Seccion titulo="3. Condiciones de uso para talleres">
-            <p>Los talleres registrados podrán:</p>
-            <ul>
-              <li>Buscar y comparar precios de referencias OEM e IAM entre proveedores</li>
-              <li>Añadir productos a la cesta y realizar pedidos</li>
-              <li>Comunicarse con proveedores mediante el sistema de chat</li>
-              <li>Publicar piezas sueltas o excedentes de stock propios</li>
-            </ul>
-            <p>Los talleres se comprometen a no utilizar la plataforma para actividades fraudulentas o ilegales.</p>
-          </Seccion>
+          <Section title="4. OBLIGACIONES DE LOS USUARIOS">
+            <strong>Los proveedores se comprometen a:</strong> publicar únicamente piezas con stock real, mantener precios y stocks actualizados, gestionar los pedidos en los plazos acordados y emitir facturas por las ventas realizadas.
+            <br /><br />
+            <strong>Los talleres se comprometen a:</strong> realizar pedidos con intención real de compra, pagar según la forma de pago acordada y no anular pedidos de forma reiterada sin causa justificada.
+          </Section>
 
-          <Seccion titulo="4. Condiciones de uso para proveedores">
-            <p>Los proveedores registrados podrán:</p>
-            <ul>
-              <li>Publicar su catálogo de piezas con precios y stock actualizados</li>
-              <li>Gestionar pedidos recibidos y actualizar estados de envío</li>
-              <li>Configurar exclusiones por código postal o cliente específico</li>
-              <li>Comunicarse con talleres mediante el sistema de chat</li>
-            </ul>
-            <p>Los proveedores garantizan que las piezas publicadas son auténticas, están en buen estado y corresponden a las descripciones indicadas.</p>
-          </Seccion>
+          <Section title="5. TRANSACCIONES Y PAGOS">
+            Recambio Directo actúa como intermediario entre talleres y proveedores. El pago puede realizarse mediante transferencia bancaria, RD Pago (crédito de plataforma) o tarjeta bancaria. Los gastos de transporte se facturan independientemente y no son reembolsables aunque se anule o devuelva la mercancía.
+          </Section>
 
-          <Seccion titulo="5. Precios y pagos">
-            <p>Los precios publicados en la plataforma son precios de venta entre profesionales, sin IVA salvo indicación contraria. Recambio Directo actúa como intermediario y no es responsable de los precios fijados por cada proveedor.</p>
-            <p>Los métodos de pago disponibles son los indicados en el proceso de checkout. El pago se realiza directamente entre taller y proveedor según las condiciones acordadas.</p>
-          </Seccion>
+          <Section title="6. ANULACIÓN DE PEDIDOS">
+            Un pedido puede anularse antes de que haya sido enviado, indicando el motivo. Una vez en estado "enviado" o "entregado", deberá gestionarse directamente entre las partes.
+          </Section>
 
-          <Seccion titulo="6. Responsabilidades">
-            <p>Recambio Directo no se hace responsable de:</p>
-            <ul>
-              <li>La calidad, autenticidad o disponibilidad de los productos publicados por proveedores</li>
-              <li>Incumplimientos entre partes en la ejecución de pedidos</li>
-              <li>Daños derivados del uso incorrecto de la plataforma</li>
-              <li>Interrupciones del servicio por causas ajenas a nuestra voluntad</li>
-            </ul>
-          </Seccion>
+          <Section title="7. LIMITACIÓN DE RESPONSABILIDAD">
+            Recambio Directo no se responsabiliza de la calidad o legalidad de las piezas publicadas, el incumplimiento de acuerdos entre usuarios, los daños derivados del uso de piezas adquiridas, ni las interrupciones del servicio por causas técnicas.
+          </Section>
 
-          <Seccion titulo="7. Propiedad intelectual">
-            <p>Todos los contenidos de la plataforma (diseño, código, textos, imágenes) son propiedad de Recambio Directo y están protegidos por la legislación de propiedad intelectual. Queda prohibida su reproducción sin autorización expresa.</p>
-          </Seccion>
+          <Section title="8. LEGISLACIÓN Y JURISDICCIÓN">
+            Estos términos se rigen por la legislación española. Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia.
+          </Section>
 
-          <Seccion titulo="8. Modificación y cancelación">
-            <p>Recambio Directo se reserva el derecho de modificar estos términos con previo aviso a los usuarios. Podemos suspender o cancelar cuentas que incumplan estos términos o realicen actividades fraudulentas.</p>
-          </Seccion>
-
-          <Seccion titulo="9. Legislación aplicable">
-            <p>Estos términos se rigen por la legislación española. Para cualquier disputa, las partes se someten a los Juzgados y Tribunales de España, salvo que la normativa de protección al consumidor establezca otra cosa.</p>
-          </Seccion>
-
-        </div>
-
-        <div style={footer}>
-          <p>Para cualquier consulta: <a href="mailto:legal@recambiodirecto.es" style={link}>legal@recambiodirecto.es</a></p>
-          <a href="/" style={btnVolver}>← Volver al inicio</a>
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, flexWrap: "wrap" as const }}>
+            <a href="/privacidad" style={legalLink}>Política de Privacidad</a>
+            <a href="/cookies" style={legalLink}>Política de Cookies</a>
+            <a href="/aviso-legal" style={legalLink}>Aviso Legal</a>
+          </div>
         </div>
       </div>
     </main>
   );
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={seccionStyle}>
-      <h2 style={seccionTitulo}>{titulo}</h2>
-      <div style={seccionContent}>{children}</div>
+    <div style={{ marginBottom: 32 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: "#60a5fa", marginBottom: 12, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{title}</h2>
+      <p style={{ color: "#cbd5e1", fontSize: 15, lineHeight: 1.8 }}>{children}</p>
     </div>
   );
 }
 
-const mainStyle = { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 40px" };
-const wrapper = { maxWidth: 860, margin: "0 auto" };
-const header = { textAlign: "center" as const, marginBottom: 48 };
-const badge = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 16, fontSize: 13 };
-const title = { fontSize: 52, fontWeight: 900, marginBottom: 12 };
-const subtitle = { color: "#94a3b8", fontSize: 15 };
-const content = { display: "flex", flexDirection: "column" as const, gap: 4 };
-const seccionStyle = { background: "rgba(15,23,42,0.92)", borderRadius: 20, padding: "28px 32px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 12 };
-const seccionTitulo = { fontSize: 20, fontWeight: 900, marginBottom: 16, color: "#60a5fa" };
-const seccionContent = { color: "#cbd5e1", fontSize: 15, lineHeight: 1.8 };
-const footer = { marginTop: 40, textAlign: "center" as const, color: "#94a3b8" };
-const link = { color: "#60a5fa", textDecoration: "none" };
-const btnVolver = { display: "inline-block", marginTop: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "white", padding: "12px 24px", borderRadius: 12, textDecoration: "none", fontWeight: 700 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };

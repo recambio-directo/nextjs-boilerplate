@@ -71,7 +71,7 @@ export default function QuienesSomosPage() {
         <div style={contactBox}>
           <h2 style={{ fontWeight: 900, fontSize: 28, marginBottom: 12 }}>¿Tienes alguna pregunta?</h2>
           <p style={{ color: "#94a3b8", marginBottom: 24 }}>Estamos aquí para ayudarte a sacar el máximo partido a la plataforma.</p>
-          <a href="mailto:info@recambiodirecto.es" style={btnContacto}>
+          <a href="mailto:info@recambio-directo.com" style={btnContacto}>
             ✉️ Contactar con nosotros
           </a>
         </div>

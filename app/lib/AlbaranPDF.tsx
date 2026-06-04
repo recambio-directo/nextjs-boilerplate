@@ -320,7 +320,7 @@ export function EtiquetaEnvioPDF({
             <Text style={etiquetaStyles.headerGestorSub}>Marketplace B2B — Etiqueta de envio</Text>
           </View>
           <View style={etiquetaStyles.headerGestorRight}>
-            <Text style={{ color: "#ffffff", fontSize: 9 }}>info@recambiodirecto.es</Text>
+            <Text style={{ color: "#ffffff", fontSize: 9 }}>info@recambio-directo.com</Text>
             <Text style={{ color: "#60a5fa", fontSize: 9, marginTop: 2 }}>Pedido: {codigo}</Text>
             <Text style={{ color: "#94a3af", fontSize: 8, marginTop: 1 }}>{fechaFormateada}</Text>
           </View>
@@ -391,7 +391,7 @@ export function EtiquetaEnvioPDF({
           </View>
           <View style={etiquetaStyles.pedidoRow}>
             <Text style={etiquetaStyles.pedidoLabel}>Gestionado por:</Text>
-            <Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambiodirecto.es</Text>
+            <Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambio-directo.com</Text>
           </View>
         </View>
 

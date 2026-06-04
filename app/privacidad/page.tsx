@@ -1,119 +1,61 @@
-"use client";
-
 export default function PrivacidadPage() {
   return (
-    <main style={mainStyle}>
-      <div style={wrapper}>
-        <div style={header}>
-          <div style={badge}>LEGAL</div>
-          <h1 style={title}>Política de Privacidad</h1>
-          <p style={subtitle}>Última actualización: junio de 2026</p>
-        </div>
+    <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
+      <div style={{ maxWidth: 800, margin: "0 auto" }}>
+        <a href="/" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>← Volver al inicio</a>
+        <div style={{ background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: "48px", marginTop: 24 }}>
+          <div style={{ display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 16px", borderRadius: 999, fontWeight: 700, fontSize: 13, marginBottom: 24 }}>LEGAL</div>
+          <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 8 }}>Política de Privacidad</h1>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 40 }}>Última actualización: Junio 2026</p>
 
-        <div style={content}>
+          <Section title="1. RESPONSABLE DEL TRATAMIENTO">
+            <strong>Vicente de Paco Cabeza</strong> — NIF: 77856096S<br />
+            C/ Sola Nº16, 30430 Cehegín (Murcia), España<br />
+            Email: info@recambio-directo.com · Tel: 744487895
+          </Section>
 
-          <Seccion titulo="1. Responsable del tratamiento">
-            <p>En cumplimiento del Reglamento (UE) 2016/679 del Parlamento Europeo (RGPD) y la Ley Orgánica 3/2018 de Protección de Datos Personales (LOPDGDD), le informamos:</p>
-            <ul>
-              <li><strong>Razón social:</strong> Recambio Directo S.L. (en constitución)</li>
-              <li><strong>Email de contacto:</strong> privacidad@recambiodirecto.es</li>
-              <li><strong>Actividad:</strong> Marketplace B2B de recambios de automoción</li>
-            </ul>
-          </Seccion>
+          <Section title="2. DATOS QUE RECOPILAMOS">
+            Al registrarse y usar Recambio Directo, recopilamos: datos de identificación (nombre de empresa, CIF/NIF), datos de contacto (email, teléfono, dirección, código postal), datos de uso (historial de pedidos, piezas publicadas, conversaciones en chat) y datos técnicos (dirección IP, navegador, páginas visitadas).
+          </Section>
 
-          <Seccion titulo="2. Datos que recopilamos">
-            <p>Recogemos los siguientes datos personales:</p>
-            <ul>
-              <li>Datos de identificación: nombre, apellidos, nombre de empresa, CIF/NIF</li>
-              <li>Datos de contacto: email, teléfono, dirección postal y código postal</li>
-              <li>Datos de navegación: dirección IP, cookies técnicas</li>
-              <li>Datos de transacciones: pedidos, importes, historial de compras</li>
-              <li>Comunicaciones: mensajes intercambiados en el chat de la plataforma</li>
-            </ul>
-          </Seccion>
+          <Section title="3. FINALIDAD Y BASE JURÍDICA">
+            Tratamos sus datos para: gestión de la cuenta y acceso a la plataforma (base: ejecución de contrato), gestión de pedidos y transacciones (base: ejecución de contrato), envío de comunicaciones sobre el servicio (base: ejecución de contrato), cumplimiento de obligaciones legales y mejora de la plataforma (base: interés legítimo).
+          </Section>
 
-          <Seccion titulo="3. Finalidad del tratamiento">
-            <p>Utilizamos sus datos para:</p>
-            <ul>
-              <li>Gestionar su cuenta y acceso a la plataforma</li>
-              <li>Procesar y gestionar los pedidos realizados</li>
-              <li>Facilitar la comunicación entre talleres y proveedores</li>
-              <li>Enviar comunicaciones relacionadas con su actividad en la plataforma</li>
-              <li>Cumplir con obligaciones legales y fiscales</li>
-              <li>Mejorar nuestros servicios mediante análisis estadísticos anónimos</li>
-            </ul>
-          </Seccion>
+          <Section title="4. CONSERVACIÓN DE LOS DATOS">
+            Conservaremos sus datos mientras mantenga una cuenta activa. Una vez cancelada, los datos se conservarán durante el plazo legalmente exigido (mínimo 5 años para datos de facturación).
+          </Section>
 
-          <Seccion titulo="4. Base legal">
-            <p>El tratamiento de sus datos se basa en:</p>
-            <ul>
-              <li><strong>Ejecución de contrato:</strong> para la gestión de su cuenta y pedidos</li>
-              <li><strong>Interés legítimo:</strong> para mejorar nuestros servicios</li>
-              <li><strong>Obligación legal:</strong> para cumplir con normativa fiscal y mercantil</li>
-              <li><strong>Consentimiento:</strong> para comunicaciones comerciales (puede retirarlo en cualquier momento)</li>
-            </ul>
-          </Seccion>
+          <Section title="5. DESTINATARIOS">
+            Sus datos no serán cedidos a terceros salvo a proveedores técnicos necesarios para el servicio: <strong>Supabase</strong> (base de datos, servidores en la UE), <strong>Vercel</strong> (hosting) y <strong>Resend</strong> (envío de emails). Todos cumplen con el RGPD. También podrán cederse cuando sea requerido por autoridades competentes.
+          </Section>
 
-          <Seccion titulo="5. Conservación de datos">
-            <p>Conservamos sus datos durante el tiempo necesario para cumplir con las finalidades descritas y las obligaciones legales aplicables:</p>
-            <ul>
-              <li>Datos de cuenta: mientras mantenga su cuenta activa</li>
-              <li>Datos de pedidos y facturación: 5 años (obligación fiscal)</li>
-              <li>Comunicaciones de chat: 6 meses desde su creación</li>
-            </ul>
-          </Seccion>
+          <Section title="6. DERECHOS DEL USUARIO">
+            Puede ejercer sus derechos de acceso, rectificación, supresión, oposición, portabilidad y limitación enviando un email a <strong>info@recambio-directo.com</strong> con copia de su DNI. Responderemos en un plazo máximo de 30 días. También puede reclamar ante la <strong>Agencia Española de Protección de Datos (AEPD)</strong> en www.aepd.es.
+          </Section>
 
-          <Seccion titulo="6. Sus derechos">
-            <p>Puede ejercer en cualquier momento los siguientes derechos:</p>
-            <ul>
-              <li><strong>Acceso:</strong> conocer qué datos tenemos sobre usted</li>
-              <li><strong>Rectificación:</strong> corregir datos inexactos</li>
-              <li><strong>Supresión:</strong> solicitar la eliminación de sus datos</li>
-              <li><strong>Limitación:</strong> restringir el tratamiento en ciertos casos</li>
-              <li><strong>Portabilidad:</strong> recibir sus datos en formato estructurado</li>
-              <li><strong>Oposición:</strong> oponerse al tratamiento basado en interés legítimo</li>
-            </ul>
-            <p>Para ejercer estos derechos, contáctenos en <strong>privacidad@recambiodirecto.es</strong>. También puede presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).</p>
-          </Seccion>
+          <Section title="7. SEGURIDAD">
+            Aplicamos medidas técnicas para proteger sus datos: cifrado SSL, autenticación segura y control de accesos mediante políticas de seguridad a nivel de fila (RLS) en nuestra base de datos.
+          </Section>
 
-          <Seccion titulo="7. Seguridad">
-            <p>Aplicamos medidas técnicas y organizativas apropiadas para proteger sus datos, incluyendo cifrado de comunicaciones (HTTPS), acceso restringido a datos personales y almacenamiento seguro en servidores europeos.</p>
-          </Seccion>
-
-          <Seccion titulo="8. Transferencias internacionales">
-            <p>Sus datos se almacenan en servidores ubicados en la Unión Europea. En caso de transferencias a terceros países, garantizamos que se realicen con las salvaguardas adecuadas conforme al RGPD.</p>
-          </Seccion>
-
-        </div>
-
-        <div style={footer}>
-          <p>Para cualquier consulta sobre esta política: <a href="mailto:privacidad@recambiodirecto.es" style={link}>privacidad@recambiodirecto.es</a></p>
-          <a href="/" style={btnVolver}>← Volver al inicio</a>
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, flexWrap: "wrap" as const }}>
+            <a href="/terminos" style={legalLink}>Términos y Condiciones</a>
+            <a href="/cookies" style={legalLink}>Política de Cookies</a>
+            <a href="/aviso-legal" style={legalLink}>Aviso Legal</a>
+          </div>
         </div>
       </div>
     </main>
   );
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={seccionStyle}>
-      <h2 style={seccionTitulo}>{titulo}</h2>
-      <div style={seccionContent}>{children}</div>
+    <div style={{ marginBottom: 32 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: "#60a5fa", marginBottom: 12, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{title}</h2>
+      <p style={{ color: "#cbd5e1", fontSize: 15, lineHeight: 1.8 }}>{children}</p>
     </div>
   );
 }
 
-const mainStyle = { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 40px" };
-const wrapper = { maxWidth: 860, margin: "0 auto" };
-const header = { textAlign: "center" as const, marginBottom: 48 };
-const badge = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 16, fontSize: 13 };
-const title = { fontSize: 52, fontWeight: 900, marginBottom: 12 };
-const subtitle = { color: "#94a3b8", fontSize: 15 };
-const content = { display: "flex", flexDirection: "column" as const, gap: 4 };
-const seccionStyle = { background: "rgba(15,23,42,0.92)", borderRadius: 20, padding: "28px 32px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 12 };
-const seccionTitulo = { fontSize: 20, fontWeight: 900, marginBottom: 16, color: "#60a5fa" };
-const seccionContent = { color: "#cbd5e1", fontSize: 15, lineHeight: 1.8 };
-const footer = { marginTop: 40, textAlign: "center" as const, color: "#94a3b8" };
-const link = { color: "#60a5fa", textDecoration: "none" };
-const btnVolver = { display: "inline-block", marginTop: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "white", padding: "12px 24px", borderRadius: 12, textDecoration: "none", fontWeight: 700 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };
