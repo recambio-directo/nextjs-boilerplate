@@ -16,6 +16,14 @@ export default function Pedidos() {
   const [anulando, setAnulando] = useState<number | null>(null);
   const [modalAnular, setModalAnular] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     cargarPedidos();
@@ -493,7 +501,7 @@ export default function Pedidos() {
       {/* MODAL MOTIVO ANULACIÓN */}
       {modalAnular && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
+          <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,36px)", width: "min(480px, 92vw)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
             <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>❌ Anular pedido</h2>
             <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>
               Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong> — Selecciona el motivo de anulación.
@@ -538,14 +546,14 @@ export default function Pedidos() {
 }
 
 /* STYLES */
-const mainStyle = { padding: "50px", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" };
-const topHeader = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" };
-const badgeStyle = { display: "inline-block", padding: "10px 18px", borderRadius: "999px", background: "rgba(37,99,235,0.18)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", marginBottom: "20px", fontWeight: 700 };
-const titleStyle = { fontSize: "72px", fontWeight: 900, lineHeight: 1, marginBottom: "20px" };
-const subtitleStyle = { color: "#94a3b8", fontSize: "20px", maxWidth: "700px", lineHeight: 1.7 };
-const statsBox = { background: "rgba(15,23,42,0.92)", borderRadius: "30px", padding: "30px", border: "1px solid rgba(255,255,255,0.06)" };
-const statsLabel = { color: "#94a3b8", marginBottom: "14px" };
-const statsValue = { fontSize: "58px", fontWeight: 900 };
+const mainStyle = { padding: "clamp(16px, 4vw, 50px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" };
+const topHeader = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "clamp(20px,4vw,40px)", flexWrap: "wrap" as const, gap: 16 };
+const badgeStyle = { display: "inline-block", padding: "8px 14px", borderRadius: "999px", background: "rgba(37,99,235,0.18)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", marginBottom: "16px", fontWeight: 700, fontSize: 13 };
+const titleStyle = { fontSize: "clamp(36px,8vw,72px)", fontWeight: 900, lineHeight: 1, marginBottom: "16px" };
+const subtitleStyle = { color: "#94a3b8", fontSize: "clamp(14px,2vw,20px)", maxWidth: "700px", lineHeight: 1.7 };
+const statsBox = { background: "rgba(15,23,42,0.92)", borderRadius: "20px", padding: "20px 24px", border: "1px solid rgba(255,255,255,0.06)" };
+const statsLabel = { color: "#94a3b8", marginBottom: "8px", fontSize: 13 };
+const statsValue = { fontSize: "clamp(32px,6vw,58px)", fontWeight: 900 };
 const filtrosContainer = { background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: "24px 28px", marginBottom: 32, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column" as const, gap: 20 };
 const searchBox = { display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "0 16px", height: 52 };
 const searchInput = { flex: 1, background: "transparent", border: "none", color: "white", fontSize: 15, outline: "none" };
@@ -559,11 +567,11 @@ const btnResetFiltros = { background: "transparent", border: "1px solid rgba(255
 const emptyBox = { background: "rgba(15,23,42,0.92)", padding: "60px", borderRadius: "30px", textAlign: "center" as const, marginBottom: 30 };
 const btnVolver = { marginTop: 24, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "16px 32px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 16 };
 const pedidosGrid = { display: "grid", gap: "30px" };
-const pedidoCard = { background: "rgba(15,23,42,0.92)", borderRadius: "32px", padding: "36px" };
-const pedidoTop = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" };
-const pedidoCode = { color: "#60a5fa", marginBottom: "12px", fontWeight: 700 };
-const pedidoId = { fontSize: "42px", fontWeight: 900 };
-const pedidoDate = { color: "#94a3b8", marginTop: "10px" };
+const pedidoCard = { background: "rgba(15,23,42,0.92)", borderRadius: "clamp(16px,3vw,32px)", padding: "clamp(16px,3vw,36px)" };
+const pedidoTop = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", gap: 12 };
+const pedidoCode = { color: "#60a5fa", marginBottom: "8px", fontWeight: 700, fontSize: 13 };
+const pedidoId = { fontSize: "clamp(22px,5vw,42px)", fontWeight: 900 };
+const pedidoDate = { color: "#94a3b8", marginTop: "8px", fontSize: 13 };
 const proveedorBox = { display: "flex", alignItems: "center", gap: 14, background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 16, padding: "14px 20px", marginBottom: 24 };
 const productsBox = { marginBottom: "30px" };
 const sectionTitle = { fontSize: "26px", fontWeight: 900, marginBottom: "20px" };
@@ -571,22 +579,22 @@ const productRow = { display: "flex", justifyContent: "space-between", alignItem
 const productTitle = { fontSize: "20px", fontWeight: 800 };
 const productRef = { color: "#94a3b8", marginTop: "6px" };
 const productPrice = { color: "#22c55e", fontSize: "22px" };
-const infoGrid = { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "20px", marginBottom: "24px" };
-const infoCard = { background: "#0f172a", padding: "24px", borderRadius: "20px" };
-const infoLabel = { color: "#94a3b8", marginBottom: "12px" };
-const infoValue = { fontSize: "24px", fontWeight: 800 };
-const priceText = { fontSize: "34px", fontWeight: 900, color: "#22c55e" };
-const statusGrid = { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "20px", marginBottom: "24px" };
-const statusCard = { background: "#0f172a", padding: "22px", borderRadius: "20px" };
-const statusLabel = { color: "#94a3b8", marginBottom: "12px" };
-const statusValue = { fontSize: "22px", fontWeight: 800 };
+const infoGrid = { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "clamp(10px,2vw,20px)", marginBottom: "clamp(12px,2vw,24px)" };
+const infoCard = { background: "#0f172a", padding: "clamp(14px,2vw,24px)", borderRadius: "clamp(12px,2vw,20px)" };
+const infoLabel = { color: "#94a3b8", marginBottom: "8px", fontSize: "clamp(11px,1.5vw,14px)" };
+const infoValue = { fontSize: "clamp(16px,3vw,24px)", fontWeight: 800 };
+const priceText = { fontSize: "clamp(22px,4vw,34px)", fontWeight: 900, color: "#22c55e" };
+const statusGrid = { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "clamp(10px,2vw,20px)", marginBottom: "clamp(12px,2vw,24px)" };
+const statusCard = { background: "#0f172a", padding: "clamp(12px,2vw,22px)", borderRadius: "clamp(12px,2vw,20px)" };
+const statusLabel = { color: "#94a3b8", marginBottom: "8px", fontSize: "clamp(11px,1.5vw,14px)" };
+const statusValue = { fontSize: "clamp(15px,2.5vw,22px)", fontWeight: 800 };
 const trackingBox = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "24px", padding: "24px", marginBottom: "24px" };
 const trackingLabel = { marginBottom: "10px", opacity: 0.8 };
 const trackingValue = { fontSize: "28px", fontWeight: 900 };
 const facturaBox = { display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 16, padding: "16px 20px", marginBottom: 16 };
 const btnDescargarFactura = { background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", padding: "10px 20px", borderRadius: 12, fontWeight: 700, textDecoration: "none", fontSize: 14 };
-const accionesRow = { display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" as const };
-const btnChat = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "16px 24px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 15, flex: 1 };
-const btnFactura = { background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "16px 20px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 14 };
-const btnAnular = { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "16px 20px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 14 };
+const accionesRow = { display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" as const };
+const btnChat = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 16px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 14, flex: 1, minWidth: 120 };
+const btnFactura = { background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "14px 16px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 13 };
+const btnAnular = { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px 16px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 13 };
 const anuladoBanner = { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "16px 24px", borderRadius: 16, marginTop: 8, fontWeight: 700, textAlign: "center" as const };
