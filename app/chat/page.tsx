@@ -341,6 +341,14 @@ function ChatPageInner() {
     setSubiendo(false);
   }
 
+  async function borrarConversacion(convId: number) {
+    if (!confirm("¿Seguro que quieres eliminar esta conversación? Solo se eliminará de tu vista.")) return;
+    // Marcar como borrada para este usuario — soft delete
+    await supabase.from("mensajes").delete().eq("conversacion_id", convId).eq("user_id", userId);
+    setConversaciones(prev => prev.filter(c => c.id !== convId));
+    if (chatActivo === convId) setChatActivo(null);
+  }
+
   async function cargarFichaProveedor(participanteId?: string) {
     if (!participanteId) return;
     const { data } = await supabase
@@ -420,6 +428,11 @@ function ChatPageInner() {
                     )}
                     <div style={convUltimoStyle}>{conv.ultimo_mensaje || "Sin mensajes"}</div>
                   </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); borrarConversacion(conv.id); }}
+                    style={{ background: "none", border: "none", color: "rgba(239,68,68,0.4)", cursor: "pointer", fontSize: 14, padding: "4px 6px", flexShrink: 0 }}
+                    title="Eliminar conversacion"
+                  >🗑️</button>
                 </div>
               ))
             )}
