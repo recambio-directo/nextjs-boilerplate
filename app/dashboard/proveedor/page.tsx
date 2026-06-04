@@ -87,6 +87,8 @@ function EstadoEnvio({ estado, anulado }: { estado?: string; anulado?: boolean }
 export default function ProveedorPage() {
   const router = useRouter();
   const [busquedaHeader, setBusquedaHeader] = useState("");
+  const [notifs, setNotifs] = useState<any[]>([]);
+  const [showNotifs, setShowNotifs] = useState(false);
   const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "importar" | "horarios" | "exclusiones">("dashboard");
   const [pestañaPedidos, setPestañaPedidos] = useState<"recibidos" | "realizados">("recibidos");
   const [pedidosRecibidos, setPedidosRecibidos] = useState<Pedido[]>([]);
@@ -149,16 +151,51 @@ export default function ProveedorPage() {
     if (!user) return;
     setUserId(user.id);
     await cargarDatos();
+    cargarNotificaciones(user.id);
 
-    // Realtime con user.id ya disponible
     const channel = supabase
       .channel(`proveedor-realtime-${user.id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, () => {
         cargarDatos();
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, (payload) => {
+        const m = payload.new as any;
+        if (m.user_id !== user.id) {
+          setNotifs(prev => [{ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}`, leido: false, created_at: m.created_at }, ...prev]);
+        }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+        const p = payload.new as any;
+        const productos = p.productos || [];
+        if (productos.some((pr: any) => pr.proveedor_id === user.id)) {
+          setNotifs(prev => [{ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Nuevo pedido #${p.id}`, leido: false, created_at: p.created_at }, ...prev]);
+        }
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }
+
+  async function cargarNotificaciones(uid: string) {
+    const notifsTotales: any[] = [];
+
+    // Mensajes no leídos en conversaciones del proveedor
+    const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
+    const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
+    const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
+    if (convIds.length > 0) {
+      const { data: msgs } = await supabase.from("mensajes").select("id, mensaje, created_at, conversacion_id").in("conversacion_id", convIds).neq("user_id", uid).or("leido.is.null,leido.eq.false").order("created_at", { ascending: false }).limit(10);
+      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }));
+    }
+
+    // Pedidos recibidos recientes
+    const { data: pedidos } = await supabase.from("pedidos").select("id, created_at, productos").order("created_at", { ascending: false }).limit(20);
+    (pedidos || []).filter(p => (p.productos || []).some((pr: any) => pr.proveedor_id === uid)).slice(0, 5).forEach(p => {
+      notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Pedido #${p.id} recibido`, leido: false, created_at: p.created_at });
+    });
+
+    notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (notifsTotales.length > 0) setNotifs(notifsTotales);
   }
 
   async function cargarDatos() {
@@ -486,8 +523,9 @@ export default function ProveedorPage() {
       {/* HEADER PROVEEDOR */}
       <header style={proveedorHeaderStyle}>
         <div
-          onClick={() => router.push("/dashboard/proveedor")}
+          onClick={() => router.push("/")}
           style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}
+          title="Ir al inicio"
         >
           <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>
             RD
@@ -513,7 +551,7 @@ export default function ProveedorPage() {
           >🔍</button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 700 }}>{nombreEmpresa}</span>
           <button
             onClick={() => router.push("/chat")}
@@ -521,6 +559,46 @@ export default function ProveedorPage() {
           >
             💬 Chats
           </button>
+
+          {/* CAMPANITA */}
+          <div style={{ position: "relative" as const }}>
+            <button
+              onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) setNotifs(prev => prev.map(n => ({ ...n, leido: true }))); }}
+              style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" as const }}
+            >
+              🔔
+              {notifs.filter(n => !n.leido).length > 0 && (
+                <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>
+                  {notifs.filter(n => !n.leido).length > 9 ? "9+" : notifs.filter(n => !n.leido).length}
+                </span>
+              )}
+            </button>
+            {showNotifs && (
+              <div style={{ position: "absolute" as const, right: 0, top: 50, width: 320, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones</span>
+                  {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
+                </div>
+                {notifs.length === 0 ? (
+                  <div style={{ padding: "32px", textAlign: "center" as const, color: "#94a3b8", fontSize: 14 }}>
+                    <p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p>
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: 340, overflowY: "auto" as const }}>
+                    {notifs.slice(0, 15).map((n, i) => (
+                      <div key={i} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.08)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>{n.texto}</p>
+                          <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 3 }}>{n.created_at ? new Date(n.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }}
             style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}
