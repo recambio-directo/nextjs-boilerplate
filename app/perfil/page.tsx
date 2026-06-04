@@ -242,7 +242,7 @@ export default function PerfilPage() {
               <div style={{ marginTop: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px" }}>
                 <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, margin: 0 }}>Sin credito disponible</p>
                 <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
-                  Contacta con nosotros: info@recambiodirecto.es
+                  Contacta con nosotros: info@recambio-directo.com
                 </p>
               </div>
             )}
