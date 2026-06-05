@@ -65,7 +65,7 @@ export default function StripeCheckout({
   useEffect(() => {
     async function crearIntent() {
       try {
-        const res = await fetch("/api/stripe", {
+        const res = await fetch("/api/enviar-email/stripe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ amount: total, metadata }),
