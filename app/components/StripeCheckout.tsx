@@ -85,8 +85,8 @@ export default function StripeCheckout({
   }, [total]);
 
   return (
-    <div style={{ position: "fixed" as const, inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: "#0f172a", borderRadius: 24, padding: 32, width: "100%", maxWidth: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
+    <div style={{ position: "fixed" as const, inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", overflowY: "auto" as const }}>
+      <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,32px)", width: "100%", maxWidth: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)", margin: "auto", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <h2 style={{ fontWeight: 900, fontSize: 22, margin: 0 }}>Pago con tarjeta</h2>
           <button onClick={onCancel} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "#94a3b8", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 16 }}>✕</button>
