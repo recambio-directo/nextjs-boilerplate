@@ -7,9 +7,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: Request) {
   try {
     const { amount, metadata } = await request.json();
+    console.log("Stripe key:", process.env.STRIPE_SECRET_KEY?.substring(0, 15));
+    console.log("Amount:", amount);
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe usa céntimos
+      amount: Math.round(amount * 100),
       currency: "eur",
       metadata: metadata || {},
       automatic_payment_methods: { enabled: true },
