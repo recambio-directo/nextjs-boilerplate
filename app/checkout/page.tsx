@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { pdf } from "@react-pdf/renderer";
 import React from "react";
 import { AlbaranPDF, EtiquetaEnvioPDF } from "../lib/AlbaranPDF";
+import StripeCheckout from "../components/StripeCheckout";
 
 type Producto = {
   id: number;
@@ -32,6 +33,7 @@ export default function CheckoutPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [editandoDatos, setEditandoDatos] = useState(false);
+  const [mostrarStripe, setMostrarStripe] = useState(false);
   const [empresaEdit, setEmpresaEdit] = useState("");
   const [telefonoEdit, setTelefonoEdit] = useState("");
   const [direccionEdit, setDireccionEdit] = useState("");
@@ -182,6 +184,12 @@ export default function CheckoutPage() {
   async function finalizarCompra() {
     if (!puedeConfirmar) return;
 
+    // Si pago con tarjeta, abrir Stripe
+    if (formaPago === "tarjeta") {
+      setMostrarStripe(true);
+      return;
+    }
+
     // Validar crédito RD suficiente
     if (formaPago === "rd_pago" && creditoRD < total) {
       alert("Saldo RD Pago insuficiente. Tu credito disponible es " + creditoRD.toFixed(2) + " EUR y el pedido es de " + total.toFixed(2) + " EUR. Contacta con Recambio Directo para ampliar tu credito.");
@@ -189,7 +197,11 @@ export default function CheckoutPage() {
     }
 
     setCargando(true);
+    await procesarPedido();
+  }
 
+  async function procesarPedido() {
+    setCargando(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("Debes iniciar sesion"); setCargando(false); return; }
 
@@ -646,6 +658,17 @@ export default function CheckoutPage() {
           </p>
         </div>
       </aside>
+      {mostrarStripe && (
+        <StripeCheckout
+          total={total}
+          metadata={{ empresa, clienteEmail }}
+          onSuccess={async () => {
+            setMostrarStripe(false);
+            await procesarPedido();
+          }}
+          onCancel={() => setMostrarStripe(false)}
+        />
+      )}
     </main>
   );
 }
