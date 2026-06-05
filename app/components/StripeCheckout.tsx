@@ -6,6 +6,14 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
+const RECARGO_PORCENTAJE = 0.03; // 3% gastos de gestión
+
+export function calcularRecargo(total: number) {
+  const recargo = Math.round(total * RECARGO_PORCENTAJE * 100) / 100;
+  const totalConRecargo = Math.round((total + recargo) * 100) / 100;
+  return { recargo, totalConRecargo };
+}
+
 function CheckoutForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -14,15 +22,12 @@ function CheckoutForm({ onSuccess, onError }: { onSuccess: () => void; onError: 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
-
     setProcesando(true);
-
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: `${window.location.origin}/dashboard/pedidos` },
       redirect: "if_required",
     });
-
     if (error) {
       onError(error.message || "Error al procesar el pago");
       setProcesando(false);
@@ -62,13 +67,16 @@ export default function StripeCheckout({
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  const { recargo, totalConRecargo } = calcularRecargo(total);
+
   useEffect(() => {
     async function crearIntent() {
       try {
         const res = await fetch("/api/enviar-email/stripe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: total, metadata }),
+          // Mandamos el total CON recargo a Stripe
+          body: JSON.stringify({ amount: totalConRecargo, metadata }),
         });
         const data = await res.json();
         if (data.clientSecret) {
@@ -82,19 +90,36 @@ export default function StripeCheckout({
       setCargando(false);
     }
     crearIntent();
-  }, [total]);
+  }, [totalConRecargo]);
 
   return (
-    <div style={{ position: "fixed" as const, inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 99999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px", overflowY: "auto" as const }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 99999, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px", overflowY: "auto" }}>
       <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,32px)", width: "100%", maxWidth: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)", margin: "20px auto", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <h2 style={{ fontWeight: 900, fontSize: 22, margin: 0 }}>Pago con tarjeta</h2>
           <button onClick={onCancel} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "#94a3b8", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 16 }}>✕</button>
         </div>
 
-        <div style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "#94a3b8", fontSize: 14 }}>Total a pagar</span>
-          <span style={{ color: "#22c55e", fontWeight: 900, fontSize: 22 }}>{total.toFixed(2)}€</span>
+        {/* DESGLOSE */}
+        <div style={{ background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 14, color: "#94a3b8" }}>
+            <span>Pedido</span>
+            <span>{total.toFixed(2)}€</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 14, color: "#fbbf24" }}>
+            <span>Gastos de gestión (3%)</span>
+            <span>+{recargo.toFixed(2)}€</span>
+          </div>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ color: "#94a3b8", fontSize: 14 }}>Total a pagar</span>
+            <span style={{ color: "#22c55e", fontWeight: 900, fontSize: 22 }}>{totalConRecargo.toFixed(2)}€</span>
+          </div>
+        </div>
+
+        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 20 }}>
+          <p style={{ color: "#fbbf24", fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+            ℹ️ Los gastos de gestión (3%) cubren el procesamiento seguro del pago con tarjeta. Se incluirán en tu albarán.
+          </p>
         </div>
 
         {cargando && (
@@ -105,17 +130,12 @@ export default function StripeCheckout({
         )}
 
         {error && (
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "12px 16px", borderRadius: 12, marginBottom: 16 }}>
-            {error}
-          </div>
+          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "12px 16px", borderRadius: 12, marginBottom: 16 }}>{error}</div>
         )}
 
         {clientSecret && (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "night" } }}>
-            <CheckoutForm
-              onSuccess={onSuccess}
-              onError={(msg) => setError(msg)}
-            />
+            <CheckoutForm onSuccess={onSuccess} onError={(msg) => setError(msg)} />
           </Elements>
         )}
 

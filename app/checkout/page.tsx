@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { pdf } from "@react-pdf/renderer";
 import React from "react";
 import { AlbaranPDF, EtiquetaEnvioPDF } from "../lib/AlbaranPDF";
-import StripeCheckout from "../components/StripeCheckout";
+import StripeCheckout, { calcularRecargo } from "../components/StripeCheckout";
 
 type Producto = {
   id: number;
@@ -106,7 +106,8 @@ export default function CheckoutPage() {
 
   async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string) {
     try {
-      const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, cliente: empresa, clienteEmail, telefono, cif, direccion: direccion + (ciudad ? ", " + ciudad : ""), agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo };
+      const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
+      const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, cliente: empresa, clienteEmail, telefono, cif, direccion: direccion + (ciudad ? ", " + ciudad : ""), agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion };
       const albaranBlob = await pdf(React.createElement(AlbaranPDF, props) as any).toBlob();
       const etiquetaBlob = await pdf(React.createElement(EtiquetaEnvioPDF, props) as any).toBlob();
       const albaranPath = `documentos/${codigo}/albaran-${codigo}.pdf`;

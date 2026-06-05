@@ -22,28 +22,28 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: "row", backgroundColor: "#f9fafb", borderBottomWidth: 1, borderBottomColor: "#e5e7eb", padding: 8 },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#f3f4f6", padding: 8 },
   tableRowAlt: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#f3f4f6", padding: 8, backgroundColor: "#f9fafb" },
-  colUd:       { width: "7%",  fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
-  colRef:      { width: "20%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
-  colDesc:     { width: "43%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
-  colPrecio:   { width: "15%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold", textAlign: "right" },
-  colNeto:     { width: "15%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold", textAlign: "right" },
-  colUdVal:    { width: "7%",  fontSize: 9, color: "#1a1a1a" },
-  colRefVal:   { width: "20%", fontSize: 9, fontFamily: "Helvetica-Bold", color: "#0b1736" },
-  colDescVal:  { width: "43%", fontSize: 9, color: "#374151" },
-  colPrecioVal:{ width: "15%", fontSize: 9, color: "#374151", textAlign: "right" },
-  colNetoVal:  { width: "15%", fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1a1a1a", textAlign: "right" },
+  colUd:        { width: "7%",  fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
+  colRef:       { width: "20%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
+  colDesc:      { width: "43%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold" },
+  colPrecio:    { width: "15%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold", textAlign: "right" },
+  colNeto:      { width: "15%", fontSize: 9, color: "#6b7280", fontFamily: "Helvetica-Bold", textAlign: "right" },
+  colUdVal:     { width: "7%",  fontSize: 9, color: "#1a1a1a" },
+  colRefVal:    { width: "20%", fontSize: 9, fontFamily: "Helvetica-Bold", color: "#0b1736" },
+  colDescVal:   { width: "43%", fontSize: 9, color: "#374151" },
+  colPrecioVal: { width: "15%", fontSize: 9, color: "#374151", textAlign: "right" },
+  colNetoVal:   { width: "15%", fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1a1a1a", textAlign: "right" },
   totalRow: { flexDirection: "row", justifyContent: "flex-end", padding: 7, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   totalLabel: { fontSize: 9, color: "#6b7280", marginRight: 40 },
   totalValue: { fontSize: 9, color: "#1a1a1a", width: 70, textAlign: "right" },
+  totalRecargoRow: { flexDirection: "row", justifyContent: "flex-end", padding: 7, borderBottomWidth: 1, borderBottomColor: "#fde68a", backgroundColor: "#fffbeb" },
+  totalRecargoLabel: { fontSize: 9, color: "#92400e", marginRight: 40, fontFamily: "Helvetica-Bold" },
+  totalRecargoValue: { fontSize: 9, color: "#92400e", width: 70, textAlign: "right", fontFamily: "Helvetica-Bold" },
   totalFinalRow: { flexDirection: "row", justifyContent: "flex-end", padding: 9, backgroundColor: "#f9fafb" },
   totalFinalLabel: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0b1736", marginRight: 40 },
   totalFinalValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0b1736", width: 70, textAlign: "right" },
   formaPagoBox: { borderWidth: 1, borderColor: "#e5e7eb", padding: 12, marginTop: 14, marginBottom: 14, flexDirection: "row", justifyContent: "space-between" },
   formaPagoLabel: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#0b1736" },
   formaPagoVal: { fontSize: 9, color: "#374151" },
-  transporteBox: { borderWidth: 1, borderColor: "#e5e7eb", padding: 14, marginBottom: 14 },
-  transporteTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0b1736", marginBottom: 8 },
-  transporteRow: { fontSize: 9, color: "#374151", marginBottom: 4 },
   avisoFinalBox: { backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#bbf7d0", padding: 12, marginTop: 10 },
   avisoFinalText: { fontSize: 9, color: "#166534" },
   footer: { position: "absolute", bottom: 30, left: 40, right: 40, borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 10, flexDirection: "row", justifyContent: "space-between" },
@@ -77,6 +77,7 @@ export type AlbaranProps = {
   subtotal: number;
   iva: number;
   total: number;
+  gastosGestion?: number; // ← nuevo campo opcional
 };
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
@@ -88,11 +89,14 @@ const FORMA_PAGO_LABELS: Record<string, string> = {
 export function AlbaranPDF({
   codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion,
   cliente, clienteEmail, telefono, cif, direccion,
-  agencia, formaPago, productos, subtotal, iva, total,
+  agencia, formaPago, productos, subtotal, iva, total, gastosGestion,
 }: AlbaranProps) {
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
     : new Date().toLocaleDateString("es-ES");
+
+  const tieneGastosGestion = formaPago === "tarjeta" && gastosGestion && gastosGestion > 0;
+  const totalFinal = tieneGastosGestion ? total + gastosGestion : total;
 
   return (
     <Document>
@@ -162,6 +166,7 @@ export function AlbaranPDF({
           );
         })}
 
+        {/* TOTALES */}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal piezas</Text>
           <Text style={styles.totalValue}>{Number(subtotal).toFixed(2)} EUR</Text>
@@ -170,12 +175,30 @@ export function AlbaranPDF({
           <Text style={styles.totalLabel}>IVA piezas (21%)</Text>
           <Text style={styles.totalValue}>{Number(iva).toFixed(2)} EUR</Text>
         </View>
+
+        {/* GASTOS DE GESTIÓN — solo si pago con tarjeta */}
+        {tieneGastosGestion && (
+          <View style={styles.totalRecargoRow}>
+            <Text style={styles.totalRecargoLabel}>Gastos de gestion pago tarjeta (3%)</Text>
+            <Text style={styles.totalRecargoValue}>+{Number(gastosGestion).toFixed(2)} EUR</Text>
+          </View>
+        )}
+
         <View style={styles.totalFinalRow}>
-          <Text style={styles.totalFinalLabel}>TOTAL PIEZAS</Text>
-          <Text style={styles.totalFinalValue}>{Number(total).toFixed(2)} EUR</Text>
+          <Text style={styles.totalFinalLabel}>TOTAL</Text>
+          <Text style={styles.totalFinalValue}>{Number(totalFinal).toFixed(2)} EUR</Text>
         </View>
 
-        {/* PORTE — FACTURADO SEPARADAMENTE */}
+        {/* AVISO GASTOS DE GESTIÓN */}
+        {tieneGastosGestion && (
+          <View style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a", padding: 8, marginTop: 6 }}>
+            <Text style={{ fontSize: 8, color: "#92400e" }}>
+              Los gastos de gestion del 3% corresponden al procesamiento del pago con tarjeta bancaria a traves de la plataforma Recambio Directo.
+            </Text>
+          </View>
+        )}
+
+        {/* PORTE */}
         <View style={{ backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b", padding: 10, marginTop: 8 }}>
           <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#92400e", marginBottom: 4 }}>
             GASTOS DE TRANSPORTE — Facturados independientemente
@@ -211,70 +234,50 @@ export function AlbaranPDF({
 
 
 // ============================================================
-// ETIQUETA DE ENVIO PARA EL PROVEEDOR
+// ETIQUETA DE ENVIO — sin cambios
 // ============================================================
 
 const etiquetaStyles = StyleSheet.create({
   page: { padding: 0, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a", backgroundColor: "#ffffff" },
-  
-  // CABECERA GESTORA
   headerGestor: { backgroundColor: "#0b1736", padding: "12 20", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerGestorText: { color: "#ffffff", fontSize: 14, fontFamily: "Helvetica-Bold" },
   headerGestorSub: { color: "#94a3af", fontSize: 8 },
   headerGestorRight: { alignItems: "flex-end" },
-  
-  // BLOQUES PRINCIPALES
   bloquesRow: { flexDirection: "row", borderBottomWidth: 2, borderBottomColor: "#0b1736" },
   bloque: { flex: 1, padding: "14 16", borderRightWidth: 1, borderRightColor: "#e5e7eb" },
   bloqueLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", marginBottom: 6, textTransform: "uppercase" },
   bloqueNombre: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#0b1736", marginBottom: 4 },
   bloqueInfo: { fontSize: 9, color: "#374151", marginBottom: 2 },
   bloqueTelefono: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#2563eb", marginTop: 4 },
-
-  // DATOS ENVIO
   datosEnvio: { flexDirection: "row", backgroundColor: "#f9fafb", borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
   datoBox: { flex: 1, padding: "10 14", borderRightWidth: 1, borderRightColor: "#e5e7eb", alignItems: "center" },
   datoLabel: { fontSize: 7, color: "#6b7280", fontFamily: "Helvetica-Bold", marginBottom: 4 },
   datoVal: { fontSize: 16, fontFamily: "Helvetica-Bold", color: "#0b1736" },
   datoValSmall: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0b1736" },
-
-  // AGENCIA
   agenciaBox: { backgroundColor: "#0b1736", padding: "10 20", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   agenciaLabel: { fontSize: 8, color: "#94a3af", marginBottom: 3 },
   agenciaNombre: { fontSize: 20, fontFamily: "Helvetica-Bold", color: "#ffffff" },
-  agenciaServicio: { fontSize: 9, color: "#60a5fa" },
   agenciaRight: { alignItems: "flex-end" },
-  
-  // PEDIDO INFO
   pedidoBox: { padding: "12 20", borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
   pedidoRow: { flexDirection: "row", marginBottom: 4 },
   pedidoLabel: { fontSize: 9, color: "#6b7280", width: 100, fontFamily: "Helvetica-Bold" },
   pedidoVal: { fontSize: 9, color: "#1a1a1a", flex: 1 },
   pedidoCodigo: { fontSize: 18, fontFamily: "Helvetica-Bold", color: "#2563eb", marginBottom: 8 },
-  
-  // REFERENCIAS
   refsBox: { padding: "10 20", borderBottomWidth: 1, borderBottomColor: "#e5e7eb", backgroundColor: "#f9fafb" },
   refsTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", marginBottom: 6 },
   refRow: { flexDirection: "row", marginBottom: 3 },
   refCodigo: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0b1736", width: 120 },
   refDesc: { fontSize: 9, color: "#374151", flex: 1 },
   refCant: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0b1736", width: 30, textAlign: "right" },
-
-  // COPIA REMITENTE
   separador: { backgroundColor: "#000000", padding: "6 20" },
   separadorText: { color: "#ffffff", fontSize: 9, fontFamily: "Helvetica-Bold", textAlign: "center" },
-  
-  // ZONA CONDUCTOR
   conductorBox: { flexDirection: "row", padding: "10 20", borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
   conductorField: { flex: 1, marginRight: 20 },
   conductorLabel: { fontSize: 8, color: "#6b7280", fontFamily: "Helvetica-Bold", marginBottom: 16 },
   conductorLinea: { borderBottomWidth: 1, borderBottomColor: "#9ca3af" },
-  
-  // PORTES
   portesBox: { backgroundColor: "#fef3c7", padding: "8 20", flexDirection: "row", justifyContent: "space-between" },
   portesLabel: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#92400e" },
   portesVal: { fontSize: 9, color: "#78350f" },
-
   footer: { backgroundColor: "#0b1736", padding: "8 20", flexDirection: "row", justifyContent: "space-between", position: "absolute", bottom: 0, left: 0, right: 0 },
   footerText: { fontSize: 8, color: "#94a3af" },
 });
@@ -312,8 +315,6 @@ export function EtiquetaEnvioPDF({
   return (
     <Document>
       <Page size="A5" style={etiquetaStyles.page}>
-
-        {/* CABECERA GESTORA */}
         <View style={etiquetaStyles.headerGestor}>
           <View>
             <Text style={etiquetaStyles.headerGestorText}>RECAMBIO DIRECTO</Text>
@@ -325,8 +326,6 @@ export function EtiquetaEnvioPDF({
             <Text style={{ color: "#94a3af", fontSize: 8, marginTop: 1 }}>{fechaFormateada}</Text>
           </View>
         </View>
-
-        {/* REMITENTE Y DESTINATARIO */}
         <View style={etiquetaStyles.bloquesRow}>
           <View style={etiquetaStyles.bloque}>
             <Text style={etiquetaStyles.bloqueLabel}>REMITENTE</Text>
@@ -343,24 +342,11 @@ export function EtiquetaEnvioPDF({
             {!!telefono && <Text style={etiquetaStyles.bloqueTelefono}>Tlf: {telefono}</Text>}
           </View>
         </View>
-
-        {/* DATOS ENVIO */}
         <View style={etiquetaStyles.datosEnvio}>
-          <View style={etiquetaStyles.datoBox}>
-            <Text style={etiquetaStyles.datoLabel}>BULTOS</Text>
-            <Text style={etiquetaStyles.datoVal}>1</Text>
-          </View>
-          <View style={etiquetaStyles.datoBox}>
-            <Text style={etiquetaStyles.datoLabel}>FECHA RECOGIDA</Text>
-            <Text style={etiquetaStyles.datoValSmall}>{fechaFormateada}</Text>
-          </View>
-          <View style={{ ...etiquetaStyles.datoBox, borderRightWidth: 0 }}>
-            <Text style={etiquetaStyles.datoLabel}>PORTES</Text>
-            <Text style={etiquetaStyles.datoValSmall}>Pagados por RD</Text>
-          </View>
+          <View style={etiquetaStyles.datoBox}><Text style={etiquetaStyles.datoLabel}>BULTOS</Text><Text style={etiquetaStyles.datoVal}>1</Text></View>
+          <View style={etiquetaStyles.datoBox}><Text style={etiquetaStyles.datoLabel}>FECHA RECOGIDA</Text><Text style={etiquetaStyles.datoValSmall}>{fechaFormateada}</Text></View>
+          <View style={{ ...etiquetaStyles.datoBox, borderRightWidth: 0 }}><Text style={etiquetaStyles.datoLabel}>PORTES</Text><Text style={etiquetaStyles.datoValSmall}>Pagados por RD</Text></View>
         </View>
-
-        {/* AGENCIA */}
         <View style={etiquetaStyles.agenciaBox}>
           <View>
             <Text style={etiquetaStyles.agenciaLabel}>COMPANIA DE TRANSPORTE</Text>
@@ -373,29 +359,13 @@ export function EtiquetaEnvioPDF({
             <Text style={{ color: "#ffffff", fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>________________</Text>
           </View>
         </View>
-
-        {/* DATOS PEDIDO */}
         <View style={etiquetaStyles.pedidoBox}>
           <Text style={etiquetaStyles.pedidoCodigo}>{codigo}</Text>
-          <View style={etiquetaStyles.pedidoRow}>
-            <Text style={etiquetaStyles.pedidoLabel}>Pedido:</Text>
-            <Text style={etiquetaStyles.pedidoVal}>{codigo}</Text>
-          </View>
-          <View style={etiquetaStyles.pedidoRow}>
-            <Text style={etiquetaStyles.pedidoLabel}>Referencias:</Text>
-            <Text style={etiquetaStyles.pedidoVal}>{refResumen}</Text>
-          </View>
-          <View style={etiquetaStyles.pedidoRow}>
-            <Text style={etiquetaStyles.pedidoLabel}>Importe:</Text>
-            <Text style={etiquetaStyles.pedidoVal}>{Number(total).toFixed(2)} EUR (IVA incl.)</Text>
-          </View>
-          <View style={etiquetaStyles.pedidoRow}>
-            <Text style={etiquetaStyles.pedidoLabel}>Gestionado por:</Text>
-            <Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambio-directo.com</Text>
-          </View>
+          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Pedido:</Text><Text style={etiquetaStyles.pedidoVal}>{codigo}</Text></View>
+          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Referencias:</Text><Text style={etiquetaStyles.pedidoVal}>{refResumen}</Text></View>
+          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Importe:</Text><Text style={etiquetaStyles.pedidoVal}>{Number(total).toFixed(2)} EUR (IVA incl.)</Text></View>
+          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Gestionado por:</Text><Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambio-directo.com</Text></View>
         </View>
-
-        {/* REFERENCIAS DETALLE */}
         <View style={etiquetaStyles.refsBox}>
           <Text style={etiquetaStyles.refsTitle}>REFERENCIAS A ENVIAR</Text>
           {productos.map((p, i) => (
@@ -406,34 +376,16 @@ export function EtiquetaEnvioPDF({
             </View>
           ))}
         </View>
-
-        {/* SEPARADOR COPIA REMITENTE */}
-        <View style={etiquetaStyles.separador}>
-          <Text style={etiquetaStyles.separadorText}>--- COPIA PARA EL REMITENTE ---</Text>
-        </View>
-
-        {/* ZONA CONDUCTOR */}
+        <View style={etiquetaStyles.separador}><Text style={etiquetaStyles.separadorText}>--- COPIA PARA EL REMITENTE ---</Text></View>
         <View style={etiquetaStyles.conductorBox}>
-          <View style={etiquetaStyles.conductorField}>
-            <Text style={etiquetaStyles.conductorLabel}>Hora de recogida</Text>
-            <View style={etiquetaStyles.conductorLinea} />
-          </View>
-          <View style={etiquetaStyles.conductorField}>
-            <Text style={etiquetaStyles.conductorLabel}>Nombre del conductor</Text>
-            <View style={etiquetaStyles.conductorLinea} />
-          </View>
-          <View style={{ ...etiquetaStyles.conductorField, marginRight: 0 }}>
-            <Text style={etiquetaStyles.conductorLabel}>Firma</Text>
-            <View style={etiquetaStyles.conductorLinea} />
-          </View>
+          <View style={etiquetaStyles.conductorField}><Text style={etiquetaStyles.conductorLabel}>Hora de recogida</Text><View style={etiquetaStyles.conductorLinea} /></View>
+          <View style={etiquetaStyles.conductorField}><Text style={etiquetaStyles.conductorLabel}>Nombre del conductor</Text><View style={etiquetaStyles.conductorLinea} /></View>
+          <View style={{ ...etiquetaStyles.conductorField, marginRight: 0 }}><Text style={etiquetaStyles.conductorLabel}>Firma</Text><View style={etiquetaStyles.conductorLinea} /></View>
         </View>
-
-        {/* PORTES */}
         <View style={etiquetaStyles.portesBox}>
           <Text style={etiquetaStyles.portesLabel}>Portes a cargo de: Recambio Directo S.L.</Text>
           <Text style={etiquetaStyles.portesVal}>Metodo de pago: {codigo}</Text>
         </View>
-
       </Page>
     </Document>
   );
