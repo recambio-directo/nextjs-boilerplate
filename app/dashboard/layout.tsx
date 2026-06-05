@@ -15,7 +15,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showNotifs, setShowNotifs] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
-  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +101,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function buscarAhora() {
     if (busqueda.trim() === "") return;
     router.push(`/dashboard/buscar?q=${encodeURIComponent(busqueda)}`);
-    setMenuMovilAbierto(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -117,12 +115,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const esProveedor = pathname.includes("/proveedor");
   const logoHref = tipoUsuario === "proveedor" ? "/dashboard/proveedor" : "/dashboard";
 
-  const navLinks = [
-    { href: "/dashboard", label: "Inicio" },
-    { href: "/dashboard/pedidos", label: "Pedidos" },
-    { href: "/checkout", label: `Cesta ${totalCesta > 0 ? `(${totalCesta})` : ""}` },
-    { href: "/perfil", label: "Mi Cuenta" },
-    { href: "/chat", label: "Chat" },
+  // Tabs barra inferior móvil
+  const tabs = [
+    { href: "/dashboard",         icon: "🏠", label: "Inicio" },
+    { href: "/dashboard/buscar",  icon: "🔍", label: "Buscar" },
+    { href: "/checkout",          icon: "🛒", label: "Cesta",   badge: totalCesta },
+    { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
+    { href: "/perfil",            icon: "👤", label: "Cuenta" },
   ];
 
   if (esProveedor) return <main>{children}</main>;
@@ -130,13 +129,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
 
-      {/* HEADER */}
-      <header style={{ height: isMobile ? "64px" : "90px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 34px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.92)", backdropFilter: "blur(16px)", position: "sticky" as const, top: 0, zIndex: 999 }}>
+      {/* ── HEADER ── */}
+      <header style={{
+        height: isMobile ? 60 : 90,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: isMobile ? "0 16px" : "0 34px",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(2,6,23,0.95)",
+        backdropFilter: "blur(16px)",
+        position: "sticky", top: 0, zIndex: 999,
+      }}>
 
         {/* LOGO */}
-        <Link href={logoHref} style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, textDecoration: "none", color: "white" }}>
-          <div style={{ width: isMobile ? 40 : 58, height: isMobile ? 40 : 58, borderRadius: 14, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
-            <Image src="/logo.svg" alt="Recambio Directo" width={isMobile ? 32 : 46} height={isMobile ? 32 : 46} priority />
+        <Link href={logoHref} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 16, textDecoration: "none", color: "white" }}>
+          <div style={{ width: isMobile ? 36 : 54, height: isMobile ? 36 : 54, borderRadius: 12, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
+            <Image src="/logo.svg" alt="Recambio Directo" width={isMobile ? 28 : 42} height={isMobile ? 28 : 42} priority />
           </div>
           {!isMobile && (
             <div>
@@ -144,9 +151,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p style={{ margin: 0, color: "#94a3b8", fontSize: 13 }}>Marketplace B2B</p>
             </div>
           )}
+          {isMobile && (
+            <span style={{ fontWeight: 900, fontSize: 15 }}>RECAMBIO DIRECTO</span>
+          )}
         </Link>
 
-        {/* BUSCADOR DESKTOP */}
+        {/* BUSCADOR — solo desktop */}
         {!isMobile && (
           <div style={{ width: "520px", display: "flex" }}>
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar referencia OEM, IAM o equivalente..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "16px 0 0 16px", padding: "16px 18px", color: "white", fontSize: 15, outline: "none" }} />
@@ -154,37 +164,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
 
-        {/* NAV DESKTOP */}
+        {/* NAV — solo desktop */}
         {!isMobile && (
           <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
             <Link href="/dashboard" style={{ textDecoration: "none", color: pathname === "/dashboard" ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Inicio</Link>
             <Link href="/dashboard/pedidos" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Pedidos</Link>
             <Link href="/checkout" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "white", fontWeight: 800 }}>
-              <div style={{ position: "relative" as const }}>
+              <div style={{ position: "relative" }}>
                 <span style={{ fontSize: 24 }}>🛒</span>
-                {totalCesta > 0 && <span style={{ position: "absolute" as const, top: -8, right: -12, minWidth: 22, height: 22, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, padding: "0 6px", border: "2px solid #020617" }}>{totalCesta}</span>}
+                {totalCesta > 0 && <span style={{ position: "absolute", top: -8, right: -12, minWidth: 22, height: 22, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, padding: "0 6px", border: "2px solid #020617" }}>{totalCesta}</span>}
               </div>
               <span>Cesta</span>
             </Link>
             <Link href="/perfil" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Mi Cuenta</Link>
             <Link href="/chat" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Chat</Link>
-            <div ref={notifRef} style={{ position: "relative" as const }}>
-              <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ width: 46, height: 46, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 20, position: "relative" as const }}>
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ width: 46, height: 46, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 20, position: "relative" }}>
                 🔔
-                {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, padding: "0 4px", border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
+                {noLeidas > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, padding: "0 4px", border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
               </button>
               {showNotifs && (
-                <div style={{ position: "absolute" as const, right: 0, top: 54, width: 320, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
+                <div style={{ position: "absolute", right: 0, top: 54, width: 320, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span style={{ fontWeight: 800, fontSize: 15 }}>Notificaciones</span>
                     {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
                   </div>
                   {notifs.length === 0 ? (
-                    <div style={{ padding: 32, textAlign: "center" as const, color: "#94a3b8", fontSize: 14 }}>
-                      <p style={{ fontSize: 32, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p>
-                    </div>
+                    <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 14 }}><p style={{ fontSize: 32, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
                   ) : (
-                    <div style={{ maxHeight: 340, overflowY: "auto" as const }}>
+                    <div style={{ maxHeight: 340, overflowY: "auto" }}>
                       {notifs.slice(0, 15).map((n, i) => (
                         <div key={i} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") router.push("/dashboard/pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.08)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
                           <span style={{ fontSize: 18, marginRight: 10 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
@@ -202,67 +210,103 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
         )}
 
-        {/* ICONOS MÓVIL */}
+        {/* ICONOS MÓVIL — campanita */}
         {isMobile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Cesta */}
-            <Link href="/checkout" style={{ position: "relative" as const, textDecoration: "none" }}>
-              <span style={{ fontSize: 22 }}>🛒</span>
-              {totalCesta > 0 && <span style={{ position: "absolute" as const, top: -6, right: -8, minWidth: 18, height: 18, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{totalCesta}</span>}
-            </Link>
-            {/* Notifs */}
-            <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 22, position: "relative" as const, padding: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 22, position: "relative", padding: "8px", borderRadius: 10 }}>
               🔔
-              {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas}</span>}
-            </button>
-            {/* Hamburguesa */}
-            <button onClick={() => setMenuMovilAbierto(!menuMovilAbierto)} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "white", width: 36, height: 36, borderRadius: 10, cursor: "pointer", fontSize: 18 }}>
-              {menuMovilAbierto ? "✕" : "☰"}
+              {noLeidas > 0 && <span style={{ position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
             </button>
           </div>
         )}
       </header>
 
-      {/* NOTIFS MÓVIL */}
+      {/* BUSCADOR MÓVIL — debajo del header, fijo */}
+      {isMobile && (
+        <div style={{ position: "sticky", top: 60, zIndex: 998, background: "rgba(2,6,23,0.97)", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", gap: 0 }}>
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="🔍  Buscar referencia OEM, IAM..."
+              style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 15, outline: "none" }}
+            />
+            <button onClick={buscarAhora} style={{ padding: "12px 18px", border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>Ir</button>
+          </div>
+        </div>
+      )}
+
+      {/* NOTIFS MÓVIL desplegable */}
       {isMobile && showNotifs && (
-        <div style={{ position: "fixed" as const, top: 64, right: 0, left: 0, background: "#0f172a", borderBottom: "1px solid rgba(255,255,255,0.1)", zIndex: 998, maxHeight: "60vh", overflowY: "auto" as const }}>
+        <div style={{ position: "fixed", top: 60, right: 0, left: 0, background: "#0f172a", borderBottom: "1px solid rgba(255,255,255,0.1)", zIndex: 9998, maxHeight: "55vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontWeight: 700 }}>Notificaciones</span>
-            <button onClick={() => setNotifs([])} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>
+            <div style={{ display: "flex", gap: 12 }}>
+              {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>}
+              <button onClick={() => setShowNotifs(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
           </div>
           {notifs.length === 0 ? (
-            <div style={{ padding: 24, textAlign: "center" as const, color: "#94a3b8" }}>Sin notificaciones</div>
+            <div style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>Sin notificaciones</div>
           ) : notifs.slice(0, 10).map((n, i) => (
-            <div key={i} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") router.push("/dashboard/pedidos"); }} style={{ display: "flex", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer" }}>
-              <span style={{ fontSize: 18, marginRight: 10 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
-              <p style={{ fontSize: 13, margin: 0 }}>{n.texto}</p>
+            <div key={i} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") router.push("/dashboard/pedidos"); }} style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
+              <p style={{ fontSize: 14, margin: 0, flex: 1 }}>{n.texto}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* MENÚ HAMBURGUESA MÓVIL */}
-      {isMobile && menuMovilAbierto && (
-        <div style={{ position: "fixed" as const, inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 997 }} onClick={() => setMenuMovilAbierto(false)}>
-          <div style={{ position: "absolute" as const, top: 64, right: 0, width: "75%", maxWidth: 280, background: "#0f172a", height: "calc(100vh - 64px)", padding: 20, display: "flex", flexDirection: "column" as const, gap: 8, overflowY: "auto" as const }} onClick={e => e.stopPropagation()}>
-            {/* Buscador en menú móvil */}
-            <div style={{ display: "flex", marginBottom: 16 }}>
-              <input value={busqueda} onChange={e => setBusqueda(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar referencia..." style={{ flex: 1, background: "#020617", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 14, outline: "none" }} />
-              <button onClick={buscarAhora} style={{ width: 48, border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16 }}>🔍</button>
-            </div>
-            {navLinks.map(({ href, label }) => (
-              <Link key={href} href={href} onClick={() => setMenuMovilAbierto(false)} style={{ padding: "14px 16px", borderRadius: 12, background: pathname === href ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>
-                {label}
+      {/* CONTENIDO */}
+      <main style={{ paddingBottom: isMobile ? 80 : 60 }}>
+        {children}
+      </main>
+
+      {/* ── BARRA INFERIOR MÓVIL ── */}
+      {isMobile && (
+        <nav style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999,
+          background: "rgba(2,6,23,0.97)",
+          backdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          display: "flex", alignItems: "stretch",
+          height: 64,
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}>
+          {tabs.map(tab => {
+            const activo = pathname === tab.href || (tab.href !== "/dashboard" && pathname.startsWith(tab.href));
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                style={{
+                  flex: 1,
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  textDecoration: "none", gap: 3,
+                  color: activo ? "#60a5fa" : "#64748b",
+                  position: "relative",
+                  transition: "color 0.15s",
+                }}
+              >
+                {/* indicador activo */}
+                {activo && (
+                  <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, background: "#2563eb", borderRadius: "0 0 4px 4px" }} />
+                )}
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{tab.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: activo ? 800 : 600, letterSpacing: "0.02em" }}>{tab.label}</span>
+                {/* badge cesta */}
+                {tab.badge && tab.badge > 0 && (
+                  <span style={{ position: "absolute", top: 6, left: "55%", minWidth: 17, height: 17, borderRadius: 999, background: "#22c55e", color: "white", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #020617", padding: "0 3px" }}>
+                    {tab.badge}
+                  </span>
+                )}
               </Link>
-            ))}
-            <button onClick={async () => { await supabase.auth.signOut(); router.push("/"); }} style={{ marginTop: 16, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
+            );
+          })}
+        </nav>
       )}
 
-      <main style={{ paddingBottom: 60 }}>{children}</main>
     </div>
   );
 }

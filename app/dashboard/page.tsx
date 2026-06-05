@@ -8,8 +8,8 @@ export default function Dashboard() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [facturacion, setFacturacion] = useState(0);
   const [piezasTaller, setPiezasTaller] = useState<any[]>([]);
-  const [menuAbierto, setMenuAbierto] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [nombreEmpresa, setNombreEmpresa] = useState("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -23,6 +23,9 @@ export default function Dashboard() {
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa").eq("id", user.id).single();
+    if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
 
     const { data } = await supabase.from("pedidos").select("*").eq("cliente_email", user.email).order("created_at", { ascending: false });
     if (data) {
@@ -46,168 +49,224 @@ export default function Dashboard() {
     return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
   });
 
-  const menuLinks = [
-    { href: "/dashboard", label: "Inicio" },
-    { href: "/dashboard/buscar", label: "Buscar" },
-    { href: "/dashboard/pedidos", label: "Pedidos" },
-    { href: "/dashboard/mis-piezas", label: "Mis Piezas" },
-    { href: "/checkout", label: "Cesta" },
-    { href: "/perfil", label: "Mi cuenta" },
-    { href: "/chat", label: "Chat" },
+  const accesos = [
+    { href: "/dashboard/pedidos",  icon: "📦", title: "Mis Pedidos",  text: "Estados y tracking" },
+    { href: "/dashboard/mis-piezas", icon: "🔩", title: "Mis Piezas",   text: "Vende piezas sueltas" },
+    { href: "/chat",               icon: "💬", title: "Chat",          text: "Mensajes con proveedores" },
+    { href: "/perfil",             icon: "👤", title: "Mi Cuenta",     text: "Datos y contraseña" },
   ];
 
+  const estadoColor = (estado?: string) => {
+    if (estado === "entregado") return { bg: "rgba(22,163,74,0.18)", color: "#4ade80" };
+    if (estado === "enviado")   return { bg: "rgba(139,92,246,0.18)", color: "#a78bfa" };
+    if (estado === "preparando") return { bg: "rgba(37,99,235,0.18)", color: "#60a5fa" };
+    return { bg: "rgba(245,158,11,0.18)", color: "#f59e0b" };
+  };
+
+  /* ── MÓVIL ── */
+  if (isMobile) return (
+    <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
+
+      {/* HERO MÓVIL */}
+      <div style={{ position: "relative", height: 180, background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", display: "flex", alignItems: "flex-end", padding: "20px 16px" }}>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.92))" }} />
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>MARKETPLACE PROFESIONAL</p>
+          <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>
+            {nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido"}
+          </h1>
+        </div>
+      </div>
+
+      {/* STATS MÓVIL */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
+        {[
+          { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
+          { label: "Facturado", value: `${facturacion.toFixed(0)}€`, unit: "" },
+          { label: "Mis piezas", value: piezasTaller.length, unit: "refs" },
+        ].map(({ label, value, unit }) => (
+          <div key={label} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 12px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{label}</p>
+            <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{value}</p>
+            {unit && <p style={{ color: "#94a3b8", fontSize: 10, marginTop: 2 }}>{unit}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* ACCESOS RÁPIDOS MÓVIL */}
+      <div style={{ padding: "16px 16px 0" }}>
+        <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 10 }}>ACCESOS RÁPIDOS</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {accesos.map(({ href, icon, title, text }) => (
+            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "16px 14px", textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
+              <span style={{ fontSize: 26, display: "block", marginBottom: 8 }}>{icon}</span>
+              <p style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{title}</p>
+              <p style={{ color: "#94a3b8", fontSize: 11 }}>{text}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ACTIVIDAD RECIENTE MÓVIL */}
+      {pedidos.length > 0 && (
+        <div style={{ padding: "16px 16px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>ACTIVIDAD RECIENTE</p>
+            <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Ver todos →</Link>
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            {pedidos.slice(0, 4).map((pedido) => {
+              const est = estadoColor(pedido.estado_envio);
+              return (
+                <Link key={pedido.id} href="/dashboard/pedidos" style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)", textDecoration: "none", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <p style={{ fontWeight: 800, fontSize: 14 }}>{pedido.codigo || `#${pedido.id}`}</p>
+                    <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontWeight: 900, fontSize: 16, color: "#22c55e" }}>{Number(pedido.total).toFixed(2)}€</p>
+                    <span style={{ background: est.bg, color: est.color, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                      {pedido.estado_envio || "pendiente"}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* CERRAR SESIÓN MÓVIL */}
+      <div style={{ padding: "16px" }}>
+        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+          Cerrar sesión
+        </button>
+      </div>
+
+    </main>
+  );
+
+  /* ── DESKTOP ── */
   return (
     <main style={{ display: "flex", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
 
       {/* SIDEBAR DESKTOP */}
-      {!isMobile && (
-        <aside style={{ width: "280px", background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "30px 22px", display: "flex", flexDirection: "column" as const, justifyContent: "space-between", backdropFilter: "blur(18px)", flexShrink: 0 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 40 }}>
-              <div style={{ width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20 }}>RD</div>
-              <div>
-                <h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2>
-                <p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
-              {menuLinks.map(({ href, label }) => (
-                <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>
-                  {label}
-                </Link>
-              ))}
+      <aside style={{ width: 280, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "30px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between", backdropFilter: "blur(18px)", flexShrink: 0 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 40 }}>
+            <div style={{ width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20 }}>RD</div>
+            <div>
+              <h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2>
+              <p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p>
             </div>
           </div>
-          <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 24, padding: 24 }}>
-            <p style={{ color: "#94a3b8", marginBottom: 10, fontSize: 12 }}>FACTURACIÓN</p>
-            <h2 style={{ fontSize: 42, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
-            <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { href: "/dashboard", label: "🏠 Inicio" },
+              { href: "/dashboard/buscar", label: "🔍 Buscar" },
+              { href: "/dashboard/pedidos", label: "📦 Pedidos" },
+              { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
+              { href: "/checkout", label: "🛒 Cesta" },
+              { href: "/perfil", label: "👤 Mi Cuenta" },
+              { href: "/chat", label: "💬 Chat" },
+            ].map(({ href, label }) => (
+              <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>
+                {label}
+              </Link>
+            ))}
           </div>
-        </aside>
-      )}
+        </div>
+        <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 24, padding: 24 }}>
+          <p style={{ color: "#94a3b8", marginBottom: 10, fontSize: 12 }}>FACTURACIÓN TOTAL</p>
+          <h2 style={{ fontSize: 42, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
+          <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
+        </div>
+      </aside>
 
-      {/* CONTENT */}
+      {/* CONTENT DESKTOP */}
       <section style={{ flex: 1, overflow: "hidden" }}>
 
-        {/* NAVBAR MÓVIL */}
-        {isMobile && (
-          <div style={{ background: "rgba(15,23,42,0.98)", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky" as const, top: 0, zIndex: 100 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14 }}>RD</div>
-              <span style={{ fontWeight: 900, fontSize: 16 }}>RECAMBIO DIRECTO</span>
-            </div>
-            <button onClick={() => setMenuAbierto(!menuAbierto)} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "white", width: 40, height: 40, borderRadius: 10, cursor: "pointer", fontSize: 20 }}>
-              {menuAbierto ? "✕" : "☰"}
-            </button>
+        {/* HERO DESKTOP */}
+        <div style={{ height: 420, position: "relative", background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover", display: "flex", alignItems: "center", padding: 70 }}>
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))" }} />
+          <div style={{ position: "relative", zIndex: 2 }}>
+            <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.18)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", fontWeight: 700, marginBottom: 16, fontSize: 14 }}>MARKETPLACE PROFESIONAL</div>
+            <h1 style={{ fontSize: 82, lineHeight: 1, fontWeight: 900, marginBottom: 26 }}>ENCUENTRA<br />RECAMBIOS</h1>
+            <p style={{ fontSize: 22, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 760 }}>Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.</p>
           </div>
-        )}
+        </div>
 
-        {/* MENÚ HAMBURGUESA */}
-        {isMobile && menuAbierto && (
-          <div style={{ position: "fixed" as const, inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99, display: "flex" }} onClick={() => setMenuAbierto(false)}>
-            <div style={{ width: "80%", maxWidth: 300, background: "#0f172a", padding: "24px 20px", display: "flex", flexDirection: "column" as const, gap: 10, overflowY: "auto" as const }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <span style={{ fontWeight: 900, fontSize: 16 }}>Menu</span>
-                <button onClick={() => setMenuAbierto(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
-              </div>
-              {menuLinks.map(({ href, label }) => (
-                <Link key={href} href={href} onClick={() => setMenuAbierto(false)} style={{ padding: "14px 18px", borderRadius: 12, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>
-                  {label}
-                </Link>
-              ))}
-              <button onClick={cerrarSesion} style={{ marginTop: 16, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* HERO */}
-        <section style={{ height: isMobile ? "200px" : "420px", position: "relative" as const, background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover", display: "flex", alignItems: "center", padding: isMobile ? "30px 20px" : "70px" }}>
-          <div style={{ position: "absolute" as const, inset: 0, background: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))" }} />
-          <div style={{ position: "relative" as const, zIndex: 2 }}>
-            <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.18)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", fontWeight: 700, marginBottom: 16, fontSize: isMobile ? 11 : 14 }}>MARKETPLACE PROFESIONAL</div>
-            <h1 style={{ fontSize: isMobile ? "36px" : "82px", lineHeight: 1, fontWeight: 900, marginBottom: isMobile ? 10 : 26 }}>
-              ENCUENTRA<br />RECAMBIOS
-            </h1>
-            {!isMobile && <p style={{ fontSize: 22, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 760 }}>Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.</p>}
-          </div>
-        </section>
-
-        {/* STATS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: isMobile ? 12 : 24, padding: isMobile ? "20px 16px" : "40px 50px" }}>
+        {/* STATS DESKTOP */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "40px 50px" }}>
           {[
             { label: "PEDIDOS MES", value: pedidosMes.length },
             { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
             { label: "MIS PIEZAS", value: piezasTaller.length },
           ].map(({ label, value }) => (
-            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: isMobile ? "16px" : "34px", borderRadius: isMobile ? 16 : 28, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: isMobile ? 10 : 14 }}>{label}</p>
-              <h2 style={{ fontSize: isMobile ? "28px" : "54px", fontWeight: 900 }}>{value}</h2>
+            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: 34, borderRadius: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: 14 }}>{label}</p>
+              <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
             </div>
           ))}
         </div>
 
-        {/* ACCESOS RÁPIDOS */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 24, padding: isMobile ? "0 16px 20px" : "0 50px", marginBottom: isMobile ? 20 : 40 }}>
+        {/* ACCESOS RÁPIDOS DESKTOP */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 40 }}>
           {[
             { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
             { href: "/dashboard/mis-piezas", title: "MIS PIEZAS", text: "Publica piezas sueltas para vender a otros talleres." },
             { href: "/perfil", title: "MI CUENTA", text: "Gestiona tus datos y empresa." },
           ].map(({ href, title, text }) => (
-            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? "20px" : "38px", textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
-              <h2 style={{ fontSize: isMobile ? 20 : 36, fontWeight: 900, marginBottom: isMobile ? 8 : 18 }}>{title}</h2>
-              <p style={{ color: "#94a3b8", lineHeight: 1.7, fontSize: isMobile ? 13 : 15 }}>{text}</p>
+            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.92)", borderRadius: 28, padding: 38, textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
+              <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 18 }}>{title}</h2>
+              <p style={{ color: "#94a3b8", lineHeight: 1.7, fontSize: 15 }}>{text}</p>
             </Link>
           ))}
         </div>
 
-        {/* ACTIVIDAD RECIENTE */}
+        {/* ACTIVIDAD RECIENTE DESKTOP */}
         {pedidos.length > 0 && (
-          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 16 : 32, padding: isMobile ? "20px 16px" : "40px", margin: isMobile ? "0 16px 20px" : "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? 20 : 40 }}>
-              <h2 style={{ fontSize: isMobile ? 20 : 40, fontWeight: 900 }}>ACTIVIDAD RECIENTE</h2>
-              <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 800, fontSize: isMobile ? 13 : 15 }}>VER TODOS</Link>
+          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 40, margin: "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
+              <h2 style={{ fontSize: 40, fontWeight: 900 }}>ACTIVIDAD RECIENTE</h2>
+              <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 800 }}>VER TODOS</Link>
             </div>
             <div style={{ display: "grid", gap: 16 }}>
-              {pedidos.slice(0, 5).map((pedido, index) => (
-                <div key={index} style={{ background: "#0f172a", borderRadius: isMobile ? 12 : 24, padding: isMobile ? "16px" : "30px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                    <div>
-                      <h3 style={{ fontSize: isMobile ? 16 : 28, fontWeight: 900 }}>Pedido #{pedido.id}</h3>
-                      <p style={{ color: "#60a5fa", marginTop: 4, fontWeight: 700, fontSize: 13 }}>{pedido.codigo}</p>
-                      <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
-                        {pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}
-                      </p>
-                    </div>
-                    <div style={{ padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: pedido.estado_envio === "entregado" ? "rgba(22,163,74,0.2)" : "rgba(245,158,11,0.2)", color: pedido.estado_envio === "entregado" ? "#4ade80" : "#f59e0b" }}>
-                      {pedido.estado_envio || "pendiente"}
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 10 : 20 }}>
-                    {[
-                      { l: "Transporte", v: pedido.transporte || pedido.agencia || "-" },
-                      { l: "Pago", v: pedido.metodo_pago || "-" },
-                      { l: "Total", v: `${pedido.total}€`, green: true },
-                      { l: "Estado", v: pedido.estado_envio || "pendiente" },
-                    ].map(({ l, v, green }) => (
-                      <div key={l}>
-                        <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11 }}>{l}</p>
-                        <h3 style={{ fontSize: isMobile ? 15 : 22, fontWeight: 800, color: green ? "#22c55e" : "white" }}>{v}</h3>
+              {pedidos.slice(0, 5).map((pedido) => {
+                const est = estadoColor(pedido.estado_envio);
+                return (
+                  <div key={pedido.id} style={{ background: "#0f172a", borderRadius: 24, padding: 30, border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                      <div>
+                        <h3 style={{ fontSize: 28, fontWeight: 900 }}>Pedido #{pedido.id}</h3>
+                        <p style={{ color: "#60a5fa", marginTop: 4, fontWeight: 700, fontSize: 13 }}>{pedido.codigo}</p>
+                        <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
                       </div>
-                    ))}
+                      <span style={{ padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: est.bg, color: est.color }}>{pedido.estado_envio || "pendiente"}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
+                      {[
+                        { l: "Transporte", v: pedido.transporte || pedido.agencia || "-" },
+                        { l: "Pago", v: pedido.metodo_pago || "-" },
+                        { l: "Total", v: `${pedido.total}€`, green: true },
+                        { l: "Estado", v: pedido.estado_envio || "pendiente" },
+                      ].map(({ l, v, green }) => (
+                        <div key={l}>
+                          <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11 }}>{l}</p>
+                          <h3 style={{ fontSize: 22, fontWeight: 800, color: green ? "#22c55e" : "white" }}>{v}</h3>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {!isMobile && (
-          <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>
-            CERRAR SESIÓN
-          </button>
-        )}
+        <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>
+          CERRAR SESIÓN
+        </button>
 
       </section>
     </main>
