@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { buscarCP } from "../lib/codigosPostales";
 
 function validarCIF(cif: string): boolean {
   const cifLimpio = cif.trim().toUpperCase();
@@ -25,6 +26,7 @@ export default function RegistroPage() {
   const [direccion, setDireccion] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [codigoPostal, setCodigoPostal] = useState("");
+  const [provincia, setProvincia] = useState("");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [aceptaPrivacidad, setAceptaPrivacidad] = useState(false);
   const [esProfesional, setEsProfesional] = useState(false);
@@ -66,6 +68,7 @@ export default function RegistroPage() {
         nombre_empresa: nombreEmpresa.trim(), cif: cif.trim().toUpperCase(),
         telefono: telefono.trim(), direccion: direccion.trim(),
         ciudad: ciudad.trim(), codigo_postal: codigoPostal.trim(),
+        provincia: provincia.trim(),
         activo: false, suscripcion: "gratuito",
       });
       try {
@@ -183,11 +186,42 @@ export default function RegistroPage() {
           <div style={grid2}>
             <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
-              <input placeholder="Sevilla" value={ciudad} onChange={e => setCiudad(e.target.value)} style={inputStyle} />
+              <input
+                placeholder="Se rellena con el CP"
+                value={ciudad}
+                onChange={e => setCiudad(e.target.value)}
+                style={inputStyle}
+              />
             </div>
             <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal</p>
-              <input placeholder="41001" value={codigoPostal} onChange={e => setCodigoPostal(e.target.value.replace(/\D/g, "").slice(0, 5))} style={inputStyle} maxLength={5} />
+              <input
+                placeholder="41001"
+                value={codigoPostal}
+                onChange={e => {
+                  const cp = e.target.value.replace(/\D/g, "").slice(0, 5);
+                  setCodigoPostal(cp);
+                  if (cp.length === 5) {
+                    const datos = buscarCP(cp);
+                    if (datos) {
+                      setCiudad(datos.poblacion);
+                      setProvincia(datos.provincia);
+                    } else {
+                      setProvincia("");
+                    }
+                  } else {
+                    setProvincia("");
+                  }
+                }}
+                style={inputStyle}
+                maxLength={5}
+              />
+              {codigoPostal.length === 5 && provincia && (
+                <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {ciudad} — {provincia}</p>
+              )}
+              {codigoPostal.length === 5 && !provincia && (
+                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>CP no encontrado — escribe la ciudad manualmente</p>
+              )}
             </div>
           </div>
 
