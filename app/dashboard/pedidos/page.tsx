@@ -18,6 +18,14 @@ export default function Pedidos() {
   const [modalAnular, setModalAnular] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
   const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     cargarPedidos();
@@ -49,10 +57,7 @@ export default function Pedidos() {
     return { nombre: "-", id: null };
   }
 
-  function abrirModalAnular(pedido: any) {
-    setModalAnular(pedido);
-    setMotivoSeleccionado("");
-  }
+  function abrirModalAnular(pedido: any) { setModalAnular(pedido); setMotivoSeleccionado(""); }
 
   async function confirmarAnulacion() {
     if (!modalAnular || !motivoSeleccionado) return;
@@ -101,11 +106,10 @@ export default function Pedidos() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const proveedor = getProveedorPedido(pedido);
-    let proveedorId = proveedor.id;
-    if (!proveedorId) { alert("No se puede identificar el proveedor"); return; }
+    if (!proveedor.id) { alert("No se puede identificar el proveedor"); return; }
     const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
     if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
-    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: proveedorId, pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
+    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: proveedor.id, pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
     if (!error && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
     else alert("Error al abrir el chat");
   }
@@ -133,7 +137,7 @@ export default function Pedidos() {
     return true;
   });
 
-  const contadores = {
+  const contadores: Record<string, number> = {
     todos: pedidos.length,
     pendiente: pedidos.filter(p => !p.anulado && (p.estado_envio || "pendiente") === "pendiente").length,
     preparando: pedidos.filter(p => !p.anulado && p.estado_envio === "preparando").length,
@@ -146,74 +150,70 @@ export default function Pedidos() {
     entregado: "#4ade80", enviado: "#60a5fa", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171",
   };
 
+  const estadoEmoji: Record<string, string> = {
+    entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌",
+  };
+
   return (
-    <main style={{ padding: "clamp(16px,4vw,40px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
+    <main style={{ padding: isMobile ? "12px" : "clamp(16px,4vw,40px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
 
       {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap" as const, gap: 16 }}>
-        <div>
-          <div style={{ display: "inline-block", padding: "8px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", marginBottom: 12, fontWeight: 700, fontSize: 13 }}>PANEL TALLER</div>
-          <h1 style={{ fontSize: "clamp(28px,6vw,52px)", fontWeight: 900, lineHeight: 1, marginBottom: 8 }}>MIS PEDIDOS</h1>
-          <p style={{ color: "#94a3b8", fontSize: 15 }}>Gestión completa de pedidos y seguimiento.</p>
-        </div>
-        <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 16, padding: "16px 24px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const }}>
-          <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>TOTAL PEDIDOS</p>
-          <h2 style={{ fontSize: 40, fontWeight: 900, margin: 0 }}>{pedidos.length}</h2>
+      <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+        <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>PANEL TALLER</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ fontSize: isMobile ? 28 : "clamp(28px,6vw,52px)", fontWeight: 900, lineHeight: 1 }}>MIS PEDIDOS</h1>
+          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 16px" : "16px 24px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>TOTAL</p>
+            <h2 style={{ fontSize: isMobile ? 24 : 40, fontWeight: 900, margin: 0 }}>{pedidos.length}</h2>
+          </div>
         </div>
       </div>
 
       {/* FILTROS */}
-      <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, padding: "20px 24px", marginBottom: 24, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column" as const, gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "0 14px", height: 46 }}>
-          <span style={{ fontSize: 16, marginRight: 8 }}>🔍</span>
-          <input placeholder="Buscar por código, referencia, proveedor..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
-          {busqueda && <button onClick={() => setBusqueda("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14 }}>✕</button>}
+      <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 14 : 20, padding: isMobile ? "14px" : "20px 24px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0 12px", height: 42 }}>
+          <span style={{ marginRight: 8 }}>🔍</span>
+          <input placeholder="Buscar pedido..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
+          {busqueda && <button onClick={() => setBusqueda("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>✕</button>}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-          <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginRight: 4 }}>ESTADO:</span>
+        {/* Filtros estado — scroll horizontal en móvil */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
           {[
             { key: "todos", label: `Todos (${contadores.todos})` },
-            { key: "pendiente", label: `⏳ Pendiente (${contadores.pendiente})` },
-            { key: "preparando", label: `🔧 Preparando (${contadores.preparando})` },
-            { key: "enviado", label: `🚚 Enviado (${contadores.enviado})` },
-            { key: "entregado", label: `✅ Entregado (${contadores.entregado})` },
-            { key: "anulado", label: `❌ Anulado (${contadores.anulado})` },
+            { key: "pendiente", label: `⏳ (${contadores.pendiente})` },
+            { key: "preparando", label: `🔧 (${contadores.preparando})` },
+            { key: "enviado", label: `🚚 (${contadores.enviado})` },
+            { key: "entregado", label: `✅ (${contadores.entregado})` },
+            { key: "anulado", label: `❌ (${contadores.anulado})` },
           ].map(({ key, label }) => (
-            <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 14px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, background: filtroEstado === key ? (key === "anulado" ? "rgba(239,68,68,0.3)" : "linear-gradient(135deg,#2563eb,#1d4ed8)") : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{label}</button>
+            <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0, background: filtroEstado === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{label}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-          <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginRight: 4 }}>FECHA:</span>
+        {/* Filtros fecha */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
           {[{ key: "todos", label: "Todos" }, { key: "hoy", label: "Hoy" }, { key: "semana", label: "Semana" }, { key: "mes", label: "Mes" }].map(({ key, label }) => (
-            <button key={key} onClick={() => setFiltroFecha(key)} style={{ padding: "6px 14px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, background: filtroFecha === key ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", border: filtroFecha === key ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", color: filtroFecha === key ? "#a78bfa" : "#94a3b8" }}>{label}</button>
+            <button key={key} onClick={() => setFiltroFecha(key)} style={{ padding: "5px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0, background: filtroFecha === key ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", border: filtroFecha === key ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", color: filtroFecha === key ? "#a78bfa" : "#94a3b8" }}>{label}</button>
           ))}
         </div>
       </div>
 
-      {/* TABLA */}
-      {pedidos.length === 0 ? (
-        <div style={{ background: "rgba(15,23,42,0.92)", padding: "60px", borderRadius: 24, textAlign: "center" as const }}>
+      {/* VACÍO */}
+      {pedidos.length === 0 && (
+        <div style={{ background: "rgba(15,23,42,0.92)", padding: "60px 20px", borderRadius: 20, textAlign: "center" }}>
           <p style={{ fontSize: 48, marginBottom: 16 }}>🛒</p>
           <h2 style={{ fontSize: 22, fontWeight: 900 }}>No hay pedidos todavía</h2>
           <button onClick={() => router.push("/dashboard")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>BUSCAR RECAMBIOS</button>
         </div>
-      ) : (
-        <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
-          {/* CABECERA TABLA */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
-            <div>CÓDIGO</div>
-            <div>REFERENCIAS</div>
-            <div>PROVEEDOR</div>
-            <div>TOTAL</div>
-            <div>TRANSPORTE</div>
-            <div>ESTADO</div>
-            <div>ACCIONES</div>
-          </div>
+      )}
 
-          {pedidosFiltrados.length === 0 && (
-            <div style={{ padding: "40px", textAlign: "center" as const, color: "#94a3b8" }}>Sin resultados para los filtros seleccionados</div>
-          )}
+      {/* LISTA PEDIDOS */}
+      {pedidosFiltrados.length === 0 && pedidos.length > 0 && (
+        <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>Sin resultados para los filtros seleccionados</div>
+      )}
 
+      {isMobile ? (
+        /* ── MÓVIL: tarjetas ── */
+        <div style={{ display: "grid", gap: 10 }}>
           {pedidosFiltrados.map(pedido => {
             const proveedor = getProveedorPedido(pedido);
             const anulado = pedido.anulado || false;
@@ -223,12 +223,109 @@ export default function Pedidos() {
             const productos = pedido.productos || [];
 
             return (
+              <div key={pedido.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", opacity: anulado ? 0.75 : 1 }}>
+                {/* Cabecera tarjeta */}
+                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <p style={{ color: "#60a5fa", fontWeight: 800, fontSize: 14 }}>{pedido.codigo || `RD-${pedido.id}`}</p>
+                      <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ color: "#22c55e", fontWeight: 900, fontSize: 18 }}>{fmt(pedido.total)}€</p>
+                      <span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 11, background: `${estadoColor[estado]}22`, padding: "3px 8px", borderRadius: 999 }}>
+                        {estadoEmoji[estado]} {estado}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
+                    <span style={{ color: "#94a3b8" }}>🏭 {proveedor.nombre}</span>
+                    {(pedido.agencia || pedido.transporte) && <span style={{ color: "#94a3b8" }}>🚚 {pedido.agencia || pedido.transporte}</span>}
+                    {productos.length > 0 && <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>}
+                  </div>
+                  {pedido.tracking && (
+                    <div style={{ marginTop: 8, background: "rgba(37,99,235,0.1)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "#60a5fa", fontWeight: 700 }}>
+                      📦 Tracking: {pedido.tracking}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, textAlign: "right", color: "#64748b", fontSize: 11 }}>{expandido ? "▲ Cerrar" : "▼ Ver detalle"}</div>
+                </div>
+
+                {/* Detalle expandido móvil */}
+                {expandido && (
+                  <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", padding: "14px 16px" }}>
+                    {/* Productos */}
+                    <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>REFERENCIAS</p>
+                    {productos.map((p: any, i: number) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: "#60a5fa" }}>{p.referencia}</span>
+                          <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 12 }}>{(p.descripcion || "").substring(0, 20)}</span>
+                        </div>
+                        <span style={{ color: "#22c55e", fontWeight: 700 }}>{fmt(p.precio)}€</span>
+                      </div>
+                    ))}
+
+                    {/* Info rápida */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+                      <div style={{ background: "#0f172a", borderRadius: 10, padding: "10px 12px" }}>
+                        <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700 }}>TOTAL</p>
+                        <p style={{ color: "#22c55e", fontWeight: 900, fontSize: 18 }}>{fmt(pedido.total)}€</p>
+                      </div>
+                      <div style={{ background: "#0f172a", borderRadius: 10, padding: "10px 12px" }}>
+                        <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700 }}>PAGO</p>
+                        <p style={{ fontWeight: 700, fontSize: 13 }}>{pedido.estado_pago || "pendiente"}</p>
+                      </div>
+                    </div>
+
+                    {/* Documentos */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 12px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán</a>}
+                      {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 12px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura</a>}
+                    </div>
+
+                    {/* Acciones */}
+                    {!anulado && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                        <button onClick={() => abrirChat(pedido)} style={{ flex: 1, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Chat</button>
+                        <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ flex: 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12, opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>
+                          {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Factura"}
+                        </button>
+                        {puedeAnular && (
+                          <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "10px 12px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+                            {anulando === pedido.id ? "..." : "❌"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {anulado && pedido.motivo_anulacion && (
+                      <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, marginTop: 10 }}>
+                        ❌ {pedido.motivo_anulacion}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── DESKTOP: tabla ── */
+        <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
+            {["CÓDIGO","REFERENCIAS","PROVEEDOR","TOTAL","TRANSPORTE","ESTADO","ACCIONES"].map(h => <div key={h}>{h}</div>)}
+          </div>
+          {pedidosFiltrados.length === 0 && <div style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Sin resultados</div>}
+          {pedidosFiltrados.map(pedido => {
+            const proveedor = getProveedorPedido(pedido);
+            const anulado = pedido.anulado || false;
+            const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
+            const expandido = pedidoExpandido === pedido.id;
+            const estado = anulado ? "anulado" : (pedido.estado_envio || "pendiente");
+            const productos = pedido.productos || [];
+            return (
               <React.Fragment key={pedido.id}>
-                {/* FILA PRINCIPAL */}
-                <div
-                  onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}
-                  style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}
-                >
+                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
                   <div>
                     <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div>
                     <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</div>
@@ -245,98 +342,40 @@ export default function Pedidos() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{proveedor.nombre}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
                   <div style={{ fontSize: 13, color: "#cbd5e1" }}>{pedido.agencia || pedido.transporte || "-"}</div>
-                  <div>
-                    <span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 12, background: `${estadoColor[estado]}22`, padding: "4px 10px", borderRadius: 999 }}>
-                      {estado.toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
-                      {expandido ? "▲ Cerrar" : "▼ Ver"}
-                    </button>
-                  </div>
+                  <div><span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 12, background: `${estadoColor[estado]}22`, padding: "4px 10px", borderRadius: 999 }}>{estado.toUpperCase()}</span></div>
+                  <div><button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{expandido ? "▲ Cerrar" : "▼ Ver"}</button></div>
                 </div>
-
-                {/* FILA EXPANDIDA */}
                 {expandido && (
                   <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb", padding: "20px 24px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 20 }}>
-
-                      {/* PRODUCTOS */}
                       <div>
                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>PRODUCTOS</p>
                         {productos.map((p: any, i: number) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
-                            <div>
-                              <span style={{ fontWeight: 700, color: "#60a5fa" }}>{p.referencia}</span>
-                              <span style={{ color: "#94a3b8", marginLeft: 8 }}>{p.descripcion}</span>
-                            </div>
+                            <div><span style={{ fontWeight: 700, color: "#60a5fa" }}>{p.referencia}</span><span style={{ color: "#94a3b8", marginLeft: 8 }}>{p.descripcion}</span></div>
                             <span style={{ color: "#22c55e", fontWeight: 700 }}>{fmt(p.precio)}€</span>
                           </div>
                         ))}
                       </div>
-
-                      {/* INFO PEDIDO */}
-                      <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}>
-                            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TOTAL</p>
-                            <p style={{ color: "#22c55e", fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(pedido.total)}€</p>
-                          </div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}>
-                            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p>
-                            <p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{pedido.agencia || pedido.transporte || "-"}</p>
-                          </div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}>
-                            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>PAGO</p>
-                            <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{pedido.estado_pago || "pendiente"}</p>
-                          </div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}>
-                            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ESTADO ENVÍO</p>
-                            <p style={{ fontWeight: 700, fontSize: 13, margin: 0, color: estadoColor[estado] }}>{estado}</p>
-                          </div>
+                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TOTAL</p><p style={{ color: "#22c55e", fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(pedido.total)}€</p></div>
+                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p><p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{pedido.agencia || pedido.transporte || "-"}</p></div>
+                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>PAGO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{pedido.estado_pago || "pendiente"}</p></div>
+                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ESTADO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0, color: estadoColor[estado] }}>{estado}</p></div>
                         </div>
-                        {pedido.tracking && !anulado && (
-                          <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 16px" }}>
-                            <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, opacity: 0.8 }}>TRACKING</p>
-                            <p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{pedido.tracking}</p>
-                          </div>
-                        )}
+                        {pedido.tracking && !anulado && <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, opacity: 0.8 }}>TRACKING</p><p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{pedido.tracking}</p></div>}
                       </div>
                     </div>
-
-                    {/* DOCUMENTOS Y ACCIONES */}
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      {pedido.albaran_url && (
-                        <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                          📄 Albarán PDF
-                        </a>
-                      )}
-                      {pedido.factura_url && (
-                        <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                          🧾 Factura PDF
-                        </a>
-                      )}
-                      {!anulado && (
-                        <>
-                          <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                            💬 Chat proveedor
-                          </button>
-                          <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>
-                            {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}
-                          </button>
-                          {puedeAnular && (
-                            <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: anulando === pedido.id ? 0.7 : 1 }}>
-                              {anulando === pedido.id ? "Anulando..." : "❌ Anular"}
-                            </button>
-                          )}
-                        </>
-                      )}
-                      {anulado && pedido.motivo_anulacion && (
-                        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
-                          ❌ Anulado: {pedido.motivo_anulacion}
-                        </div>
-                      )}
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>📄 Albarán PDF</a>}
+                      {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>🧾 Factura PDF</a>}
+                      {!anulado && <>
+                        <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Chat proveedor</button>
+                        <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>{solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}</button>
+                        {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: anulando === pedido.id ? 0.7 : 1 }}>{anulando === pedido.id ? "Anulando..." : "❌ Anular"}</button>}
+                      </>}
+                      {anulado && pedido.motivo_anulacion && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>❌ Anulado: {pedido.motivo_anulacion}</div>}
                     </div>
                   </div>
                 )}
@@ -348,13 +387,13 @@ export default function Pedidos() {
 
       {/* MODAL ANULACIÓN */}
       {modalAnular && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,36px)", width: "min(480px, 92vw)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#0f172a", borderRadius: 20, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }}>
             <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 8 }}>❌ Anular pedido</h2>
             <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong></p>
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 20 }}>
-              {["🚫 Ya no necesito el artículo", "💳 La forma de pago no es la acordada", "💶 El precio no coincide con el publicado", "📍 El artículo no está disponible en la ubicación indicada", "⏱️ El plazo de entrega es demasiado largo"].map(motivo => (
-                <button key={motivo} onClick={() => setMotivoSeleccionado(motivo)} style={{ padding: "12px 16px", borderRadius: 10, textAlign: "left" as const, fontWeight: 700, fontSize: 14, cursor: "pointer", background: motivoSeleccionado === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoSeleccionado === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoSeleccionado === motivo ? "#f87171" : "white" }}>{motivo}</button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {["🚫 Ya no necesito el artículo","💳 La forma de pago no es la acordada","💶 El precio no coincide con el publicado","📍 El artículo no está disponible en la ubicación indicada","⏱️ El plazo de entrega es demasiado largo"].map(motivo => (
+                <button key={motivo} onClick={() => setMotivoSeleccionado(motivo)} style={{ padding: "12px 16px", borderRadius: 10, textAlign: "left", fontWeight: 700, fontSize: isMobile ? 13 : 14, cursor: "pointer", background: motivoSeleccionado === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoSeleccionado === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoSeleccionado === motivo ? "#f87171" : "white" }}>{motivo}</button>
               ))}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
