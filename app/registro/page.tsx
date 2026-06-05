@@ -69,7 +69,7 @@ export default function RegistroPage() {
         activo: false, suscripcion: "gratuito",
       });
       try {
-        await fetch("/api/send-registro", {
+        await fetch("/api/enviar-email/send-registro", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nombreEmpresa: nombreEmpresa.trim(), cif: cif.trim().toUpperCase(), email: user.email, telefono: telefono.trim(), direccion: direccion.trim(), ciudad: ciudad.trim(), codigoPostal: codigoPostal.trim(), tipo }),
         });
