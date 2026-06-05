@@ -247,7 +247,7 @@ export default function CheckoutPage() {
         total: totalGrupo,
         coste_transporte: transporteGrupo,
         estado: "pendiente",
-        estado_pago: "pendiente",
+        estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente",
         estado_envio: "pendiente",
         codigo,
         transporte,
