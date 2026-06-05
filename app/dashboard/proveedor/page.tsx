@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import ImportarStock from "./ImportarStock";
@@ -86,6 +86,7 @@ function EstadoEnvio({ estado, anulado }: { estado?: string; anulado?: boolean }
 
 export default function ProveedorPage() {
   const router = useRouter();
+  const channelRef = useRef<any>(null);
   const [busquedaHeader, setBusquedaHeader] = useState("");
   const [notifs, setNotifs] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -106,20 +107,16 @@ export default function ProveedorPage() {
   const [anulandoPedido, setAnulandoPedido] = useState<number | null>(null);
   const [modalAnular, setModalAnular] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
-
   const [horarioApertura, setHorarioApertura] = useState("09:00");
   const [horarioCierre, setHorarioCierre] = useState("18:00");
   const [diasApertura, setDiasApertura] = useState<string[]>(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
   const [horarioGuardado, setHorarioGuardado] = useState(false);
-
   const [exclusiones, setExclusiones] = useState<any[]>([]);
   const [nuevoCp, setNuevoCp] = useState("");
   const [nuevoCliente, setNuevoCliente] = useState("");
   const [tabExclusiones, setTabExclusiones] = useState<"cp" | "cliente">("cp");
   const [clientes, setClientes] = useState<any[]>([]);
-
-  // Mi Cuenta — cambio contraseña
   const [emailPerfil, setEmailPerfil] = useState("");
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
   const [passwordActual, setPasswordActual] = useState("");
@@ -127,7 +124,6 @@ export default function ProveedorPage() {
   const [passwordNueva2, setPasswordNueva2] = useState("");
   const [cambiandoPass, setCambiandoPass] = useState(false);
   const [mensajePass, setMensajePass] = useState<{tipo:"ok"|"error";texto:string}|null>(null);
-
   const [formReferencia, setFormReferencia] = useState("");
   const [formDescripcion, setFormDescripcion] = useState("");
   const [formPrecio, setFormPrecio] = useState("");
@@ -139,45 +135,58 @@ export default function ProveedorPage() {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardandoPieza, setGuardandoPieza] = useState(false);
   const [piezaGuardada, setPiezaGuardada] = useState(false);
-
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [editPrecio, setEditPrecio] = useState("");
   const [editStock, setEditStock] = useState("");
-
   const [paginaActual, setPaginaActual] = useState(1);
   const [totalPiezas, setTotalPiezas] = useState(0);
   const [busquedaAlmacen, setBusquedaAlmacen] = useState("");
   const [busquedaInput, setBusquedaInput] = useState("");
-  const PIEZAS_POR_PAGINA = 100;
 
-  useEffect(() => { iniciarPagina(); }, []);
+  useEffect(() => {
+    iniciarPagina();
+    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+  }, []);
 
   async function iniciarPagina() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
     await cargarDatos();
-    cargarNotificaciones(user.id);
+    await cargarNotificaciones(user.id);
 
+    const channelName = `proveedor-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
-      .channel(`proveedor-realtime-${user.id}`)
+      .channel(channelName)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, () => { cargarDatos(); })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, async (payload) => {
         const m = payload.new as any;
-        if (m.user_id !== user.id) {
-          setNotifs(prev => [{ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}`, leido: false, created_at: m.created_at }, ...prev]);
+        if (m.user_id === user.id) return;
+        if (m.conversacion_id) {
+          const { data: conv } = await supabase.from("conversaciones").select("id").eq("id", m.conversacion_id).or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`).maybeSingle();
+          if (!conv) return;
         }
+        const texto = (m.mensaje || "").substring(0, 50);
+        setNotifs(prev => {
+          if (prev.some(x => x.id === m.id)) return prev;
+          return [{ id: m.id, tipo: "chat", texto: `💬 ${texto}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }, ...prev].slice(0, 30);
+        });
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, async (payload) => {
         const p = payload.new as any;
-        const productos = p.productos || [];
+        const { data: pedidoCompleto } = await supabase.from("pedidos").select("id, codigo, productos, created_at").eq("id", p.id).single();
+        if (!pedidoCompleto) return;
+        const productos = pedidoCompleto.productos || [];
         if (productos.some((pr: any) => pr.proveedor_id === user.id)) {
-          setNotifs(prev => [{ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Nuevo pedido #${p.id}`, leido: false, created_at: p.created_at }, ...prev]);
+          setNotifs(prev => {
+            const id = `ped-${p.id}`;
+            if (prev.some(x => x.id === id)) return prev;
+            return [{ id, tipo: "pedido", texto: `📦 Nuevo pedido ${pedidoCompleto.codigo || `#${p.id}`}`, leido: false, created_at: pedidoCompleto.created_at }, ...prev].slice(0, 30);
+          });
         }
       })
       .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    channelRef.current = channel;
   }
 
   async function cargarNotificaciones(uid: string) {
@@ -187,14 +196,16 @@ export default function ProveedorPage() {
     const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
     if (convIds.length > 0) {
       const { data: msgs } = await supabase.from("mensajes").select("id, mensaje, created_at, conversacion_id").in("conversacion_id", convIds).neq("user_id", uid).or("leido.is.null,leido.eq.false").order("created_at", { ascending: false }).limit(10);
-      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }));
+      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }));
     }
-    const { data: pedidos } = await supabase.from("pedidos").select("id, created_at, productos").order("created_at", { ascending: false }).limit(20);
+    const hace7dias = new Date();
+    hace7dias.setDate(hace7dias.getDate() - 7);
+    const { data: pedidos } = await supabase.from("pedidos").select("id, codigo, created_at, productos").gte("created_at", hace7dias.toISOString()).order("created_at", { ascending: false }).limit(50);
     (pedidos || []).filter(p => (p.productos || []).some((pr: any) => pr.proveedor_id === uid)).slice(0, 5).forEach(p => {
-      notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Pedido #${p.id} recibido`, leido: false, created_at: p.created_at });
+      notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Pedido ${p.codigo || `#${p.id}`} recibido`, leido: true, created_at: p.created_at });
     });
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    if (notifsTotales.length > 0) setNotifs(notifsTotales);
+    setNotifs(notifsTotales);
   }
 
   async function cargarDatos() {
@@ -204,36 +215,21 @@ export default function ProveedorPage() {
     const currentUserId = user.id;
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
-
-    const { data: perfil } = await supabase
-      .from("usuarios")
-      .select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura")
-      .eq("id", currentUserId)
-      .single();
-
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
     if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
     if (perfil?.horario_cierre) setHorarioCierre(perfil.horario_cierre);
     if (perfil?.dias_apertura?.length) setDiasApertura(perfil.dias_apertura);
-
     const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
     setTotalPiezas(count || 0);
-
     await cargarPiezasPaginadas(currentUserId, 1, "");
-
     const { data: recibidosData } = await supabase.from("pedidos").select("*").order("id", { ascending: false });
-    const recibidos = (recibidosData || []).filter(p => {
-      const productos = p.productos || [];
-      return productos.some((prod: any) => prod.proveedor_id === currentUserId);
-    });
+    const recibidos = (recibidosData || []).filter(p => (p.productos || []).some((prod: any) => prod.proveedor_id === currentUserId));
     setPedidosRecibidos(recibidos);
-
     const { data: realizadosData } = await supabase.from("pedidos").select("*").eq("cliente_id", currentUserId).order("id", { ascending: false });
     const recibidosIds = new Set(recibidos.map((p: any) => p.id));
-    const realizados = (realizadosData || []).filter(p => !recibidosIds.has(p.id));
-    setPedidosRealizados(realizados);
-
+    setPedidosRealizados((realizadosData || []).filter(p => !recibidosIds.has(p.id)));
     const { data: convsData } = await supabase.from("conversaciones").select("id, pedido_id").not("pedido_id", "is", null);
     const convIds = (convsData || []).map((c: any) => c.id);
     let mensajesData: any[] = [];
@@ -242,13 +238,10 @@ export default function ProveedorPage() {
       mensajesData = (msgs || []).map((m: any) => ({ ...m, pedido_id: m.conversaciones?.pedido_id }));
     }
     setMensajes(mensajesData);
-
     const { data: exclusionesData } = await supabase.from("exclusiones_proveedor").select("*").eq("proveedor_id", user.id).order("created_at", { ascending: false });
     setExclusiones(exclusionesData || []);
-
     const { data: clientesData } = await supabase.from("usuarios").select("id, nombre_empresa, email, codigo_postal, ciudad").eq("tipo", "taller").order("nombre_empresa");
     setClientes(clientesData || []);
-
     setCargando(false);
   }
 
@@ -256,7 +249,7 @@ export default function ProveedorPage() {
     const desde = (pagina - 1) * 100;
     const hasta = desde + 99;
     let query = supabase.from("piezas_publicadas").select("*", { count: "exact" }).eq("proveedor_id", uid).order("referencia", { ascending: true }).range(desde, hasta);
-    if (busqueda.trim()) { query = query.or(`referencia.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`); }
+    if (busqueda.trim()) query = query.or(`referencia.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
     const { data, count } = await query;
     setPiezas(data || []);
     if (count !== null) setTotalPiezas(count);
@@ -286,11 +279,8 @@ export default function ProveedorPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const { data: provPerfil } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", user?.id || "").single();
     try {
-      await fetch("/api/send-anulacion", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, anuladorTipo: "proveedor", anuladorNombre: nombreEmpresa, clienteEmail: pedido.cliente_email || "", clienteNombre: pedido.cliente_nombre || pedido.cliente_email || "", proveedorEmail: provPerfil?.email || "", proveedorNombre: nombreEmpresa, productos: pedido.productos || [], motivoAnulacion: motivoSeleccionado }),
-      });
-    } catch (e) { console.error("Error enviando email anulación:", e); }
+      await fetch("/api/send-anulacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, anuladorTipo: "proveedor", anuladorNombre: nombreEmpresa, clienteEmail: pedido.cliente_email || "", clienteNombre: pedido.cliente_nombre || pedido.cliente_email || "", proveedorEmail: provPerfil?.email || "", proveedorNombre: nombreEmpresa, productos: pedido.productos || [], motivoAnulacion: motivoSeleccionado }) });
+    } catch (e) { console.error(e); }
     cargarDatos();
   }
 
@@ -389,6 +379,7 @@ export default function ProveedorPage() {
     cargarDatos();
   }
 
+  const noLeidas = notifs.filter(n => !n.leido).length;
   const totalFacturado = pedidosRecibidos.filter(p => !p.anulado).reduce((acc, p) => acc + (Number(p.total) || 0), 0);
   const pedidosFiltrados = (pestañaPedidos === "recibidos" ? pedidosRecibidos : pedidosRealizados).filter(p => {
     if (!busquedaPedido) return true;
@@ -401,7 +392,7 @@ export default function ProveedorPage() {
   return (
     <main style={mainStyle}>
       <header style={proveedorHeaderStyle}>
-        <div onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }} title="Ir al inicio">
+        <div onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}>
           <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>RD</div>
           <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>
         </div>
@@ -415,25 +406,26 @@ export default function ProveedorPage() {
           <div style={{ position: "relative" as const }}>
             <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) setNotifs(prev => prev.map(n => ({ ...n, leido: true }))); }} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" as const }}>
               🔔
-              {notifs.filter(n => !n.leido).length > 0 && (
-                <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>
-                  {notifs.filter(n => !n.leido).length > 9 ? "9+" : notifs.filter(n => !n.leido).length}
-                </span>
-              )}
+              {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
             </button>
             {showNotifs && (
-              <div style={{ position: "absolute" as const, right: 0, top: 50, width: 320, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
+              <div style={{ position: "absolute" as const, right: 0, top: 50, width: 340, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones</span>
+                  <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "1px 8px", fontSize: 11, marginLeft: 6 }}>{noLeidas} nuevas</span>}</span>
                   {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
                 </div>
                 {notifs.length === 0 ? (
                   <div style={{ padding: "32px", textAlign: "center" as const, color: "#94a3b8", fontSize: 14 }}><p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
                 ) : (
-                  <div style={{ maxHeight: 340, overflowY: "auto" as const }}>
-                    {notifs.slice(0, 15).map((n, i) => (
-                      <div key={i} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.08)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
-                        <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>{n.texto}</p><p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 3 }}>{n.created_at ? new Date(n.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</p></div>
+                  <div style={{ maxHeight: 380, overflowY: "auto" as const }}>
+                    {notifs.slice(0, 20).map((n, i) => (
+                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
+                        <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
+                          <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 3 }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                        </div>
+                        {!n.leido && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", flexShrink: 0, marginTop: 4 }} />}
                       </div>
                     ))}
                   </div>
@@ -453,17 +445,8 @@ export default function ProveedorPage() {
             <div style={empresaBadge}>{nombreEmpresa.charAt(0).toUpperCase()}</div>
             <p style={empresaNombreStyle}>{nombreEmpresa}</p>
             {provinciaPerfil && <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>📍 {provinciaPerfil}</p>}
-            {diasApertura.length > 0 && (
-              <div style={horarioBadge}>
-                🕐 {horarioApertura} - {horarioCierre}
-                <div style={{ fontSize: 10, marginTop: 3, color: "#94a3b8" }}>{diasApertura.slice(0, 3).join(", ")}{diasApertura.length > 3 ? "..." : ""}</div>
-              </div>
-            )}
-            {exclusiones.length > 0 && (
-              <div style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "6px 12px", fontSize: 12, color: "#f87171", fontWeight: 700 }}>
-                🚫 {exclusiones.length} exclusión{exclusiones.length !== 1 ? "es" : ""} activa{exclusiones.length !== 1 ? "s" : ""}
-              </div>
-            )}
+            {diasApertura.length > 0 && <div style={horarioBadge}>🕐 {horarioApertura} - {horarioCierre}<div style={{ fontSize: 10, marginTop: 3, color: "#94a3b8" }}>{diasApertura.slice(0, 3).join(", ")}{diasApertura.length > 3 ? "..." : ""}</div></div>}
+            {exclusiones.length > 0 && <div style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "6px 12px", fontSize: 12, color: "#f87171", fontWeight: 700 }}>🚫 {exclusiones.length} exclusión{exclusiones.length !== 1 ? "es" : ""} activa{exclusiones.length !== 1 ? "s" : ""}</div>}
           </div>
           <nav style={{ marginTop: 30 }}>
             {[
@@ -505,11 +488,7 @@ export default function ProveedorPage() {
           {seccion === "almacen" && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-                <div>
-                  <div style={badgeStyle}>MI ALMACÉN</div>
-                  <h1 style={titleStyle}>STOCK PUBLICADO</h1>
-                  <p style={{ color: "#94a3b8", fontSize: 18 }}>Piezas disponibles en el marketplace.</p>
-                </div>
+                <div><div style={badgeStyle}>MI ALMACÉN</div><h1 style={titleStyle}>STOCK PUBLICADO</h1><p style={{ color: "#94a3b8", fontSize: 18 }}>Piezas disponibles en el marketplace.</p></div>
                 <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, padding: "20px 32px", textAlign: "center" as const, flexShrink: 0 }}>
                   <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>REFERENCIAS SUBIDAS</p>
                   <h2 style={{ fontSize: 48, fontWeight: 900, color: "#60a5fa", margin: 0 }}>{totalPiezas.toLocaleString()}</h2>
@@ -635,9 +614,7 @@ export default function ProveedorPage() {
                 <button onClick={() => setPestañaPedidos("recibidos")} style={pestañaPedidos === "recibidos" ? tabActive : tabInactive}>📥 Recibidos ({pedidosRecibidos.length})</button>
                 <button onClick={() => setPestañaPedidos("realizados")} style={pestañaPedidos === "realizados" ? tabActive : tabInactive}>📤 Realizados ({pedidosRealizados.length})</button>
               </div>
-              <div style={searchRow}>
-                <input placeholder="Buscar por código, referencia o comprador..." value={busquedaPedido} onChange={e => setBusquedaPedido(e.target.value)} style={searchInput} />
-              </div>
+              <div style={searchRow}><input placeholder="Buscar por código, referencia o comprador..." value={busquedaPedido} onChange={e => setBusquedaPedido(e.target.value)} style={searchInput} /></div>
               {pedidosFiltrados.length === 0 ? (
                 <div style={emptyState}><p style={{ fontSize: 48 }}>🛒</p><p style={{ fontSize: 20, fontWeight: 700, marginTop: 16 }}>No hay pedidos</p></div>
               ) : (
@@ -645,15 +622,7 @@ export default function ProveedorPage() {
                   <table style={tableStyle}>
                     <thead>
                       <tr style={{ background: "rgba(0,0,0,0.3)" }}>
-                        <th style={thStyle}>CÓDIGO PEDIDO</th>
-                        <th style={thStyle}>REFERENCIA / DESCRIPCIÓN</th>
-                        <th style={thStyle}>TOTAL</th>
-                        <th style={thStyle}>{pestañaPedidos === "recibidos" ? "COMPRADOR" : "PROVEEDOR"}</th>
-                        <th style={thStyle}>FECHA</th>
-                        <th style={thStyle}>TRANSPORTE</th>
-                        <th style={thStyle}>TRACKING</th>
-                        <th style={thStyle}>ESTADO</th>
-                        <th style={thStyle}>ACCIONES</th>
+                        {["CÓDIGO PEDIDO","REFERENCIA / DESCRIPCIÓN","TOTAL",pestañaPedidos === "recibidos" ? "COMPRADOR" : "PROVEEDOR","FECHA","TRANSPORTE","TRACKING","ESTADO","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -665,98 +634,72 @@ export default function ProveedorPage() {
                         return (
                           <React.Fragment key={pedido.id}>
                             <tr style={{ ...trStyle, cursor: "pointer", opacity: pedido.anulado ? 0.6 : 1 }} onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}>
-                              <td style={tdStyle}>
-                                <div style={{ color: pedido.anulado ? "#f87171" : "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div>
-                                <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>#{pedido.id}</div>
-                              </td>
-                              <td style={tdStyle}>
-                                {productos.slice(0, 2).map((p: any, i: number) => (
-                                  <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>
-                                    <strong>{p.referencia}</strong>
-                                    <span style={{ color: "#94a3b8", marginLeft: 6 }}>{p.descripcion}</span>
-                                  </div>
-                                ))}
-                                {productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}
-                              </td>
+                              <td style={tdStyle}><div style={{ color: pedido.anulado ? "#f87171" : "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div><div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>#{pedido.id}</div></td>
+                              <td style={tdStyle}>{productos.slice(0, 2).map((p: any, i: number) => (<div key={i} style={{ fontSize: 13, marginBottom: 2 }}><strong>{p.referencia}</strong><span style={{ color: "#94a3b8", marginLeft: 6 }}>{p.descripcion}</span></div>))}{productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}</td>
                               <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900 }}>{Number(pedido.total).toFixed(2)}€</span></td>
-                              <td style={tdStyle}>
-                                <div style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>
-                                {pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}
-                              </td>
-                              <td style={tdStyle}>
-                                <div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div>
-                                <div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
-                              </td>
+                              <td style={tdStyle}><div style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>{pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}</td>
+                              <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
                               <td style={tdStyle}><LogoAgencia agencia={pedido.agencia || pedido.transporte} /></td>
-                              <td style={tdStyle}>
-                                {pedido.tracking
-                                  ? <a href={getTrackingUrl(pedido.agencia || "", pedido.tracking)} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{pedido.tracking}</a>
-                                  : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin tracking</span>}
-                              </td>
+                              <td style={tdStyle}>{pedido.tracking ? <a href={getTrackingUrl(pedido.agencia || "", pedido.tracking)} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{pedido.tracking}</a> : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin tracking</span>}</td>
                               <td style={tdStyle}><EstadoEnvio estado={pedido.estado_envio} anulado={pedido.anulado} /></td>
                               <td style={tdStyle}><button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={btnAccion}>{expandido ? "▲ Cerrar" : "▼ Detalle"}</button></td>
                             </tr>
                             {expandido && (
-                              <tr key={`exp-${pedido.id}`}>
-                                <td colSpan={9} style={{ padding: 0 }}>
-                                  <div style={expandedRow}>
-                                    <div style={{ marginBottom: 16 }}>
-                                      <h4 style={{ fontWeight: 800, marginBottom: 12, color: "#60a5fa" }}>
-                                        💬 Chat del pedido #{pedido.id}
-                                        {mensajesPedido.length > 0 && <span style={{ marginLeft: 10, background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "2px 10px", borderRadius: 999, fontSize: 12 }}>{mensajesPedido.length} mensaje{mensajesPedido.length !== 1 ? "s" : ""}</span>}
-                                      </h4>
-                                      {mensajesPedido.length > 0 && (
-                                        <div style={{ ...chatBox, maxHeight: 120, marginBottom: 12 }}>
-                                          {mensajesPedido.slice(-2).map(m => {
-                                            const esProveedor = m.user_id === userId || m.emisor === "proveedor";
-                                            return (
-                                              <div key={m.id} style={{ display: "flex", justifyContent: esProveedor ? "flex-end" : "flex-start", marginBottom: 6 }}>
-                                                <div style={{ background: esProveedor ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "#1e293b", padding: "8px 14px", borderRadius: esProveedor ? "14px 14px 4px 14px" : "14px 14px 14px 4px", maxWidth: "70%", fontSize: 13 }}>
-                                                  <p style={{ margin: 0 }}>{m.mensaje}</p>
-                                                  {m.created_at && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, margin: "4px 0 0", textAlign: esProveedor ? "right" : "left" }}>{new Date(m.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>}
-                                                </div>
+                              <tr key={`exp-${pedido.id}`}><td colSpan={9} style={{ padding: 0 }}>
+                                <div style={expandedRow}>
+                                  <div style={{ marginBottom: 16 }}>
+                                    <h4 style={{ fontWeight: 800, marginBottom: 12, color: "#60a5fa" }}>💬 Chat del pedido #{pedido.id}{mensajesPedido.length > 0 && <span style={{ marginLeft: 10, background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "2px 10px", borderRadius: 999, fontSize: 12 }}>{mensajesPedido.length} mensaje{mensajesPedido.length !== 1 ? "s" : ""}</span>}</h4>
+                                    {mensajesPedido.length > 0 && (
+                                      <div style={{ ...chatBox, maxHeight: 120, marginBottom: 12 }}>
+                                        {mensajesPedido.slice(-2).map(m => {
+                                          const esProveedor = m.user_id === userId || m.emisor === "proveedor";
+                                          return (
+                                            <div key={m.id} style={{ display: "flex", justifyContent: esProveedor ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                                              <div style={{ background: esProveedor ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "#1e293b", padding: "8px 14px", borderRadius: esProveedor ? "14px 14px 4px 14px" : "14px 14px 14px 4px", maxWidth: "70%", fontSize: 13 }}>
+                                                <p style={{ margin: 0 }}>{m.mensaje}</p>
+                                                {m.created_at && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, margin: "4px 0 0", textAlign: esProveedor ? "right" : "left" }}>{new Date(m.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>}
                                               </div>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                      <button onClick={async () => {
-                                        const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
-                                        if (conv?.id) router.push(`/chat?conv=${conv.id}`);
-                                        else {
-                                          const { data: nuevaConv } = await supabase.from("conversaciones").insert({ user1_id: userId, user2_id: pedido.cliente_id || pedido.comprador_id || "", pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
-                                          if (nuevaConv?.id) router.push(`/chat?conv=${nuevaConv.id}`);
-                                        }
-                                      }} style={btnAbrirChat}>💬 {mensajesPedido.length > 0 ? "Ver conversación completa" : "Abrir chat con cliente"}</button>
-                                    </div>
-                                    {!pedido.anulado && (
-                                      <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
-                                        <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
-                                          {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albaran cliente</a>}
-                                          {pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envio</a>}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                          <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
-                                          {pedido.factura_url ? (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                              <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
-                                              <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
-                                              <label style={btnSubirFactura}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
                                             </div>
-                                          ) : (
-                                            <label style={{ ...btnSubirFactura, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
-                                              {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
-                                              <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
-                                            </label>
-                                          )}
-                                        </div>
-                                        {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulandoPedido === pedido.id} style={{ ...btnAnular, opacity: anulandoPedido === pedido.id ? 0.7 : 1 }}>{anulandoPedido === pedido.id ? "Anulando..." : "❌ Anular pedido"}</button>}
+                                          );
+                                        })}
                                       </div>
                                     )}
-                                    {pedido.anulado && <div style={{ marginTop: 16, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "12px 16px", color: "#f87171", fontSize: 13, fontWeight: 700 }}>❌ Este pedido fue anulado</div>}
+                                    <button onClick={async () => {
+                                      const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
+                                      if (conv?.id) router.push(`/chat?conv=${conv.id}`);
+                                      else {
+                                        const { data: nuevaConv } = await supabase.from("conversaciones").insert({ user1_id: userId, user2_id: pedido.cliente_id || pedido.comprador_id || "", pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
+                                        if (nuevaConv?.id) router.push(`/chat?conv=${nuevaConv.id}`);
+                                      }
+                                    }} style={btnAbrirChat}>💬 {mensajesPedido.length > 0 ? "Ver conversación completa" : "Abrir chat con cliente"}</button>
                                   </div>
-                                </td>
-                              </tr>
+                                  {!pedido.anulado && (
+                                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
+                                      <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+                                        {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albaran cliente</a>}
+                                        {pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envio</a>}
+                                      </div>
+                                      <div style={{ flex: 1 }}>
+                                        <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
+                                        {pedido.factura_url ? (
+                                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                            <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
+                                            <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
+                                            <label style={btnSubirFactura}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
+                                          </div>
+                                        ) : (
+                                          <label style={{ ...btnSubirFactura, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
+                                            {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
+                                            <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
+                                          </label>
+                                        )}
+                                      </div>
+                                      {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulandoPedido === pedido.id} style={{ ...btnAnular, opacity: anulandoPedido === pedido.id ? 0.7 : 1 }}>{anulandoPedido === pedido.id ? "Anulando..." : "❌ Anular pedido"}</button>}
+                                    </div>
+                                  )}
+                                  {pedido.anulado && <div style={{ marginTop: 16, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "12px 16px", color: "#f87171", fontSize: 13, fontWeight: 700 }}>❌ Este pedido fue anulado</div>}
+                                </div>
+                              </td></tr>
                             )}
                           </React.Fragment>
                         );
@@ -776,24 +719,14 @@ export default function ProveedorPage() {
               {horarioGuardado && <div style={successBanner}>✅ Horario guardado correctamente</div>}
               <div style={formCard}>
                 <p style={formLabel}>Días de apertura</p>
-                <div style={diasGrid}>
-                  {DIAS_SEMANA.map(dia => (
-                    <button key={dia} onClick={() => toggleDia(dia)} style={{ ...diaBtnBase, background: diasApertura.includes(dia) ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: diasApertura.includes(dia) ? "none" : "1px solid rgba(255,255,255,0.1)", color: diasApertura.includes(dia) ? "white" : "#94a3b8" }}>{dia}</button>
-                  ))}
-                </div>
+                <div style={diasGrid}>{DIAS_SEMANA.map(dia => (<button key={dia} onClick={() => toggleDia(dia)} style={{ ...diaBtnBase, background: diasApertura.includes(dia) ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: diasApertura.includes(dia) ? "none" : "1px solid rgba(255,255,255,0.1)", color: diasApertura.includes(dia) ? "white" : "#94a3b8" }}>{dia}</button>))}</div>
                 <div style={{ ...formGrid, marginTop: 30 }}>
                   <div><p style={formLabel}>Hora apertura</p><input type="time" value={horarioApertura} onChange={e => setHorarioApertura(e.target.value)} style={formInput} /></div>
                   <div><p style={formLabel}>Hora cierre</p><input type="time" value={horarioCierre} onChange={e => setHorarioCierre(e.target.value)} style={formInput} /></div>
                 </div>
                 <div style={horarioPreview}>
                   <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>VISTA PREVIA</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 24 }}>🕐</span>
-                    <div>
-                      <p style={{ fontWeight: 800, fontSize: 18 }}>{horarioApertura} - {horarioCierre}</p>
-                      <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>{diasApertura.length === 0 ? "Sin días" : diasApertura.join(", ")}</p>
-                    </div>
-                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ fontSize: 24 }}>🕐</span><div><p style={{ fontWeight: 800, fontSize: 18 }}>{horarioApertura} - {horarioCierre}</p><p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>{diasApertura.length === 0 ? "Sin días" : diasApertura.join(", ")}</p></div></div>
                 </div>
                 <button onClick={guardarHorarios} disabled={guardandoHorario} style={{ ...publishButton, marginTop: 24, opacity: guardandoHorario ? 0.7 : 1 }}>{guardandoHorario ? "GUARDANDO..." : "✓ GUARDAR HORARIOS"}</button>
               </div>
@@ -805,10 +738,7 @@ export default function ProveedorPage() {
               <div style={{ ...badgeStyle, background: "rgba(239,68,68,0.18)", color: "#f87171" }}>PRIVACIDAD</div>
               <h1 style={titleStyle}>EXCLUSIONES</h1>
               <p style={descStyle}>Controla quién puede ver tus precios y stock.</p>
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: "16px 20px", marginBottom: 28, color: "#fbbf24" }}>
-                <span style={{ fontSize: 20 }}>🔒</span>
-                <p style={{ fontSize: 14, lineHeight: 1.6 }}>Los talleres excluidos no verán tus piezas en el buscador. Útil para ocultar tus precios de plataforma a clientes de tu zona que no deben saber que vendes más barato online.</p>
-              </div>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: "16px 20px", marginBottom: 28, color: "#fbbf24" }}><span style={{ fontSize: 20 }}>🔒</span><p style={{ fontSize: 14, lineHeight: 1.6 }}>Los talleres excluidos no verán tus piezas en el buscador.</p></div>
               <div style={{ ...tabsContainer, marginBottom: 24 }}>
                 <button onClick={() => setTabExclusiones("cp")} style={tabExclusiones === "cp" ? { ...tabActive, background: "linear-gradient(135deg,#dc2626,#991b1b)" } : tabInactive}>📮 Códigos Postales ({excCp.length})</button>
                 <button onClick={() => setTabExclusiones("cliente")} style={tabExclusiones === "cliente" ? { ...tabActive, background: "linear-gradient(135deg,#dc2626,#991b1b)" } : tabInactive}>👤 Clientes concretos ({excClientes.length})</button>
@@ -821,19 +751,7 @@ export default function ProveedorPage() {
                     <input placeholder="Ej: 41001" value={nuevoCp} onChange={e => setNuevoCp(e.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={e => e.key === "Enter" && añadirExclusion("cp", nuevoCp)} style={{ flex: 1, background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "14px 18px", fontSize: 15, outline: "none" }} maxLength={5} />
                     <button onClick={() => añadirExclusion("cp", nuevoCp)} disabled={nuevoCp.length < 4} style={{ background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "14px 24px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, opacity: nuevoCp.length < 4 ? 0.5 : 1 }}>+ Excluir CP</button>
                   </div>
-                  {excCp.length === 0
-                    ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>📮</p><p>No hay códigos postales excluidos</p></div>
-                    : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {excCp.map(exc => (
-                          <div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>CP {exc.valor}</span>
-                              <span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span>
-                            </div>
-                            <button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button>
-                          </div>
-                        ))}
-                      </div>}
+                  {excCp.length === 0 ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>📮</p><p>No hay códigos postales excluidos</p></div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{excCp.map(exc => (<div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>CP {exc.valor}</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span></div><button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button></div>))}</div>}
                 </div>
               )}
               {tabExclusiones === "cliente" && (
@@ -855,19 +773,7 @@ export default function ProveedorPage() {
                       ))}
                     </div>
                   )}
-                  {excClientes.length === 0
-                    ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>👤</p><p>No hay clientes excluidos</p></div>
-                    : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {excClientes.map(exc => (
-                          <div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>👤 {exc.valor}</span>
-                              <span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span>
-                            </div>
-                            <button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button>
-                          </div>
-                        ))}
-                      </div>}
+                  {excClientes.length === 0 ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>👤</p><p>No hay clientes excluidos</p></div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{excClientes.map(exc => (<div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>👤 {exc.valor}</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span></div><button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button></div>))}</div>}
                 </div>
               )}
             </div>
@@ -881,40 +787,16 @@ export default function ProveedorPage() {
               <div style={{ maxWidth: 600 }}>
                 <div style={{ ...formCard, border: "1px solid rgba(139,92,246,0.3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 28 : 0 }}>
-                    <div>
-                      <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>🔑 Cambiar contraseña</h2>
-                      {!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}
-                    </div>
-                    <button
-                      onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }}
-                      style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" as const }}
-                    >{mostrarCambioPass ? "Cancelar" : "Cambiar"}</button>
+                    <div><h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>🔑 Cambiar contraseña</h2>{!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}</div>
+                    <button onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }} style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" as const }}>{mostrarCambioPass ? "Cancelar" : "Cambiar"}</button>
                   </div>
                   {mostrarCambioPass && (
                     <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
-                      <div>
-                        <p style={formLabel}>Contraseña actual</p>
-                        <input type="password" placeholder="Tu contraseña actual" value={passwordActual} onChange={e => setPasswordActual(e.target.value)} style={formInput} />
-                      </div>
-                      <div>
-                        <p style={formLabel}>Nueva contraseña</p>
-                        <input type="password" placeholder="Mínimo 6 caracteres" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)} style={{ ...formInput, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />
-                        {passwordNueva && passwordNueva.length < 6 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>}
-                      </div>
-                      <div>
-                        <p style={formLabel}>Repetir nueva contraseña</p>
-                        <input type="password" placeholder="Repite la nueva contraseña" value={passwordNueva2} onChange={e => setPasswordNueva2(e.target.value)} style={{ ...formInput, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />
-                        {passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>}
-                        {passwordNueva2 && passwordNueva !== passwordNueva2 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>}
-                      </div>
-                      {mensajePass && (
-                        <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>
-                          {mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}
-                        </div>
-                      )}
-                      <button onClick={cambiarContrasena} disabled={cambiandoPass} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}>
-                        {cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}
-                      </button>
+                      <div><p style={formLabel}>Contraseña actual</p><input type="password" placeholder="Tu contraseña actual" value={passwordActual} onChange={e => setPasswordActual(e.target.value)} style={formInput} /></div>
+                      <div><p style={formLabel}>Nueva contraseña</p><input type="password" placeholder="Mínimo 6 caracteres" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)} style={{ ...formInput, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva && passwordNueva.length < 6 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>}</div>
+                      <div><p style={formLabel}>Repetir nueva contraseña</p><input type="password" placeholder="Repite la nueva contraseña" value={passwordNueva2} onChange={e => setPasswordNueva2(e.target.value)} style={{ ...formInput, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>}{passwordNueva2 && passwordNueva !== passwordNueva2 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>}</div>
+                      {mensajePass && <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>{mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}</div>}
+                      <button onClick={cambiarContrasena} disabled={cambiandoPass} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}>{cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}</button>
                     </div>
                   )}
                 </div>
@@ -929,9 +811,9 @@ export default function ProveedorPage() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
             <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>❌ Anular pedido</h2>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong> — Selecciona el motivo de anulación.</p>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong> — Selecciona el motivo.</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
-              {["🚫 Referencia agotada en almacén", "💶 Error en el precio publicado", "🔧 Artículo dañado o en mal estado"].map(motivo => (
+              {["🚫 Referencia agotada en almacén","💶 Error en el precio publicado","🔧 Artículo dañado o en mal estado"].map(motivo => (
                 <button key={motivo} onClick={() => setMotivoSeleccionado(motivo)} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, fontWeight: 700, fontSize: 15, cursor: "pointer", background: motivoSeleccionado === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoSeleccionado === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoSeleccionado === motivo ? "#f87171" : "white" }}>{motivo}</button>
               ))}
             </div>
