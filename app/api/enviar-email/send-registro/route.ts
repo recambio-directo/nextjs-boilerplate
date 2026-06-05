@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     // ===== EMAIL AL ADMIN =====
     await resend.emails.send({
       from: "Recambio Directo <noreply@recambio-directo.com>",
-      to: ["vicente@rgranvia.es"],
+      to: ["vicente@rgranvia.es", "info@recambio-directo.com"],
       subject: `🆕 Nuevo registro — ${nombreEmpresa} (${tipoLabel})`,
       html: `
         <div style="font-family:Arial;padding:30px;background:#f3f4f6;">
