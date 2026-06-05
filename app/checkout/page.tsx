@@ -26,7 +26,7 @@ export default function CheckoutPage() {
   const [clienteEmail, setClienteEmail] = useState("");
   const [productos, setProductos] = useState<Producto[]>([]);
   const [transporte, setTransporte] = useState<string | null>(null);
-  const [formaPago, setFormaPago] = useState<"rd_pago" | "tarjeta" | "transferencia">("transferencia");
+  const [formaPago, setFormaPago] = useState<"rd_pago" | "tarjeta">("tarjeta");
   const [creditoRD, setCreditoRD] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -613,7 +613,7 @@ export default function CheckoutPage() {
                     {creditoRD.toFixed(2)}EUR
                   </span>
                 </div>
-                {creditoRD <= 0 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Sin credito — contacta con Recambio Directo en info@recambio-directo.com</p>}
+                {creditoRD <= 0 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Sin credito — contacta con Recambio Directo en info@recambiodirecto.es</p>}
                 {creditoRD > 0 && creditoRD < 100 && <p style={{ color: "#fbbf24", fontSize: 11, marginTop: 6 }}>Saldo bajo — considera recargar tu credito pronto</p>}
                 {creditoRD > 0 && creditoRD < total && creditoRD >= 100 && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>Saldo insuficiente para este pedido ({total.toFixed(2)} EUR)</p>}
               </button>
@@ -628,18 +628,6 @@ export default function CheckoutPage() {
               >
                 <p style={{ fontWeight: 800, color: formaPago === "tarjeta" ? "#a78bfa" : "white", margin: 0 }}>Tarjeta bancaria</p>
                 <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Pago seguro con tarjeta</p>
-              </button>
-
-              <button
-                onClick={() => setFormaPago("transferencia")}
-                style={{
-                  padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, cursor: "pointer",
-                  background: formaPago === "transferencia" ? "rgba(22,163,74,0.2)" : "rgba(255,255,255,0.04)",
-                  border: formaPago === "transferencia" ? "2px solid rgba(22,163,74,0.6)" : "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                <p style={{ fontWeight: 800, color: formaPago === "transferencia" ? "#4ade80" : "white", margin: 0 }}>Transferencia bancaria</p>
-                <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Recibiras los datos bancarios por email</p>
               </button>
 
             </div>
