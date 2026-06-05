@@ -28,6 +28,14 @@ export default function PerfilPage() {
   const [suscripcion, setSuscripcion] = useState("gratuito");
   const [historialCredito, setHistorialCredito] = useState<any[]>([]);
 
+  // Cambio de contraseña
+  const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
+  const [passwordActual, setPasswordActual] = useState("");
+  const [passwordNueva, setPasswordNueva] = useState("");
+  const [passwordNueva2, setPasswordNueva2] = useState("");
+  const [cambiandoPass, setCambiandoPass] = useState(false);
+  const [mensajePass, setMensajePass] = useState<{tipo: "ok" | "error"; texto: string} | null>(null);
+
   useEffect(() => { cargarPerfil(); }, []);
 
   async function cargarPerfil() {
@@ -56,7 +64,6 @@ export default function PerfilPage() {
     const { count } = await supabase.from("pedidos").select("*", { count: "exact", head: true }).eq("cliente_id", user.id);
     setTotalPedidos(count || 0);
 
-    // Historial pedidos con RD Pago
     const { data: pedidosRD } = await supabase
       .from("pedidos")
       .select("id, codigo, total, created_at, forma_pago")
@@ -75,7 +82,7 @@ export default function PerfilPage() {
     if (!user) { setGuardando(false); return; }
 
     const campos = {
-      nombre_empresa: empresa, cif, telefono, direccion, ciudad, provincia,
+      nombre_empresa: empresa, telefono, direccion, ciudad, provincia,
       codigo_postal: codigoPostal, email: user.email,
       tipo: user.user_metadata?.tipo || tipo,
       iban: iban.trim().toUpperCase(),
@@ -97,6 +104,55 @@ export default function PerfilPage() {
     if (error) { alert("Error al guardar: " + error.message); return; }
     setGuardado(true);
     setTimeout(() => setGuardado(false), 3000);
+  }
+
+  async function cambiarContrasena() {
+    setMensajePass(null);
+    if (!passwordNueva || !passwordNueva2) {
+      setMensajePass({ tipo: "error", texto: "Rellena todos los campos" });
+      return;
+    }
+    if (passwordNueva.length < 6) {
+      setMensajePass({ tipo: "error", texto: "La contraseña debe tener mínimo 6 caracteres" });
+      return;
+    }
+    if (passwordNueva !== passwordNueva2) {
+      setMensajePass({ tipo: "error", texto: "Las contraseñas no coinciden" });
+      return;
+    }
+
+    setCambiandoPass(true);
+
+    // Verificar contraseña actual reautenticando
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password: passwordActual,
+    });
+
+    if (loginError) {
+      setMensajePass({ tipo: "error", texto: "La contraseña actual no es correcta" });
+      setCambiandoPass(false);
+      return;
+    }
+
+    // Actualizar contraseña
+    const { error: updateError } = await supabase.auth.updateUser({ password: passwordNueva });
+
+    setCambiandoPass(false);
+
+    if (updateError) {
+      setMensajePass({ tipo: "error", texto: "Error al cambiar la contraseña: " + updateError.message });
+      return;
+    }
+
+    setMensajePass({ tipo: "ok", texto: "Contraseña cambiada correctamente" });
+    setPasswordActual("");
+    setPasswordNueva("");
+    setPasswordNueva2("");
+    setTimeout(() => {
+      setMostrarCambioPass(false);
+      setMensajePass(null);
+    }, 2500);
   }
 
   const SUSCRIPCION_LABELS: Record<string, { label: string; color: string }> = {
@@ -132,7 +188,13 @@ export default function PerfilPage() {
               </div>
               <div>
                 <p style={labelStyle}>CIF</p>
-                <input placeholder="B12345678" value={cif} onChange={e => setCif(e.target.value)} style={inputStyle} />
+                <input
+                  value={cif}
+                  disabled
+                  style={{ ...inputStyle, opacity: 0.5, cursor: "not-allowed" }}
+                  title="El CIF no se puede modificar. Contacta con soporte si necesitas cambiarlo."
+                />
+                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 6 }}>🔒 No modificable</p>
               </div>
             </div>
           </div>
@@ -148,6 +210,7 @@ export default function PerfilPage() {
               <div>
                 <p style={labelStyle}>Email</p>
                 <input value={email} disabled style={{ ...inputStyle, opacity: 0.5, cursor: "not-allowed" }} />
+                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 6 }}>🔒 No modificable</p>
               </div>
             </div>
           </div>
@@ -217,6 +280,82 @@ export default function PerfilPage() {
             )}
           </div>
 
+          {/* CAMBIO DE CONTRASEÑA */}
+          <div style={{ ...cardStyle, border: "1px solid rgba(139,92,246,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 24 : 0 }}>
+              <div>
+                <h2 style={{ ...sectionTitle, marginBottom: 4 }}>CONTRASEÑA</h2>
+                {!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}
+              </div>
+              <button
+                onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }}
+                style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" as const }}
+              >
+                {mostrarCambioPass ? "Cancelar" : "🔑 Cambiar contraseña"}
+              </button>
+            </div>
+
+            {mostrarCambioPass && (
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
+                <div>
+                  <p style={labelStyle}>Contraseña actual</p>
+                  <input
+                    type="password"
+                    placeholder="Tu contraseña actual"
+                    value={passwordActual}
+                    onChange={e => setPasswordActual(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={gridStyle}>
+                  <div>
+                    <p style={labelStyle}>Nueva contraseña</p>
+                    <input
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      value={passwordNueva}
+                      onChange={e => setPasswordNueva(e.target.value)}
+                      style={{ ...inputStyle, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.08)" }}
+                    />
+                    {passwordNueva && passwordNueva.length < 6 && (
+                      <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>
+                    )}
+                  </div>
+                  <div>
+                    <p style={labelStyle}>Repetir nueva contraseña</p>
+                    <input
+                      type="password"
+                      placeholder="Repite la nueva contraseña"
+                      value={passwordNueva2}
+                      onChange={e => setPasswordNueva2(e.target.value)}
+                      style={{ ...inputStyle, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.08)" }}
+                    />
+                    {passwordNueva2 && passwordNueva !== passwordNueva2 && (
+                      <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>
+                    )}
+                    {passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && (
+                      <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>
+                    )}
+                  </div>
+                </div>
+
+                {mensajePass && (
+                  <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>
+                    {mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}
+                  </div>
+                )}
+
+                <button
+                  onClick={cambiarContrasena}
+                  disabled={cambiandoPass}
+                  style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}
+                >
+                  {cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
 
         <aside style={rightColumn}>
@@ -241,9 +380,7 @@ export default function PerfilPage() {
             {creditoRD <= 0 && (
               <div style={{ marginTop: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px" }}>
                 <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, margin: 0 }}>Sin credito disponible</p>
-                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
-                  Contacta con nosotros: info@recambio-directo.com
-                </p>
+                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>Contacta con nosotros: info@recambio-directo.com</p>
               </div>
             )}
             {creditoRD > 0 && creditoRD < 100 && (
@@ -288,7 +425,7 @@ export default function PerfilPage() {
               cursor: guardando ? "not-allowed" : "pointer",
             }}
           >
-            {guardando ? "GUARDANDO..." : guardado ? "GUARDADO" : "GUARDAR CAMBIOS"}
+            {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
           </button>
 
         </aside>
