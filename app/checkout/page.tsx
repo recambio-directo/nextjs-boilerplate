@@ -209,7 +209,8 @@ export default function CheckoutPage() {
             console.error("MRW error:", mrwData.error);
           }
         } catch (mrwErr) {
-          console.error("Error registrando envío MRW:", mrwErr);
+          console.error("Error MRW:", mrwErr);
+          alert("MRW Error: " + String(mrwErr));
           // No bloqueamos el pedido si MRW falla
         }
       }

@@ -153,6 +153,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Error MRW crear-envio:", error);
-    return Response.json({ ok: false, error: String(error) }, { status: 500 });
+    return Response.json({ ok: false, error: String(error), stack: error instanceof Error ? error.stack : "" }, { status: 500 });
   }
 }
