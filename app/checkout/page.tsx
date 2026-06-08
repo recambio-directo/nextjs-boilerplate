@@ -156,6 +156,64 @@ export default function CheckoutPage() {
       pedidosCreados.push(codigo);
       primerPedido = false;
       if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+
+      // Registrar recogida MRW si el transporte elegido es MRW
+      if (transporte === "MRW" && pedidoInsertado?.id) {
+        try {
+          // Extraer CP y ciudad del proveedor y del cliente
+          const provDireccionParts = proveedorDireccion.split(",");
+          const provCiudad = provDireccionParts[provDireccionParts.length - 1]?.trim() || "";
+          const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
+
+          // Obtener CP del proveedor desde Supabase
+          let provCP = "";
+          if (provId !== "sin_proveedor") {
+            const { data: provExtra } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
+            provCP = provExtra?.codigo_postal || "";
+          }
+
+          // CP del cliente
+          const { data: clienteExtra } = await supabase.from("usuarios").select("codigo_postal").eq("id", user.id).single();
+          const clienteCP = clienteExtra?.codigo_postal || "";
+          const clienteCiudad = ciudad || "";
+          const clienteDireccionSolo = direccion || "";
+
+          const mrwRes = await fetch("/api/mrw/crear-envio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedidoId: pedidoInsertado.id,
+              pedidoCodigo: codigo,
+              remitenteNombre: nombreProveedor,
+              remitenteDireccion: provDireccionSolo,
+              remitenteCodigoPostal: provCP,
+              remitentePoblacion: provCiudad,
+              remitenteTelefono: proveedorTelefono,
+              destinatarioNombre: empresa || user.email,
+              destinatarioDireccion: clienteDireccionSolo,
+              destinatarioCodigoPostal: clienteCP,
+              destinatarioPoblacion: clienteCiudad,
+              destinatarioTelefono: telefono,
+              destinatarioEmail: user.email,
+              pesoKg: Math.max(1, grupo.productos.length * 2),
+            }),
+          });
+          const mrwData = await mrwRes.json();
+          if (mrwData.ok && mrwData.numeroEnvio) {
+            // Guardar número de envío MRW en el pedido
+            await supabase.from("pedidos")
+              .update({ tracking: mrwData.numeroEnvio, estado_envio: "preparando" })
+              .eq("id", pedidoInsertado.id);
+            console.log(`MRW envío creado: ${mrwData.numeroEnvio} para pedido ${codigo}`);
+          } else {
+            console.error("MRW error:", mrwData.error);
+          }
+        } catch (mrwErr) {
+          console.error("Error registrando envío MRW:", mrwErr);
+          // No bloqueamos el pedido si MRW falla
+        }
+      }
+
       if (emailProveedor) {
         try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
       }
