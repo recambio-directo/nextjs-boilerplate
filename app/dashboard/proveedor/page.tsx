@@ -392,7 +392,7 @@ export default function ProveedorPage() {
   return (
     <main style={mainStyle}>
       <header style={proveedorHeaderStyle}>
-        <div onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}>
+        <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}>
           <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>RD</div>
           <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>
         </div>
