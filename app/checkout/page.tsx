@@ -157,6 +157,9 @@ export default function CheckoutPage() {
       primerPedido = false;
       if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
+      // DEBUG MRW
+      alert(`DEBUG: transporte="${transporte}" pedidoId="${pedidoInsertado?.id}" codigo="${codigo}"`);
+
       // Registrar recogida MRW si el transporte elegido es MRW
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
