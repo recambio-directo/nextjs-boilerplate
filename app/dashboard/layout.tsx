@@ -19,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const notifRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
   const userIdRef = useRef<string | null>(null);
+  const lastNotifLoad = useRef<number>(0);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -52,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUserId(user.id);
     userIdRef.current = user.id;
     cargarCesta(user.id);
-    await cargarNotificaciones(user.id);
+    await cargarNotificaciones(user.id, true);
     const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
     if (perfil?.tipo) setTipoUsuario(perfil.tipo);
     suscribirRealtime(user.id);
@@ -114,7 +115,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setTotalCesta(data?.length || 0);
   }
 
-  async function cargarNotificaciones(uid: string) {
+  async function cargarNotificaciones(uid: string, forzar = false) {
+    // No recargar si se cargó hace menos de 30 segundos (evita re-aparición al volver del chat)
+    const ahora = Date.now();
+    if (!forzar && ahora - lastNotifLoad.current < 30000) return;
+    lastNotifLoad.current = ahora;
     const notifsTotales: any[] = [];
 
     // Mensajes no leídos en conversaciones del usuario
