@@ -7,13 +7,16 @@ import { supabase } from "../../lib/supabase";
 
 export default function Pedidos() {
   const router = useRouter();
-  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [pedidosRealizados, setPedidosRealizados] = useState<any[]>([]);
+  const [pedidosRecibidos, setPedidosRecibidos] = useState<any[]>([]);
+  const [pestañaActiva, setPestañaActiva] = useState<"realizados" | "recibidos">("realizados");
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroFecha, setFiltroFecha] = useState("todos");
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [solicitandoFactura, setSolicitandoFactura] = useState<number | null>(null);
+  const [subiendoFactura, setSubiendoFactura] = useState<number | null>(null);
   const [anulando, setAnulando] = useState<number | null>(null);
   const [modalAnular, setModalAnular] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
@@ -29,7 +32,7 @@ export default function Pedidos() {
 
   useEffect(() => {
     cargarPedidos();
-    const channel = supabase.channel("pedidos-realtime")
+    const channel = supabase.channel("pedidos-taller-realtime")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, () => cargarPedidos())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -40,8 +43,24 @@ export default function Pedidos() {
     if (!user) return;
     setUserId(user.id);
     setUserEmail(user.email || null);
-    const { data } = await supabase.from("pedidos").select("*").eq("cliente_id", user.id).order("id", { ascending: false });
-    setPedidos(data || []);
+
+    // REALIZADOS: pedidos donde el taller es el comprador
+    const { data: realizados } = await supabase
+      .from("pedidos").select("*")
+      .eq("cliente_id", user.id)
+      .order("id", { ascending: false });
+    setPedidosRealizados(realizados || []);
+
+    // RECIBIDOS: pedidos donde el taller es el vendedor (sus piezas están en productos)
+    const { data: todos } = await supabase
+      .from("pedidos").select("*")
+      .order("id", { ascending: false });
+    const recibidos = (todos || []).filter(p =>
+      (p.productos || []).some((prod: any) => prod.proveedor_id === user.id)
+    );
+    // Excluir los que ya están en realizados
+    const realizadosIds = new Set((realizados || []).map((p: any) => p.id));
+    setPedidosRecibidos(recibidos.filter(p => !realizadosIds.has(p.id)));
   }
 
   function fmt(n: any) {
@@ -55,6 +74,10 @@ export default function Pedidos() {
       return { nombre: p.proveedor_nombre || p.proveedor || "-", id: p.proveedor_id || null };
     }
     return { nombre: "-", id: null };
+  }
+
+  function getCompradorPedido(pedido: any) {
+    return { nombre: pedido.cliente_nombre || pedido.cliente_email || "-", email: pedido.cliente_email || "" };
   }
 
   function abrirModalAnular(pedido: any) { setModalAnular(pedido); setMotivoSeleccionado(""); }
@@ -102,25 +125,43 @@ export default function Pedidos() {
     setSolicitandoFactura(null);
   }
 
+  async function subirFactura(pedidoId: number, file: File) {
+    setSubiendoFactura(pedidoId);
+    const path = `facturas/${pedidoId}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("FACTURAS").upload(path, file, { contentType: "application/pdf" });
+    if (uploadError) { alert("Error al subir la factura: " + uploadError.message); setSubiendoFactura(null); return; }
+    const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
+    await supabase.from("pedidos").update({ factura_url: urlData.publicUrl, factura_nombre: file.name }).eq("id", pedidoId);
+    setSubiendoFactura(null);
+    cargarPedidos();
+  }
+
   async function abrirChat(pedido: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const proveedor = getProveedorPedido(pedido);
-    if (!proveedor.id) { alert("No se puede identificar el proveedor"); return; }
+    // En recibidos el "otro" es el comprador, en realizados es el proveedor
+    const otroId = pestañaActiva === "recibidos"
+      ? pedido.cliente_id
+      : proveedor.id;
+    if (!otroId) { alert("No se puede identificar el interlocutor"); return; }
     const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
     if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
-    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: proveedor.id, pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
+    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: otroId, pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
     if (!error && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
     else alert("Error al abrir el chat");
   }
+
+  const pedidos = pestañaActiva === "realizados" ? pedidosRealizados : pedidosRecibidos;
 
   const pedidosFiltrados = pedidos.filter(p => {
     if (p.anulado && filtroEstado !== "todos" && filtroEstado !== "anulado") return false;
     if (busqueda) {
       const q = busqueda.toLowerCase();
       const proveedor = getProveedorPedido(p);
+      const comprador = getCompradorPedido(p);
       const productos = (p.productos || []).map((pr: any) => `${pr.referencia} ${pr.descripcion}`).join(" ").toLowerCase();
-      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q))) return false;
+      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || comprador.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q))) return false;
     }
     if (filtroEstado !== "todos") {
       if (filtroEstado === "anulado") return p.anulado;
@@ -149,10 +190,69 @@ export default function Pedidos() {
   const estadoColor: Record<string, string> = {
     entregado: "#4ade80", enviado: "#60a5fa", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171",
   };
-
   const estadoEmoji: Record<string, string> = {
     entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌",
   };
+
+  // Acciones según pestaña
+  const esVendedor = pestañaActiva === "recibidos";
+
+  // Render fila expandida — compartido móvil y desktop
+  function AccionesExpandidas({ pedido }: { pedido: any }) {
+    const anulado = pedido.anulado || false;
+    const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
+    return (
+      <>
+        {/* Documentos */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán PDF</a>}
+          {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura PDF</a>}
+        </div>
+
+        {/* Factura — diferente según rol */}
+        {!anulado && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, margin: 0, marginRight: 4 }}>📄 FACTURA:</p>
+            {esVendedor ? (
+              // RECIBIDOS → el taller es vendedor → sube la factura
+              pedido.factura_url ? (
+                <>
+                  <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Subida</span>
+                  <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
+                  <label style={btnFacturaStyle}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
+                </>
+              ) : (
+                <label style={{ ...btnFacturaStyle, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
+                  {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
+                  <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
+                </label>
+              )
+            ) : (
+              // REALIZADOS → el taller es comprador → solicita la factura
+              pedido.factura_url
+                ? <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Disponible</span>
+                : <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ ...btnFacturaStyle, cursor: "pointer", opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>{solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}</button>
+            )}
+          </div>
+        )}
+
+        {/* Botones acción */}
+        {!anulado && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
+            {puedeAnular && (
+              <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: anulando === pedido.id ? 0.7 : 1 }}>
+                {anulando === pedido.id ? "Anulando..." : "❌ Anular"}
+              </button>
+            )}
+          </div>
+        )}
+        {anulado && pedido.motivo_anulacion && (
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700, marginTop: 8 }}>❌ Anulado: {pedido.motivo_anulacion}</div>
+        )}
+      </>
+    );
+  }
 
   return (
     <main style={{ padding: isMobile ? "12px" : "clamp(16px,4vw,40px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
@@ -162,11 +262,40 @@ export default function Pedidos() {
         <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>PANEL TALLER</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ fontSize: isMobile ? 28 : "clamp(28px,6vw,52px)", fontWeight: 900, lineHeight: 1 }}>MIS PEDIDOS</h1>
-          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 16px" : "16px 24px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
-            <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>TOTAL</p>
-            <h2 style={{ fontSize: isMobile ? 24 : 40, fontWeight: 900, margin: 0 }}>{pedidos.length}</h2>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "14px 20px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+              <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 2 }}>REALIZADOS</p>
+              <h2 style={{ fontSize: isMobile ? 20 : 32, fontWeight: 900, margin: 0 }}>{pedidosRealizados.length}</h2>
+            </div>
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "14px 20px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+              <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 2 }}>RECIBIDOS</p>
+              <h2 style={{ fontSize: isMobile ? 20 : 32, fontWeight: 900, margin: 0, color: pedidosRecibidos.length > 0 ? "#22c55e" : "white" }}>{pedidosRecibidos.length}</h2>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* PESTAÑAS */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <button
+          onClick={() => { setPestañaActiva("realizados"); setPedidoExpandido(null); setFiltroEstado("todos"); }}
+          style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "realizados" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "transparent", color: pestañaActiva === "realizados" ? "white" : "#94a3b8" }}
+        >
+          📤 Realizados ({pedidosRealizados.length})
+        </button>
+        <button
+          onClick={() => { setPestañaActiva("recibidos"); setPedidoExpandido(null); setFiltroEstado("todos"); }}
+          style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "recibidos" ? "linear-gradient(135deg,#16a34a,#15803d)" : "transparent", color: pestañaActiva === "recibidos" ? "white" : "#94a3b8" }}
+        >
+          📥 Recibidos ({pedidosRecibidos.length})
+        </button>
+      </div>
+
+      {/* INFO CONTEXTUAL */}
+      <div style={{ background: pestañaActiva === "realizados" ? "rgba(37,99,235,0.08)" : "rgba(22,163,74,0.08)", border: `1px solid ${pestañaActiva === "realizados" ? "rgba(37,99,235,0.2)" : "rgba(22,163,74,0.2)"}`, borderRadius: 12, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: pestañaActiva === "realizados" ? "#60a5fa" : "#4ade80" }}>
+        {pestañaActiva === "realizados"
+          ? "🛒 Pedidos que has realizado como comprador en la plataforma"
+          : "🏭 Pedidos recibidos de tus piezas publicadas — actúas como vendedor"}
       </div>
 
       {/* FILTROS */}
@@ -176,7 +305,6 @@ export default function Pedidos() {
           <input placeholder="Buscar pedido..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
           {busqueda && <button onClick={() => setBusqueda("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>✕</button>}
         </div>
-        {/* Filtros estado — scroll horizontal en móvil */}
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
           {[
             { key: "todos", label: `Todos (${contadores.todos})` },
@@ -189,7 +317,6 @@ export default function Pedidos() {
             <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0, background: filtroEstado === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{label}</button>
           ))}
         </div>
-        {/* Filtros fecha */}
         <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
           {[{ key: "todos", label: "Todos" }, { key: "hoy", label: "Hoy" }, { key: "semana", label: "Semana" }, { key: "mes", label: "Mes" }].map(({ key, label }) => (
             <button key={key} onClick={() => setFiltroFecha(key)} style={{ padding: "5px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0, background: filtroFecha === key ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", border: filtroFecha === key ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", color: filtroFecha === key ? "#a78bfa" : "#94a3b8" }}>{label}</button>
@@ -200,31 +327,35 @@ export default function Pedidos() {
       {/* VACÍO */}
       {pedidos.length === 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", padding: "60px 20px", borderRadius: 20, textAlign: "center" }}>
-          <p style={{ fontSize: 48, marginBottom: 16 }}>🛒</p>
-          <h2 style={{ fontSize: 22, fontWeight: 900 }}>No hay pedidos todavía</h2>
-          <button onClick={() => router.push("/dashboard")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>BUSCAR RECAMBIOS</button>
+          <p style={{ fontSize: 48, marginBottom: 16 }}>{pestañaActiva === "realizados" ? "🛒" : "📦"}</p>
+          <h2 style={{ fontSize: 22, fontWeight: 900 }}>
+            {pestañaActiva === "realizados" ? "No has realizado pedidos todavía" : "No has recibido pedidos todavía"}
+          </h2>
+          {pestañaActiva === "realizados" && (
+            <button onClick={() => router.push("/dashboard")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>BUSCAR RECAMBIOS</button>
+          )}
+          {pestañaActiva === "recibidos" && (
+            <button onClick={() => router.push("/dashboard/mis-piezas")} style={{ marginTop: 20, background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>PUBLICAR PIEZAS</button>
+          )}
         </div>
       )}
 
-      {/* LISTA PEDIDOS */}
       {pedidosFiltrados.length === 0 && pedidos.length > 0 && (
         <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>Sin resultados para los filtros seleccionados</div>
       )}
 
-      {isMobile ? (
-        /* ── MÓVIL: tarjetas ── */
+      {/* ── MÓVIL: tarjetas ── */}
+      {isMobile && pedidosFiltrados.length > 0 && (
         <div style={{ display: "grid", gap: 10 }}>
           {pedidosFiltrados.map(pedido => {
-            const proveedor = getProveedorPedido(pedido);
             const anulado = pedido.anulado || false;
-            const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
             const expandido = pedidoExpandido === pedido.id;
             const estado = anulado ? "anulado" : (pedido.estado_envio || "pendiente");
             const productos = pedido.productos || [];
+            const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
 
             return (
               <div key={pedido.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", opacity: anulado ? 0.75 : 1 }}>
-                {/* Cabecera tarjeta */}
                 <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
@@ -233,96 +364,48 @@ export default function Pedidos() {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ color: "#22c55e", fontWeight: 900, fontSize: 18 }}>{fmt(pedido.total)}€</p>
-                      <span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 11, background: `${estadoColor[estado]}22`, padding: "3px 8px", borderRadius: 999 }}>
-                        {estadoEmoji[estado]} {estado}
-                      </span>
+                      <span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 11, background: `${estadoColor[estado]}22`, padding: "3px 8px", borderRadius: 999 }}>{estadoEmoji[estado]} {estado}</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
-                    <span style={{ color: "#94a3b8" }}>🏭 {proveedor.nombre}</span>
+                    <span style={{ color: "#94a3b8" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
                     {(pedido.agencia || pedido.transporte) && <span style={{ color: "#94a3b8" }}>🚚 {pedido.agencia || pedido.transporte}</span>}
-                    {productos.length > 0 && <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>}
+                    <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
                   </div>
-                  {pedido.tracking && (
-                    <div style={{ marginTop: 8, background: "rgba(37,99,235,0.1)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "#60a5fa", fontWeight: 700 }}>
-                      📦 Tracking: {pedido.tracking}
-                    </div>
-                  )}
-                  <div style={{ marginTop: 8, textAlign: "right", color: "#64748b", fontSize: 11 }}>{expandido ? "▲ Cerrar" : "▼ Ver detalle"}</div>
+                  <div style={{ marginTop: 6, textAlign: "right", color: "#64748b", fontSize: 11 }}>{expandido ? "▲ Cerrar" : "▼ Ver detalle"}</div>
                 </div>
-
-                {/* Detalle expandido móvil */}
                 {expandido && (
                   <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", padding: "14px 16px" }}>
-                    {/* Productos */}
                     <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>REFERENCIAS</p>
                     {productos.map((p: any, i: number) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
-                        <div>
-                          <span style={{ fontWeight: 700, color: "#60a5fa" }}>{p.referencia}</span>
-                          <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 12 }}>{(p.descripcion || "").substring(0, 20)}</span>
-                        </div>
+                        <div><span style={{ fontWeight: 700, color: "#60a5fa" }}>{p.referencia}</span><span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 12 }}>{(p.descripcion || "").substring(0, 20)}</span></div>
                         <span style={{ color: "#22c55e", fontWeight: 700 }}>{fmt(p.precio)}€</span>
                       </div>
                     ))}
-
-                    {/* Info rápida */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
-                      <div style={{ background: "#0f172a", borderRadius: 10, padding: "10px 12px" }}>
-                        <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700 }}>TOTAL</p>
-                        <p style={{ color: "#22c55e", fontWeight: 900, fontSize: 18 }}>{fmt(pedido.total)}€</p>
-                      </div>
-                      <div style={{ background: "#0f172a", borderRadius: 10, padding: "10px 12px" }}>
-                        <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700 }}>PAGO</p>
-                        <p style={{ fontWeight: 700, fontSize: 13 }}>{pedido.estado_pago || "pendiente"}</p>
-                      </div>
+                    <div style={{ marginTop: 12 }}>
+                      <AccionesExpandidas pedido={pedido} />
                     </div>
-
-                    {/* Documentos */}
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                      {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 12px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán</a>}
-                      {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 12px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura</a>}
-                    </div>
-
-                    {/* Acciones */}
-                    {!anulado && (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                        <button onClick={() => abrirChat(pedido)} style={{ flex: 1, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Chat</button>
-                        <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ flex: 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12, opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>
-                          {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Factura"}
-                        </button>
-                        {puedeAnular && (
-                          <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "10px 12px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                            {anulando === pedido.id ? "..." : "❌"}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {anulado && pedido.motivo_anulacion && (
-                      <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, marginTop: 10 }}>
-                        ❌ {pedido.motivo_anulacion}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
             );
           })}
         </div>
-      ) : (
-        /* ── DESKTOP: tabla ── */
+      )}
+
+      {/* ── DESKTOP: tabla ── */}
+      {!isMobile && pedidosFiltrados.length > 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
-            {["CÓDIGO","REFERENCIAS","PROVEEDOR","TOTAL","TRANSPORTE","ESTADO","ACCIONES"].map(h => <div key={h}>{h}</div>)}
+            {["CÓDIGO", "REFERENCIAS", esVendedor ? "COMPRADOR" : "PROVEEDOR", "TOTAL", "TRANSPORTE", "ESTADO", "ACCIONES"].map(h => <div key={h}>{h}</div>)}
           </div>
-          {pedidosFiltrados.length === 0 && <div style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Sin resultados</div>}
           {pedidosFiltrados.map(pedido => {
-            const proveedor = getProveedorPedido(pedido);
             const anulado = pedido.anulado || false;
-            const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
             const expandido = pedidoExpandido === pedido.id;
             const estado = anulado ? "anulado" : (pedido.estado_envio || "pendiente");
             const productos = pedido.productos || [];
+            const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
             return (
               <React.Fragment key={pedido.id}>
                 <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
@@ -339,7 +422,7 @@ export default function Pedidos() {
                     ))}
                     {productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{proveedor.nombre}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
                   <div style={{ fontSize: 13, color: "#cbd5e1" }}>{pedido.agencia || pedido.transporte || "-"}</div>
                   <div><span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 12, background: `${estadoColor[estado]}22`, padding: "4px 10px", borderRadius: 999 }}>{estado.toUpperCase()}</span></div>
@@ -367,16 +450,7 @@ export default function Pedidos() {
                         {pedido.tracking && !anulado && <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, opacity: 0.8 }}>TRACKING</p><p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{pedido.tracking}</p></div>}
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>📄 Albarán PDF</a>}
-                      {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>🧾 Factura PDF</a>}
-                      {!anulado && <>
-                        <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
-                        <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>{solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}</button>
-                        {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: anulando === pedido.id ? 0.7 : 1 }}>{anulando === pedido.id ? "Anulando..." : "❌ Anular"}</button>}
-                      </>}
-                      {anulado && pedido.motivo_anulacion && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>❌ Anulado: {pedido.motivo_anulacion}</div>}
-                    </div>
+                    <AccionesExpandidas pedido={pedido} />
                   </div>
                 )}
               </React.Fragment>
@@ -392,7 +466,10 @@ export default function Pedidos() {
             <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 8 }}>❌ Anular pedido</h2>
             <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong></p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-              {["🚫 Ya no necesito el artículo","💳 La forma de pago no es la acordada","💶 El precio no coincide con el publicado","📍 El artículo no está disponible en la ubicación indicada","⏱️ El plazo de entrega es demasiado largo"].map(motivo => (
+              {(esVendedor
+                ? ["🚫 Referencia agotada en almacén", "💶 Error en el precio publicado", "🔧 Artículo dañado o en mal estado"]
+                : ["🚫 Ya no necesito el artículo", "💳 La forma de pago no es la acordada", "💶 El precio no coincide con el publicado", "📍 El artículo no está disponible en la ubicación indicada", "⏱️ El plazo de entrega es demasiado largo"]
+              ).map(motivo => (
                 <button key={motivo} onClick={() => setMotivoSeleccionado(motivo)} style={{ padding: "12px 16px", borderRadius: 10, textAlign: "left", fontWeight: 700, fontSize: isMobile ? 13 : 14, cursor: "pointer", background: motivoSeleccionado === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoSeleccionado === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoSeleccionado === motivo ? "#f87171" : "white" }}>{motivo}</button>
               ))}
             </div>
@@ -406,3 +483,5 @@ export default function Pedidos() {
     </main>
   );
 }
+
+const btnFacturaStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13 };
