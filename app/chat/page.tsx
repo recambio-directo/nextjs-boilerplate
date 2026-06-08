@@ -215,9 +215,43 @@ function ChatPageInner() {
   }
 
   /* ── PANEL MENSAJES (compartido móvil/desktop) ── */
-  const PanelMensajes = () => (
-    <>
-      {/* CABECERA */}
+
+
+  /* ── MÓVIL: vista tipo WhatsApp ── */
+  if (isMobile) return (
+    <div style={{ height: "100dvh", background: "#020b2d", color: "white", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {vistaMovil === "lista" ? (
+        /* Lista conversaciones móvil */
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Chats</h1>
+            <input placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ width: "100%", height: 38, borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", padding: "0 12px", color: "white", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {cargando ? <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Cargando...</div> :
+              convFiltradas.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>No hay conversaciones</div> :
+              convFiltradas.map(conv => (
+                <div key={conv.id} onClick={() => abrirChat(conv.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: chatActivo === conv.id ? "rgba(37,99,235,0.15)" : "transparent" }}>
+                  <div style={{ width: 46, height: 46, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18, flexShrink: 0 }}>{(conv.participante_nombre || "?").charAt(0).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{conv.participante_nombre}</span>
+                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{tiempoRelativo(conv.updated_at || "")}</span>
+                    </div>
+                    {conv.referencia && <div style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700 }}>{conv.referencia}</div>}
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.ultimo_mensaje || "Sin mensajes"}</div>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      ) : (
+        /* Vista chat activo móvil */
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {chatActivo !== null && (
+          <>
+          {/* CABECERA */}
       <div style={{ minHeight: 64, background: "#0a1628", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isMobile && (
@@ -280,42 +314,8 @@ function ChatPageInner() {
           {isMobile ? "↑" : "Enviar"}
         </button>
       </div>
-    </>
-  );
-
-  /* ── MÓVIL: vista tipo WhatsApp ── */
-  if (isMobile) return (
-    <div style={{ height: "100dvh", background: "#020b2d", color: "white", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {vistaMovil === "lista" ? (
-        /* Lista conversaciones móvil */
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Chats</h1>
-            <input placeholder="Buscar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ width: "100%", height: 38, borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", padding: "0 12px", color: "white", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-          </div>
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {cargando ? <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Cargando...</div> :
-              convFiltradas.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>No hay conversaciones</div> :
-              convFiltradas.map(conv => (
-                <div key={conv.id} onClick={() => abrirChat(conv.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: chatActivo === conv.id ? "rgba(37,99,235,0.15)" : "transparent" }}>
-                  <div style={{ width: 46, height: 46, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18, flexShrink: 0 }}>{(conv.participante_nombre || "?").charAt(0).toUpperCase()}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{conv.participante_nombre}</span>
-                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{tiempoRelativo(conv.updated_at || "")}</span>
-                    </div>
-                    {conv.referencia && <div style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700 }}>{conv.referencia}</div>}
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.ultimo_mensaje || "Sin mensajes"}</div>
-                  </div>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      ) : (
-        /* Vista chat activo móvil */
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {chatActivo !== null && <PanelMensajes />}
+          </>
+        )}
         </div>
       )}
 
@@ -377,7 +377,73 @@ function ChatPageInner() {
             <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 12 }}>Recambio Directo Chat</h2>
             <p style={{ color: "#94a3b8", fontSize: 16, maxWidth: 400, textAlign: "center", lineHeight: 1.6 }}>Selecciona una conversación para ver los mensajes.</p>
           </div>
-        ) : <PanelMensajes />}
+        ) : (
+          <>
+          {/* CABECERA */}
+      <div style={{ minHeight: 64, background: "#0a1628", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {isMobile && (
+            <button onClick={() => setVistaMovil("lista")} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "white", width: 36, height: 36, borderRadius: 10, cursor: "pointer", fontSize: 18 }}>←</button>
+          )}
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
+            {(convActiva?.participante_nombre || "?").charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 onClick={() => cargarFichaProveedor(convActiva?.participante_id)} style={{ fontSize: isMobile ? 15 : 18, fontWeight: 900, margin: 0, cursor: "pointer", textDecoration: "underline dotted" }}>{convActiva?.participante_nombre || `Chat #${chatActivo}`}</h2>
+            {convActiva?.referencia && <p style={{ color: "#60a5fa", fontSize: 11, margin: 0, marginTop: 2, fontWeight: 700 }}>{convActiva.referencia}</p>}
+          </div>
+        </div>
+        {pedidoInfo && !isMobile && (
+          <div style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "8px 14px", textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: "#94a3b8" }}>PEDIDO VINCULADO</div>
+            <div style={{ fontWeight: 800, color: "#60a5fa", fontSize: 13 }}>{pedidoInfo.codigo || `#${pedidoInfo.id}`}</div>
+            <div style={{ fontSize: 11, color: "#94a3b8" }}>{Number(pedidoInfo.total).toFixed(2)}€</div>
+          </div>
+        )}
+      </div>
+
+      {/* MENSAJES */}
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px 12px 8px" : "24px 24px 8px" }}>
+        {mensajes.length === 0 ? (
+          <div style={{ textAlign: "center", color: "#94a3b8", marginTop: 40 }}><p style={{ fontSize: 32, marginBottom: 8 }}>👋</p><p>Empieza la conversación</p></div>
+        ) : mensajes.map((msg, i) => {
+          const esPropio = msg.user_id === userId;
+          const msgAnterior = i > 0 ? mensajes[i - 1] : null;
+          const mismoEmisor = msgAnterior ? (msgAnterior.user_id === msg.user_id || msgAnterior.emisor === msg.emisor) : false;
+          return (
+            <div key={msg.id} style={{ display: "flex", justifyContent: esPropio ? "flex-end" : "flex-start", marginBottom: mismoEmisor ? 4 : 12, paddingLeft: esPropio ? "15%" : 0, paddingRight: esPropio ? 0 : "15%" }}>
+              {!esPropio && !mismoEmisor && <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(37,99,235,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11, color: "#93c5fd", marginRight: 8, flexShrink: 0, alignSelf: "flex-end" }}>{(convActiva?.participante_nombre || "P").charAt(0).toUpperCase()}</div>}
+              {!esPropio && mismoEmisor && <div style={{ width: 28, marginRight: 8 }} />}
+              <div style={{ background: esPropio ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "#1e293b", padding: "10px 14px", borderRadius: esPropio ? "16px 16px 4px 16px" : "16px 16px 16px 4px", maxWidth: isMobile ? "85%" : 520, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
+                {!esPropio && !mismoEmisor && <p style={{ color: "#60a5fa", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{convActiva?.participante_nombre}</p>}
+                {msg.adjunto_url && (
+                  <div style={{ marginBottom: 8 }}>
+                    {esImagen(msg.adjunto_tipo) ? <img src={msg.adjunto_url} alt={msg.adjunto_nombre} style={{ maxWidth: isMobile ? 200 : 280, maxHeight: 180, borderRadius: 8, display: "block" }} /> : <a href={msg.adjunto_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.1)", padding: "8px 12px", borderRadius: 8, textDecoration: "none", color: "white" }}><span style={{ fontSize: 18 }}>📄</span><span style={{ fontSize: 13, fontWeight: 700 }}>{msg.adjunto_nombre}</span></a>}
+                  </div>
+                )}
+                {(!msg.adjunto_url || msg.mensaje !== `📎 ${msg.adjunto_nombre}`) && <p style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.5, margin: 0 }}>{msg.mensaje}</p>}
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginTop: 4, gap: 4 }}>
+                  <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{new Date(msg.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span>
+                  {esPropio && <Ticks leido={msg.leido} />}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={mensajesEndRef} />
+      </div>
+
+      {/* INPUT */}
+      <div style={{ padding: isMobile ? "10px 12px" : "14px 20px", background: "#0a1628", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+        <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirAdjunto(e.target.files[0]); }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={subiendo} style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "white", cursor: "pointer", fontSize: 18, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{subiendo ? "⏳" : "📎"}</button>
+        <input type="text" placeholder="Escribe un mensaje..." value={texto} onChange={e => setTexto(e.target.value)} onKeyDown={handleKeyDown} style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 22, padding: "0 16px", color: "white", fontSize: 14, outline: "none" }} />
+        <button onClick={enviarMensaje} disabled={!texto.trim()} style={{ height: 44, minWidth: isMobile ? 60 : 90, borderRadius: 22, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", fontWeight: 800, fontSize: 14, opacity: texto.trim() ? 1 : 0.5, cursor: texto.trim() ? "pointer" : "not-allowed" }}>
+          {isMobile ? "↑" : "Enviar"}
+        </button>
+      </div>
+          </>
+        )}
       </section>
 
       {/* FICHA PROVEEDOR DESKTOP */}
