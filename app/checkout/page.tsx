@@ -200,13 +200,13 @@ export default function CheckoutPage() {
           });
           const mrwData = await mrwRes.json();
           if (mrwData.ok && mrwData.numeroEnvio) {
-            // Guardar número de envío MRW en el pedido
             await supabase.from("pedidos")
               .update({ tracking: mrwData.numeroEnvio, estado_envio: "preparando" })
               .eq("id", pedidoInsertado.id);
             console.log(`MRW envío creado: ${mrwData.numeroEnvio} para pedido ${codigo}`);
           } else {
             console.error("MRW error:", mrwData.error);
+            alert("MRW respuesta:\n" + (mrwData.error || "") + "\n\nXML: " + (mrwData.xmlRaw || "").substring(0, 300));
           }
         } catch (mrwErr) {
           console.error("Error MRW:", mrwErr);
