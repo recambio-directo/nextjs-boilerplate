@@ -709,7 +709,7 @@ export default function ProveedorPage() {
                                         const { data: nuevaConv } = await supabase.from("conversaciones").insert({ user1_id: userId, user2_id: pedido.cliente_id || pedido.comprador_id || "", pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
                                         if (nuevaConv?.id) router.push(`/chat?conv=${nuevaConv.id}`);
                                       }
-                                    }} style={btnAbrirChat}>💬 {mensajesPedido.length > 0 ? "Ver conversación completa" : "Abrir chat con cliente"}</button>
+                                    }} style={btnAbrirChat}>💬 {mensajesPedido.length > 0 ? "Ver conversación" : "Abrir chat"}</button>
                                   </div>
                                   {!pedido.anulado && (
                                     <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
