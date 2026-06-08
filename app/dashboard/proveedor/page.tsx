@@ -104,6 +104,7 @@ export default function ProveedorPage() {
   const [cargando, setCargando] = useState(true);
   const [busquedaPedido, setBusquedaPedido] = useState("");
   const [subiendoFactura, setSubiendoFactura] = useState<number | null>(null);
+  const [solicitandoFactura, setSolicitandoFactura] = useState<number | null>(null);
   const [anulandoPedido, setAnulandoPedido] = useState<number | null>(null);
   const [modalAnular, setModalAnular] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
@@ -254,6 +255,43 @@ export default function ProveedorPage() {
     setPiezas(data || []);
     if (count !== null) setTotalPiezas(count);
     setPaginaActual(pagina);
+  }
+
+  async function solicitarFacturaProveedor(pedido: Pedido) {
+    setSolicitandoFactura(pedido.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, cif, telefono, direccion, ciudad, codigo_postal").eq("id", user.id).single();
+    // El proveedor que vendió la pieza
+    const productos = pedido.productos || [];
+    const proveedorId = productos[0]?.proveedor_id || null;
+    let emailProveedor = "info@recambio-directo.com";
+    let nombreProveedor = productos[0]?.proveedor_nombre || "Proveedor";
+    if (proveedorId) {
+      const { data: provPerfil } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", proveedorId).single();
+      if (provPerfil?.email) emailProveedor = provPerfil.email;
+      if (provPerfil?.nombre_empresa) nombreProveedor = provPerfil.nombre_empresa;
+    }
+    try {
+      await fetch("/api/send-solicitud-factura", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pedidoCodigo: pedido.codigo || `#${pedido.id}`,
+          pedidoId: pedido.id,
+          pedidoTotal: pedido.total,
+          pedidoFecha: pedido.created_at,
+          clienteEmail: user.email,
+          clienteNombre: perfil?.nombre_empresa || user.email,
+          clienteCif: perfil?.cif || "-",
+          clienteTelefono: perfil?.telefono || "-",
+          clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "),
+          proveedorNombre: nombreProveedor,
+          emailProveedor,
+        }),
+      });
+      alert("✅ Solicitud enviada al proveedor.");
+    } catch (e) { alert("Error al enviar la solicitud"); }
+    setSolicitandoFactura(null);
   }
 
   async function subirFactura(pedidoId: number, file: File) {
@@ -681,17 +719,36 @@ export default function ProveedorPage() {
                                       </div>
                                       <div style={{ flex: 1 }}>
                                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
-                                        {pedido.factura_url ? (
-                                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                            <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
-                                            <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
-                                            <label style={btnSubirFactura}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
-                                          </div>
+                                        {pestañaPedidos === "recibidos" ? (
+                                          /* RECIBIDOS — el proveedor ES el vendedor, sube la factura */
+                                          pedido.factura_url ? (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                              <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
+                                              <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
+                                              <label style={btnSubirFactura}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
+                                            </div>
+                                          ) : (
+                                            <label style={{ ...btnSubirFactura, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
+                                              {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
+                                              <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
+                                            </label>
+                                          )
                                         ) : (
-                                          <label style={{ ...btnSubirFactura, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
-                                            {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
-                                            <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
-                                          </label>
+                                          /* REALIZADOS — el proveedor ES el comprador, solicita la factura */
+                                          pedido.factura_url ? (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                              <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura disponible</span>
+                                              <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Descargar PDF</a>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={() => solicitarFacturaProveedor(pedido)}
+                                              disabled={solicitandoFactura === pedido.id}
+                                              style={{ ...btnSubirFactura, opacity: solicitandoFactura === pedido.id ? 0.7 : 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", cursor: "pointer" }}
+                                            >
+                                              {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}
+                                            </button>
+                                          )
                                         )}
                                       </div>
                                       {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulandoPedido === pedido.id} style={{ ...btnAnular, opacity: anulandoPedido === pedido.id ? 0.7 : 1 }}>{anulandoPedido === pedido.id ? "Anulando..." : "❌ Anular pedido"}</button>}
