@@ -77,6 +77,7 @@ function ChatPageInner() {
   const [vistaMovil, setVistaMovil] = useState<"lista" | "chat">("lista");
   const mensajesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -97,6 +98,7 @@ function ChatPageInner() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
+    userIdRef.current = user.id;
     await cargarConversaciones(user.id);
     setCargando(false);
   }
@@ -146,7 +148,13 @@ function ChatPageInner() {
     const { data: msgData } = await supabase.from("mensajes").select("*").eq("conversacion_id", convId).order("created_at", { ascending: true });
     if (msgData && msgData.length > 0) {
       setMensajes(msgData);
-      await supabase.from("mensajes").update({ leido: true }).eq("conversacion_id", convId).neq("user_id", userId);
+      const uid = userIdRef.current;
+      if (uid) {
+        await supabase.from("mensajes")
+          .update({ leido: true })
+          .eq("conversacion_id", convId)
+          .neq("user_id", uid);
+      }
       return;
     }
     const { data: msgPedido } = await supabase.from("mensajes_pedido").select("*").eq("pedido_id", convId).order("created_at", { ascending: true });
