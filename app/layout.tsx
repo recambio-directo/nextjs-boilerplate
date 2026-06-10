@@ -27,12 +27,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/manifest-icon-192.maskable.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/manifest-icon-512.maskable.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
       { url: "/icons/apple-icon-180.png", sizes: "180x180", type: "image/png" },
     ],
+    shortcut: "/favicon.png",
   },
 };
 
@@ -40,6 +42,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+        <link rel="shortcut icon" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/icons/apple-icon-180.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
