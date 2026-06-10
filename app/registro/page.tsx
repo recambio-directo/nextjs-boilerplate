@@ -47,6 +47,9 @@ export default function RegistroPage() {
     if (!email.trim()) { setError("El email es obligatorio"); return; }
     if (!cif.trim()) { setError("El CIF/NIF es obligatorio"); return; }
     if (!validarCIF(cif)) { setError("Formato CIF/NIF no válido. Ej: B12345678 o 12345678A"); return; }
+    if (!telefono.trim()) { setError("El teléfono es obligatorio"); return; }
+    if (!direccion.trim()) { setError("La dirección es obligatoria"); return; }
+    if (!codigoPostal.trim() || codigoPostal.length < 5) { setError("El código postal es obligatorio"); return; }
     if (!password) { setError("La contraseña es obligatoria"); return; }
     if (password.length < 6) { setError("Mínimo 6 caracteres"); return; }
     if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
@@ -173,14 +176,14 @@ export default function RegistroPage() {
               <input type="email" placeholder="taller@ejemplo.es" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Telefono</p>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Telefono *</p>
               <input placeholder="600 000 000" value={telefono} onChange={e => setTelefono(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <h3 style={{ fontSize: 12, fontWeight: 800, color: "#60a5fa", marginBottom: 14, marginTop: 20, textTransform: "uppercase", letterSpacing: "0.08em" }}>Direccion</h3>
           <div style={{ marginBottom: 14 }}>
-            <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Direccion</p>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Direccion *</p>
             <input placeholder="Calle Mayor, 123" value={direccion} onChange={e => setDireccion(e.target.value)} style={inputStyle} />
           </div>
           <div style={grid2}>
@@ -194,7 +197,7 @@ export default function RegistroPage() {
               />
             </div>
             <div>
-              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal</p>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal *</p>
               <input
                 placeholder="41001"
                 value={codigoPostal}
