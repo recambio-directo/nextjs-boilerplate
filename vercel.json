@@ -2,7 +2,8 @@
   "crons": [
     {
       "path": "/api/mrw/cron",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 8 * * *"
     }
-  ]
+  ],
+  "version": 2
 }
