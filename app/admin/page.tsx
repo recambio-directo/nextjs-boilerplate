@@ -398,7 +398,39 @@ export default function AdminPage() {
                           }
                           await supabase.from("usuarios").update(updates).eq("id", u.id);
                           setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, ...updates } : x));
-                          if (nuevoEstado) alert(`✅ FTP activado\n\nAPI Key: ${updates.ftp_api_key || u.ftp_api_key}\n\nURL upload:\nhttps://recambio-directo.com/api/ftp/upload?api_key=${updates.ftp_api_key || u.ftp_api_key}`);
+                          if (nuevoEstado) {
+                            const apiKey = updates.ftp_api_key || u.ftp_api_key;
+                            const url = `https://recambio-directo.com/api/ftp/upload?api_key=${apiKey}`;
+                            const contenido = `CREDENCIALES FTP SYNC — RECAMBIO DIRECTO
+==========================================
+Empresa: ${u.nombre_empresa || u.email}
+Fecha activación: ${new Date().toLocaleDateString("es-ES")}
+
+API KEY: ${apiKey}
+
+URL UPLOAD:
+${url}
+
+INSTRUCCIONES:
+- Método: POST (multipart/form-data)
+- Campo: file
+- Formatos aceptados: CSV, XLSX, XLS
+- Columnas requeridas: referencia, descripcion, precio, stock
+- Columna opcional: marca
+- Procesamiento automático: cada noche a las 5:00 AM
+
+EJEMPLO CSV:
+referencia;descripcion;precio;stock;marca
+W79;FILTRO ACEITE MANN W79;4.50;25;MANN
+
+Soporte: info@recambio-directo.com
+==========================================`;
+                            const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `credenciales-ftp-${(u.nombre_empresa || u.email).replace(/\s+/g, "-").toLowerCase()}.txt`;
+                            a.click();
+                          }
                         }} style={{ background: u.ftp_activo ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.05)", border: "none", color: u.ftp_activo ? "#a78bfa" : "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
                           {u.ftp_activo ? "🔄 Activo" : "—"}
                         </button>
