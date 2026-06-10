@@ -19,6 +19,7 @@ type Usuario = {
   suscripcion: string;
   notas_admin?: string;
   ftp_activo?: boolean;
+  ftp_api_key?: string;
   credito_rd?: number;
   iban?: string;
 };
@@ -389,7 +390,16 @@ export default function AdminPage() {
                         </select>
                       </td>
                       <td style={tdStyle}>
-                        <button onClick={async () => { await supabase.from("usuarios").update({ ftp_activo: !u.ftp_activo }).eq("id", u.id); setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, ftp_activo: !x.ftp_activo } : x)); }} style={{ background: u.ftp_activo ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.05)", border: "none", color: u.ftp_activo ? "#a78bfa" : "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                        <button onClick={async () => {
+                          const nuevoEstado = !u.ftp_activo;
+                          const updates: any = { ftp_activo: nuevoEstado };
+                          if (nuevoEstado && !u.ftp_api_key) {
+                            updates.ftp_api_key = `rd-ftp-${u.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 10)}`;
+                          }
+                          await supabase.from("usuarios").update(updates).eq("id", u.id);
+                          setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, ...updates } : x));
+                          if (nuevoEstado) alert(`✅ FTP activado\n\nAPI Key: ${updates.ftp_api_key || u.ftp_api_key}\n\nURL upload:\nhttps://recambio-directo.com/api/ftp/upload?api_key=${updates.ftp_api_key || u.ftp_api_key}`);
+                        }} style={{ background: u.ftp_activo ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.05)", border: "none", color: u.ftp_activo ? "#a78bfa" : "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
                           {u.ftp_activo ? "🔄 Activo" : "—"}
                         </button>
                       </td>
