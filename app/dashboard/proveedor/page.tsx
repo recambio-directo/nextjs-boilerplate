@@ -90,6 +90,7 @@ export default function ProveedorPage() {
   const [busquedaHeader, setBusquedaHeader] = useState("");
   const [notifs, setNotifs] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [totalCesta, setTotalCesta] = useState(0);
   const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "importar" | "horarios" | "exclusiones" | "cuenta">("dashboard");
   const [pestañaPedidos, setPestañaPedidos] = useState<"recibidos" | "realizados">("recibidos");
   const [pedidosRecibidos, setPedidosRecibidos] = useState<Pedido[]>([]);
@@ -155,6 +156,7 @@ export default function ProveedorPage() {
     setUserId(user.id);
     await cargarDatos();
     await cargarNotificaciones(user.id);
+    cargarCesta(user.id);
 
     const channelName = `proveedor-realtime-${user.id}-${Date.now()}`;
     const channel = supabase
@@ -190,14 +192,32 @@ export default function ProveedorPage() {
     channelRef.current = channel;
   }
 
+  async function cargarCesta(uid: string) {
+    const { data } = await supabase.from("cesta").select("id").eq("user_id", uid);
+    setTotalCesta(data?.length || 0);
+  }
+
   async function cargarNotificaciones(uid: string) {
+    const KEY = `rd_notif_last_prov_${uid}`;
+    const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
+    const ultimo = parseInt(sessionStorage.getItem(KEY) || "0");
+    const ahora = Date.now();
+    if (ahora - ultimo < 60000) return;
+    sessionStorage.setItem(KEY, String(ahora));
+    const vistasAntes = new Set<string>(JSON.parse(sessionStorage.getItem(VISTAS_KEY) || "[]"));
+
     const notifsTotales: any[] = [];
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
     const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
     const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
     if (convIds.length > 0) {
       const { data: msgs } = await supabase.from("mensajes").select("id, mensaje, created_at, conversacion_id").in("conversacion_id", convIds).neq("user_id", uid).or("leido.is.null,leido.eq.false").order("created_at", { ascending: false }).limit(10);
-      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }));
+      (msgs || []).forEach(m => notifsTotales.push({
+        id: m.id, tipo: "chat",
+        texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`,
+        leido: vistasAntes.has(String(m.id)),
+        created_at: m.created_at, conv_id: m.conversacion_id
+      }));
     }
     const hace7dias = new Date();
     hace7dias.setDate(hace7dias.getDate() - 7);
@@ -207,6 +227,7 @@ export default function ProveedorPage() {
     });
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
+    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(notifsTotales.map(n => String(n.id))));
   }
 
   async function cargarDatos() {
@@ -441,8 +462,30 @@ export default function ProveedorPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 700 }}>{nombreEmpresa}</span>
           <button onClick={() => router.push("/chat")} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>💬 Chats</button>
+          <button onClick={() => router.push("/checkout")} style={{ position: "relative", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+            🛒 Cesta
+            {totalCesta > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{totalCesta}</span>}
+          </button>
           <div style={{ position: "relative" as const }}>
-            <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) setNotifs(prev => prev.map(n => ({ ...n, leido: true }))); }} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" as const }}>
+            <button onClick={() => {
+              setShowNotifs(!showNotifs);
+              if (!showNotifs) {
+                // Marcar todas como leídas y guardar IDs vistos
+                const uid = userId;
+                if (uid) {
+                  const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
+                  sessionStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id))));
+                  // Marcar en Supabase
+                  const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
+                  if (convIds.length > 0) {
+                    supabase.from("mensajes").update({ leido: true }).in("conversacion_id", [...new Set(convIds)]).neq("user_id", uid);
+                  }
+                  // Limpiar cooldown para próxima recarga
+                  sessionStorage.removeItem(`rd_notif_last_prov_${uid}`);
+                }
+                setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
+              }
+            }} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" as const }}>
               🔔
               {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
             </button>
@@ -457,7 +500,7 @@ export default function ProveedorPage() {
                 ) : (
                   <div style={{ maxHeight: 380, overflowY: "auto" as const }}>
                     {notifs.slice(0, 20).map((n, i) => (
-                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
+                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (userId) sessionStorage.removeItem(`rd_notif_last_prov_${userId}`); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
                         <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
