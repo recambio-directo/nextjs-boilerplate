@@ -17,24 +17,29 @@ export default function PerfilPage() {
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [totalPedidos, setTotalPedidos] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Datos bancarios
   const [iban, setIban] = useState("");
   const [titularCuenta, setTitularCuenta] = useState("");
   const [banco, setBanco] = useState("");
 
-  // Crédito RD
   const [creditoRD, setCreditoRD] = useState(0);
   const [suscripcion, setSuscripcion] = useState("gratuito");
   const [historialCredito, setHistorialCredito] = useState<any[]>([]);
 
-  // Cambio de contraseña
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
   const [passwordActual, setPasswordActual] = useState("");
   const [passwordNueva, setPasswordNueva] = useState("");
   const [passwordNueva2, setPasswordNueva2] = useState("");
   const [cambiandoPass, setCambiandoPass] = useState(false);
   const [mensajePass, setMensajePass] = useState<{tipo: "ok" | "error"; texto: string} | null>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => { cargarPerfil(); }, []);
 
@@ -44,7 +49,6 @@ export default function PerfilPage() {
     setUserId(user.id);
     setEmail(user.email || "");
     setTipo(user.user_metadata?.tipo || "cliente");
-
     const { data } = await supabase.from("usuarios").select("*").eq("id", user.id).single();
     if (data) {
       setEmpresa(data.nombre_empresa || "");
@@ -60,46 +64,22 @@ export default function PerfilPage() {
       setCreditoRD(Number(data.credito_rd) || 0);
       setSuscripcion(data.suscripcion || "gratuito");
     }
-
     const { count } = await supabase.from("pedidos").select("*", { count: "exact", head: true }).eq("cliente_id", user.id);
     setTotalPedidos(count || 0);
-
-    const { data: pedidosRD } = await supabase
-      .from("pedidos")
-      .select("id, codigo, total, created_at, forma_pago")
-      .eq("cliente_id", user.id)
-      .eq("forma_pago", "rd_pago")
-      .order("id", { ascending: false })
-      .limit(5);
+    const { data: pedidosRD } = await supabase.from("pedidos").select("id, codigo, total, created_at, forma_pago").eq("cliente_id", user.id).eq("forma_pago", "rd_pago").order("id", { ascending: false }).limit(5);
     setHistorialCredito(pedidosRD || []);
   }
 
   async function guardarPerfil() {
     if (guardando) return;
     setGuardando(true);
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setGuardando(false); return; }
-
-    const campos = {
-      nombre_empresa: empresa, telefono, direccion, ciudad, provincia,
-      codigo_postal: codigoPostal, email: user.email,
-      tipo: user.user_metadata?.tipo || tipo,
-      iban: iban.trim().toUpperCase(),
-      titular_cuenta: titularCuenta,
-      banco,
-    };
-
+    const campos = { nombre_empresa: empresa, telefono, direccion, ciudad, provincia, codigo_postal: codigoPostal, email: user.email, tipo: user.user_metadata?.tipo || tipo, iban: iban.trim().toUpperCase(), titular_cuenta: titularCuenta, banco };
     const { data: existe } = await supabase.from("usuarios").select("id").eq("id", user.id).single();
     let error;
-    if (existe) {
-      const { error: e } = await supabase.from("usuarios").update(campos).eq("id", user.id);
-      error = e;
-    } else {
-      const { error: e } = await supabase.from("usuarios").insert({ id: user.id, ...campos });
-      error = e;
-    }
-
+    if (existe) { const { error: e } = await supabase.from("usuarios").update(campos).eq("id", user.id); error = e; }
+    else { const { error: e } = await supabase.from("usuarios").insert({ id: user.id, ...campos }); error = e; }
     setGuardando(false);
     if (error) { alert("Error al guardar: " + error.message); return; }
     setGuardado(true);
@@ -108,51 +88,18 @@ export default function PerfilPage() {
 
   async function cambiarContrasena() {
     setMensajePass(null);
-    if (!passwordNueva || !passwordNueva2) {
-      setMensajePass({ tipo: "error", texto: "Rellena todos los campos" });
-      return;
-    }
-    if (passwordNueva.length < 6) {
-      setMensajePass({ tipo: "error", texto: "La contraseña debe tener mínimo 6 caracteres" });
-      return;
-    }
-    if (passwordNueva !== passwordNueva2) {
-      setMensajePass({ tipo: "error", texto: "Las contraseñas no coinciden" });
-      return;
-    }
-
+    if (!passwordNueva || !passwordNueva2) { setMensajePass({ tipo: "error", texto: "Rellena todos los campos" }); return; }
+    if (passwordNueva.length < 6) { setMensajePass({ tipo: "error", texto: "La contraseña debe tener mínimo 6 caracteres" }); return; }
+    if (passwordNueva !== passwordNueva2) { setMensajePass({ tipo: "error", texto: "Las contraseñas no coinciden" }); return; }
     setCambiandoPass(true);
-
-    // Verificar contraseña actual reautenticando
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password: passwordActual,
-    });
-
-    if (loginError) {
-      setMensajePass({ tipo: "error", texto: "La contraseña actual no es correcta" });
-      setCambiandoPass(false);
-      return;
-    }
-
-    // Actualizar contraseña
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password: passwordActual });
+    if (loginError) { setMensajePass({ tipo: "error", texto: "La contraseña actual no es correcta" }); setCambiandoPass(false); return; }
     const { error: updateError } = await supabase.auth.updateUser({ password: passwordNueva });
-
     setCambiandoPass(false);
-
-    if (updateError) {
-      setMensajePass({ tipo: "error", texto: "Error al cambiar la contraseña: " + updateError.message });
-      return;
-    }
-
+    if (updateError) { setMensajePass({ tipo: "error", texto: "Error al cambiar la contraseña: " + updateError.message }); return; }
     setMensajePass({ tipo: "ok", texto: "Contraseña cambiada correctamente" });
-    setPasswordActual("");
-    setPasswordNueva("");
-    setPasswordNueva2("");
-    setTimeout(() => {
-      setMostrarCambioPass(false);
-      setMensajePass(null);
-    }, 2500);
+    setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2("");
+    setTimeout(() => { setMostrarCambioPass(false); setMensajePass(null); }, 2500);
   }
 
   const SUSCRIPCION_LABELS: Record<string, { label: string; color: string }> = {
@@ -163,300 +110,214 @@ export default function PerfilPage() {
     cancelado: { label: "Cancelado",         color: "#94a3b8" },
   };
   const subInfo = SUSCRIPCION_LABELS[suscripcion] || SUSCRIPCION_LABELS.gratuito;
+  const m = isMobile;
+
+  const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", borderRadius: m ? 16 : 24, padding: m ? "16px" : "28px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: m ? 12 : 20 };
+  const secTitle: React.CSSProperties = { fontSize: m ? 14 : 16, fontWeight: 800, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: m ? 14 : 20 };
+  const label: React.CSSProperties = { color: "#94a3b8", fontSize: 13, marginBottom: 6 };
+  const input: React.CSSProperties = { width: "100%", padding: m ? "12px 14px" : "14px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "#0f172a", color: "white", fontSize: m ? 14 : 15, outline: "none", boxSizing: "border-box" };
+  const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: m ? 10 : 16 };
 
   return (
-    <main style={mainStyle}>
-      <section style={heroStyle}>
-        <div style={heroOverlay} />
-        <div style={heroContent}>
-          <div style={badgeStyle}>CONFIGURACION EMPRESA</div>
-          <h1 style={titleStyle}>MI CUENTA</h1>
-          <p style={subtitleStyle}>Gestiona la informacion fiscal, bancaria y de contacto.</p>
-        </div>
-      </section>
+    <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: m ? "12px 12px 80px" : "clamp(16px,4vw,40px)" }}>
 
-      <section style={contentSection}>
-        <div style={leftColumn}>
+      {/* HEADER */}
+      <div style={{ marginBottom: m ? 16 : 24 }}>
+        <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>CONFIGURACION</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ fontSize: m ? 28 : "clamp(28px,5vw,48px)", fontWeight: 900, lineHeight: 1 }}>MI CUENTA</h1>
+          {/* AVATAR + nombre en header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: m ? 40 : 48, height: m ? 40 : 48, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: m ? 18 : 22, fontWeight: 900 }}>
+              {empresa?.charAt(0)?.toUpperCase() || "R"}
+            </div>
+            {!m && (
+              <div>
+                <p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{empresa || "Tu empresa"}</p>
+                <p style={{ color: subInfo.color, fontSize: 12, margin: 0, fontWeight: 700 }}>{subInfo.label}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 320px", gap: m ? 0 : 24, alignItems: "start" }}>
+
+        {/* COLUMNA IZQUIERDA */}
+        <div>
 
           {/* DATOS EMPRESA */}
-          <div style={cardStyle}>
-            <h2 style={sectionTitle}>DATOS EMPRESA</h2>
-            <div style={gridStyle}>
+          <div style={card}>
+            <p style={secTitle}>Datos de empresa</p>
+            <div style={grid2}>
               <div>
-                <p style={labelStyle}>Empresa</p>
-                <input placeholder="Nombre de tu empresa" value={empresa} onChange={e => setEmpresa(e.target.value)} style={inputStyle} />
+                <p style={label}>Nombre de empresa</p>
+                <input placeholder="Talleres Martinez S.L." value={empresa} onChange={e => setEmpresa(e.target.value)} style={input} />
               </div>
               <div>
-                <p style={labelStyle}>CIF</p>
-                <input
-                  value={cif}
-                  disabled
-                  style={{ ...inputStyle, opacity: 0.5, cursor: "not-allowed" }}
-                  title="El CIF no se puede modificar. Contacta con soporte si necesitas cambiarlo."
-                />
-                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 6 }}>🔒 No modificable</p>
+                <p style={label}>CIF / NIF</p>
+                <input value={cif} disabled style={{ ...input, opacity: 0.5, cursor: "not-allowed" }} />
+                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 4 }}>🔒 No modificable</p>
               </div>
             </div>
           </div>
 
           {/* CONTACTO */}
-          <div style={cardStyle}>
-            <h2 style={sectionTitle}>CONTACTO</h2>
-            <div style={gridStyle}>
+          <div style={card}>
+            <p style={secTitle}>Contacto</p>
+            <div style={grid2}>
               <div>
-                <p style={labelStyle}>Telefono</p>
-                <input placeholder="600 000 000" value={telefono} onChange={e => setTelefono(e.target.value)} style={inputStyle} />
+                <p style={label}>Teléfono</p>
+                <input placeholder="600 000 000" value={telefono} onChange={e => setTelefono(e.target.value)} style={input} />
               </div>
               <div>
-                <p style={labelStyle}>Email</p>
-                <input value={email} disabled style={{ ...inputStyle, opacity: 0.5, cursor: "not-allowed" }} />
-                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 6 }}>🔒 No modificable</p>
+                <p style={label}>Email</p>
+                <input value={email} disabled style={{ ...input, opacity: 0.5, cursor: "not-allowed" }} />
+                <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 4 }}>🔒 No modificable</p>
               </div>
             </div>
           </div>
 
           {/* DIRECCIÓN */}
-          <div style={cardStyle}>
-            <h2 style={sectionTitle}>DIRECCION</h2>
-            <div>
-              <p style={labelStyle}>Direccion</p>
-              <input placeholder="Calle, numero..." value={direccion} onChange={e => setDireccion(e.target.value)} style={inputStyle} />
+          <div style={card}>
+            <p style={secTitle}>Dirección</p>
+            <div style={{ marginBottom: 12 }}>
+              <p style={label}>Dirección</p>
+              <input placeholder="Calle Mayor, 123" value={direccion} onChange={e => setDireccion(e.target.value)} style={input} />
             </div>
-            <div style={{ ...gridStyle, marginTop: 20 }}>
+            <div style={grid2}>
               <div>
-                <p style={labelStyle}>Ciudad</p>
-                <input placeholder="Sevilla" value={ciudad} onChange={e => setCiudad(e.target.value)} style={inputStyle} />
+                <p style={label}>Ciudad</p>
+                <input placeholder="Sevilla" value={ciudad} onChange={e => setCiudad(e.target.value)} style={input} />
               </div>
               <div>
-                <p style={labelStyle}>Provincia</p>
-                <input placeholder="Andalucia" value={provincia} onChange={e => setProvincia(e.target.value)} style={inputStyle} />
+                <p style={label}>Código postal</p>
+                <input placeholder="41001" value={codigoPostal} onChange={e => setCodigoPostal(e.target.value)} style={input} maxLength={5} />
               </div>
-            </div>
-            <div style={{ marginTop: 20 }}>
-              <p style={labelStyle}>Codigo Postal</p>
-              <input placeholder="41001" value={codigoPostal} onChange={e => setCodigoPostal(e.target.value)} style={{ ...inputStyle, maxWidth: 200 }} maxLength={5} />
             </div>
           </div>
 
           {/* DATOS BANCARIOS */}
-          <div style={{ ...cardStyle, border: "1px solid rgba(37,99,235,0.3)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-              <h2 style={{ ...sectionTitle, marginBottom: 0 }}>DATOS BANCARIOS</h2>
-              <span style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-                Para cobros y pagos
-              </span>
+          <div style={{ ...card, border: "1px solid rgba(37,99,235,0.25)" }}>
+            <p style={secTitle}>Datos bancarios</p>
+            <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 10, padding: "10px 14px", marginBottom: 16 }}>
+              <p style={{ color: "#94a3b8", fontSize: 12 }}>Solo visibles para el administrador de Recambio Directo. Se usan para cobros y pagos.</p>
             </div>
-            <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.15)", borderRadius: 14, padding: "14px 18px", marginBottom: 24 }}>
-              <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                Tus datos bancarios se usan para recibir pagos de pedidos (proveedores) o para gestionar el credito RD Pago. Solo los ve el administrador de Recambio Directo.
-              </p>
+            <div style={{ marginBottom: 14 }}>
+              <p style={label}>IBAN</p>
+              <input placeholder="ES12 1234 5678 9012 3456 7890" value={iban} onChange={e => setIban(e.target.value.toUpperCase())} style={{ ...input, fontFamily: "monospace" }} maxLength={34} />
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <p style={labelStyle}>IBAN</p>
-              <input
-                placeholder="ES12 1234 5678 9012 3456 7890"
-                value={iban}
-                onChange={e => setIban(e.target.value.toUpperCase())}
-                style={{ ...inputStyle, fontFamily: "monospace", letterSpacing: 1 }}
-                maxLength={34}
-              />
-              <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 6 }}>Formato: ES seguido de 22 digitos</p>
-            </div>
-            <div style={gridStyle}>
+            <div style={grid2}>
               <div>
-                <p style={labelStyle}>Titular de la cuenta</p>
-                <input placeholder="Nombre completo o razon social" value={titularCuenta} onChange={e => setTitularCuenta(e.target.value)} style={inputStyle} />
+                <p style={label}>Titular</p>
+                <input placeholder="Nombre o razón social" value={titularCuenta} onChange={e => setTitularCuenta(e.target.value)} style={input} />
               </div>
               <div>
-                <p style={labelStyle}>Entidad bancaria</p>
-                <input placeholder="Ej: CaixaBank, Santander..." value={banco} onChange={e => setBanco(e.target.value)} style={inputStyle} />
+                <p style={label}>Banco</p>
+                <input placeholder="CaixaBank, Santander..." value={banco} onChange={e => setBanco(e.target.value)} style={input} />
               </div>
             </div>
-            {iban && (
-              <div style={{ marginTop: 16, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ color: "#4ade80" }}>✓</span>
-                <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>IBAN guardado correctamente</span>
-              </div>
-            )}
           </div>
 
-          {/* CAMBIO DE CONTRASEÑA */}
-          <div style={{ ...cardStyle, border: "1px solid rgba(139,92,246,0.3)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 24 : 0 }}>
+          {/* CONTRASEÑA */}
+          <div style={{ ...card, border: "1px solid rgba(139,92,246,0.25)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 16 : 0 }}>
               <div>
-                <h2 style={{ ...sectionTitle, marginBottom: 4 }}>CONTRASEÑA</h2>
-                {!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}
+                <p style={secTitle}>Contraseña</p>
+                {!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 13, marginTop: -10 }}>Cambia tu contraseña de acceso</p>}
               </div>
-              <button
-                onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }}
-                style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" as const }}
-              >
-                {mostrarCambioPass ? "Cancelar" : "🔑 Cambiar contraseña"}
+              <button onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }} style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: m ? "8px 12px" : "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                {mostrarCambioPass ? "Cancelar" : "🔑 Cambiar"}
               </button>
             </div>
-
             {mostrarCambioPass && (
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
-                  <p style={labelStyle}>Contraseña actual</p>
-                  <input
-                    type="password"
-                    placeholder="Tu contraseña actual"
-                    value={passwordActual}
-                    onChange={e => setPasswordActual(e.target.value)}
-                    style={inputStyle}
-                  />
+                  <p style={label}>Contraseña actual</p>
+                  <input type="password" placeholder="Tu contraseña actual" value={passwordActual} onChange={e => setPasswordActual(e.target.value)} style={input} />
                 </div>
-                <div style={gridStyle}>
+                <div style={grid2}>
                   <div>
-                    <p style={labelStyle}>Nueva contraseña</p>
-                    <input
-                      type="password"
-                      placeholder="Mínimo 6 caracteres"
-                      value={passwordNueva}
-                      onChange={e => setPasswordNueva(e.target.value)}
-                      style={{ ...inputStyle, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.08)" }}
-                    />
-                    {passwordNueva && passwordNueva.length < 6 && (
-                      <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>
-                    )}
+                    <p style={label}>Nueva contraseña</p>
+                    <input type="password" placeholder="Mínimo 6 caracteres" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)} style={input} />
                   </div>
                   <div>
-                    <p style={labelStyle}>Repetir nueva contraseña</p>
-                    <input
-                      type="password"
-                      placeholder="Repite la nueva contraseña"
-                      value={passwordNueva2}
-                      onChange={e => setPasswordNueva2(e.target.value)}
-                      style={{ ...inputStyle, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.08)" }}
-                    />
-                    {passwordNueva2 && passwordNueva !== passwordNueva2 && (
-                      <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>
-                    )}
-                    {passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && (
-                      <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>
-                    )}
+                    <p style={label}>Repetir nueva</p>
+                    <input type="password" placeholder="Repite la contraseña" value={passwordNueva2} onChange={e => setPasswordNueva2(e.target.value)} style={input} />
                   </div>
                 </div>
-
                 {mensajePass && (
-                  <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>
+                  <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
                     {mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}
                   </div>
                 )}
-
-                <button
-                  onClick={cambiarContrasena}
-                  disabled={cambiandoPass}
-                  style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}
-                >
-                  {cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}
+                <button onClick={cambiarContrasena} disabled={cambiandoPass} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "14px", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}>
+                  {cambiandoPass ? "Verificando..." : "Confirmar cambio"}
                 </button>
               </div>
             )}
           </div>
 
+          {/* GUARDAR — visible en móvil aquí abajo */}
+          {m && (
+            <button onClick={guardarPerfil} disabled={guardando} style={{ width: "100%", border: "none", padding: "16px", borderRadius: 14, color: "white", fontWeight: 900, fontSize: 16, cursor: guardando ? "not-allowed" : "pointer", opacity: guardando ? 0.7 : 1, background: guardado ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#16a34a,#15803d)" }}>
+              {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
+            </button>
+          )}
         </div>
 
-        <aside style={rightColumn}>
+        {/* COLUMNA DERECHA — solo desktop */}
+        {!m && (
+          <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* PERFIL CARD */}
-          <div style={profileCard}>
-            <div style={avatarStyle}>{empresa?.charAt(0)?.toUpperCase() || "R"}</div>
-            <h2 style={companyName}>{empresa || "Tu Empresa"}</h2>
-            <p style={companyType}>{tipo || "cliente"}</p>
-            {codigoPostal && <p style={{ color: "#60a5fa", fontSize: 14, marginTop: 8, fontWeight: 700 }}>CP: {codigoPostal}</p>}
-            <div style={{ ...statusBadge, background: `${subInfo.color}22`, color: subInfo.color }}>
-              {subInfo.label}
+            {/* PERFIL CARD */}
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+              <div style={{ width: 72, height: 72, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 30, fontWeight: 900 }}>
+                {empresa?.charAt(0)?.toUpperCase() || "R"}
+              </div>
+              <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>{empresa || "Tu Empresa"}</h2>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 10 }}>{tipo || "cliente"}</p>
+              <span style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: `${subInfo.color}22`, color: subInfo.color }}>{subInfo.label}</span>
             </div>
-          </div>
 
-          {/* CREDITO RD */}
-          <div style={{ ...statsCard, border: creditoRD > 0 ? "1px solid rgba(37,99,235,0.3)" : "1px solid rgba(255,255,255,0.06)" }}>
-            <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>CREDITO RD PAGO DISPONIBLE</p>
-            <h2 style={{ fontSize: 42, fontWeight: 900, color: creditoRD > 0 ? "#4ade80" : "#f87171", margin: 0 }}>
-              {creditoRD.toFixed(2)}EUR
-            </h2>
-            {creditoRD <= 0 && (
-              <div style={{ marginTop: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px" }}>
-                <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, margin: 0 }}>Sin credito disponible</p>
-                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>Contacta con nosotros: info@recambio-directo.com</p>
-              </div>
-            )}
-            {creditoRD > 0 && creditoRD < 100 && (
-              <div style={{ marginTop: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "8px 12px" }}>
-                <p style={{ color: "#fbbf24", fontSize: 12, margin: 0 }}>Saldo bajo — contacta con nosotros para recargar</p>
-              </div>
-            )}
-            {historialCredito.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>ULTIMOS PEDIDOS CON RD PAGO</p>
-                {historialCredito.map(p => (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 13 }}>
-                    <span style={{ color: "#60a5fa" }}>{p.codigo || "#" + p.id}</span>
-                    <span style={{ color: "#f87171", fontWeight: 700 }}>-{Number(p.total).toFixed(2)}EUR</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            {/* CRÉDITO RD */}
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: creditoRD > 0 ? "1px solid rgba(37,99,235,0.3)" : "1px solid rgba(255,255,255,0.06)" }}>
+              <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>CRÉDITO RD PAGO</p>
+              <h2 style={{ fontSize: 34, fontWeight: 900, color: creditoRD > 0 ? "#4ade80" : "#f87171", margin: "0 0 8px" }}>{creditoRD.toFixed(2)}€</h2>
+              {creditoRD <= 0 && <p style={{ color: "#f87171", fontSize: 12 }}>Sin crédito — contacta info@recambio-directo.com</p>}
+              {historialCredito.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>ÚLTIMOS PEDIDOS RD PAGO</p>
+                  {historialCredito.map(p => (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 12 }}>
+                      <span style={{ color: "#60a5fa" }}>{p.codigo || "#" + p.id}</span>
+                      <span style={{ color: "#f87171", fontWeight: 700 }}>-{Number(p.total).toFixed(2)}€</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* STATS */}
-          <div style={statsCard}>
-            <div style={statRow}>
+            {/* STATS */}
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between" }}>
               <div>
-                <p style={statLabel}>PEDIDOS</p>
-                <h3 style={statValue}>{totalPedidos}</h3>
+                <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>PEDIDOS</p>
+                <p style={{ fontSize: 28, fontWeight: 900, margin: 0 }}>{totalPedidos}</p>
               </div>
-              <div>
-                <p style={statLabel}>ESTADO</p>
-                <h3 style={{ ...statValue, color: "#4ade80", fontSize: 18 }}>Verificado</h3>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>ESTADO</p>
+                <p style={{ fontSize: 15, fontWeight: 900, color: "#4ade80", margin: 0 }}>Verificado</p>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={guardarPerfil}
-            disabled={guardando}
-            style={{
-              ...saveButton,
-              background: guardado ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#16a34a,#15803d)",
-              opacity: guardando ? 0.7 : 1,
-              cursor: guardando ? "not-allowed" : "pointer",
-            }}
-          >
-            {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
-          </button>
+            {/* GUARDAR desktop */}
+            <button onClick={guardarPerfil} disabled={guardando} style={{ width: "100%", border: "none", padding: "18px", borderRadius: 16, color: "white", fontWeight: 900, fontSize: 16, cursor: guardando ? "not-allowed" : "pointer", opacity: guardando ? 0.7 : 1, background: guardado ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#16a34a,#15803d)", boxShadow: "0 8px 24px rgba(22,163,74,0.3)" }}>
+              {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
+            </button>
 
-        </aside>
-      </section>
+          </aside>
+        )}
+      </div>
     </main>
   );
 }
-
-/* STYLES */
-const mainStyle = { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" };
-const heroStyle = { height: "320px", position: "relative" as const, background: "url(https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1600&auto=format&fit=crop) center/cover", display: "flex", alignItems: "center", padding: "70px" };
-const heroOverlay = { position: "absolute" as const, inset: 0, background: "linear-gradient(90deg,rgba(2,6,23,0.94),rgba(2,6,23,0.55))" };
-const heroContent = { position: "relative" as const, zIndex: 2, maxWidth: "700px" };
-const badgeStyle = { display: "inline-block", background: "rgba(37,99,235,0.18)", border: "1px solid rgba(37,99,235,0.3)", padding: "10px 18px", borderRadius: "999px", marginBottom: "24px", color: "#60a5fa", fontWeight: 700 };
-const titleStyle = { fontSize: "72px", fontWeight: 900, lineHeight: 1, marginBottom: "22px" };
-const subtitleStyle = { fontSize: "22px", color: "#cbd5e1", lineHeight: 1.6 };
-const contentSection = { display: "grid", gridTemplateColumns: "1fr 380px", gap: "40px", padding: "50px" };
-const leftColumn = { display: "grid", gap: "30px" };
-const rightColumn = { display: "grid", gap: "30px", alignContent: "start" };
-const cardStyle = { background: "rgba(15,23,42,0.92)", borderRadius: "30px", padding: "34px", border: "1px solid rgba(255,255,255,0.06)" };
-const sectionTitle = { fontSize: "34px", fontWeight: 900, marginBottom: "28px" };
-const gridStyle = { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: "20px" };
-const labelStyle = { marginBottom: "10px", color: "#94a3b8", fontSize: "14px" };
-const inputStyle = { width: "100%", padding: "18px", borderRadius: "18px", border: "1px solid rgba(255,255,255,0.08)", background: "#0f172a", color: "white", fontSize: "16px", outline: "none", boxSizing: "border-box" as const };
-const profileCard = { background: "rgba(15,23,42,0.92)", borderRadius: "32px", padding: "40px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const };
-const avatarStyle = { width: "110px", height: "110px", borderRadius: "32px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "42px", fontWeight: 900 };
-const companyName = { fontSize: "34px", fontWeight: 900, marginBottom: "10px" };
-const companyType = { color: "#94a3b8", marginBottom: "20px" };
-const statusBadge = { display: "inline-block", padding: "10px 18px", borderRadius: "999px", fontWeight: 700, marginTop: 12 };
-const statsCard = { background: "rgba(15,23,42,0.92)", borderRadius: "30px", padding: "30px", border: "1px solid rgba(255,255,255,0.06)" };
-const statRow = { display: "flex", justifyContent: "space-between" };
-const statLabel = { color: "#94a3b8", marginBottom: "10px" };
-const statValue = { fontSize: "32px", fontWeight: 900 };
-const saveButton = { width: "100%", border: "none", padding: "22px", borderRadius: "22px", color: "white", fontWeight: 900, fontSize: "18px", boxShadow: "0 12px 30px rgba(22,163,74,0.35)" };
