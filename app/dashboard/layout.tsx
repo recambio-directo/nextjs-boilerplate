@@ -121,6 +121,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const ahora = Date.now();
     if (ahora - ultimo < 60000) return; // menos de 1 minuto → no recargar
     sessionStorage.setItem(KEY, String(ahora));
+
+    // Guardar qué notificaciones ya habíamos visto antes
+    const VISTAS_KEY = `rd_notif_vistas_${uid}`;
+    const vistasAntes = new Set<string>(JSON.parse(sessionStorage.getItem(VISTAS_KEY) || "[]"));
+
     const notifsTotales: any[] = [];
 
     // Mensajes no leídos en conversaciones del usuario
@@ -139,7 +144,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       (msgs || []).forEach(m => notifsTotales.push({
         id: m.id, tipo: "chat",
         texto: `💬 ${(m.mensaje || "").substring(0, 50)}${m.mensaje?.length > 50 ? "..." : ""}`,
-        leido: false, created_at: m.created_at, conv_id: m.conversacion_id,
+        leido: vistasAntes.has(String(m.id)), // leído si ya lo habíamos visto antes
+        created_at: m.created_at, conv_id: m.conversacion_id,
       }));
     }
 
@@ -167,13 +173,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
+
+    // Guardar IDs de todos los mensajes cargados como "vistos" para próximas recargas
+    const todosIds = notifsTotales.map(n => String(n.id));
+    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(todosIds));
   }
 
   async function marcarLeidas() {
     setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
-    // Marcar mensajes como leídos en Supabase
     const uid = userIdRef.current;
     if (!uid) return;
+
+    // Guardar todos los IDs actuales como vistos
+    const VISTAS_KEY = `rd_notif_vistas_${uid}`;
+    const idsActuales = notifs.map(n => String(n.id));
+    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(idsActuales));
+
     const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
     if (convIds.length > 0) {
       await supabase.from("mensajes")
