@@ -1,30 +1,27 @@
 // app/api/mrw/crear-envio/route.ts
 // Registra una recogida en MRW via SAGEC WebService (SOAP)
+// Estructura validada por técnico MRW el 11/06/2026
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      // Datos del pedido
       pedidoId,
       pedidoCodigo,
-      // Datos del remitente (proveedor — quien envía)
       remitenteNombre,
       remitenteDireccion,
       remitenteCodigoPostal,
       remitentePoblacion,
       remitenteTelefono,
-      // Datos del destinatario (cliente — quien recibe)
       destinatarioNombre,
       destinatarioDireccion,
       destinatarioCodigoPostal,
       destinatarioPoblacion,
       destinatarioTelefono,
       destinatarioEmail,
-      // Datos del envío
       pesoKg = 5,
       numBultos = 1,
-      fechaRecogida, // DDMMYYYY
+      fechaRecogida,
       observaciones = "",
     } = body;
 
@@ -32,13 +29,12 @@ export async function POST(request: Request) {
       ? "https://sagec-test.mrw.es/MRWEnvio.asmx"
       : "https://sagec.mrw.es/MRWEnvio.asmx";
 
-    const franquicia = process.env.MRW_FRANQUICIA || "";
-    const abonado = process.env.MRW_ABONADO || "";
-    const departamento = process.env.MRW_DEPARTAMENTO || "";
-    const username = process.env.MRW_USERNAME || "";
-    const password = process.env.MRW_PASSWORD || "";
+    const franquicia  = process.env.MRW_FRANQUICIA   || "";
+    const abonado     = process.env.MRW_ABONADO      || "";
+    const departamento= process.env.MRW_DEPARTAMENTO || "";
+    const username    = process.env.MRW_USERNAME     || "";
+    const password    = process.env.MRW_PASSWORD     || "";
 
-    // Fecha de recogida: hoy o la que venga, formato DDMMYYYY
     const hoy = new Date();
     const fechaStr = fechaRecogida || [
       String(hoy.getDate()).padStart(2, "0"),
@@ -46,25 +42,18 @@ export async function POST(request: Request) {
       String(hoy.getFullYear()),
     ].join("/");
 
-    // Limpiar teléfono español — solo 9 dígitos sin prefijo
     function limpiarTelefono(tel: string): string {
       if (!tel) return "";
       return tel.replace(/[\s\-\+]/g, "").replace(/^(0034|34|\+34)/, "").slice(0, 9);
     }
 
-    const telRemitente = limpiarTelefono(remitenteTelefono || "");
-    const telDestinatario = limpiarTelefono(destinatarioTelefono || "");
+    const telRemitente   = limpiarTelefono(remitenteTelefono   || "");
+    const telDestinatario= limpiarTelefono(destinatarioTelefono|| "");
 
-    // Estructura corregida según indicaciones técnico MRW:
-    // - AuthInfo va en soap12:Header (no dentro de TransmEnvio)
-    // - TransmEnvio va en soap12:Body > request
-    // - Añadir CodigoPais ES en cada dirección
-    // - CodigoServicio 0205 (Expedición)
+    // XML exacto validado por técnico MRW
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                 xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
-  <soap12:Header>
+<Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
+  <Header>
     <AuthInfo xmlns="http://www.mrw.es/">
       <CodigoFranquicia>${franquicia}</CodigoFranquicia>
       <CodigoAbonado>${abonado}</CodigoAbonado>
@@ -72,59 +61,142 @@ export async function POST(request: Request) {
       <UserName>${username}</UserName>
       <Password>${password}</Password>
     </AuthInfo>
-  </soap12:Header>
-  <soap12:Body>
+  </Header>
+  <Body>
     <TransmEnvio xmlns="http://www.mrw.es/">
       <request>
+        <ModificaDatosEnvio>
+          <NumeroEnvioOriginal></NumeroEnvioOriginal>
+        </ModificaDatosEnvio>
         <DatosRecogida>
-          <Nombre>${remitenteNombre}</Nombre>
           <Direccion>
+            <CodigoDireccion></CodigoDireccion>
+            <CodigoTipoVia></CodigoTipoVia>
             <Via>${remitenteDireccion}</Via>
+            <Numero></Numero>
+            <Resto></Resto>
             <CodigoPostal>${remitenteCodigoPostal}</CodigoPostal>
             <Poblacion>${remitentePoblacion}</Poblacion>
+            <Provincia></Provincia>
+            <Estado></Estado>
             <CodigoPais>ES</CodigoPais>
+            <TipoPuntoEntrega></TipoPuntoEntrega>
+            <CodigoPuntoEntrega></CodigoPuntoEntrega>
+            <CodigoFranquiciaAsociadaPuntoEntrega/>
+            <TipoPuntoRecogida></TipoPuntoRecogida>
+            <CodigoPuntoRecogida/>
+            <CodigoFranquiciaAsociadaPuntoRecogida/>
+            <Agencia></Agencia>
           </Direccion>
-          ${telRemitente ? `<Telefono>${telRemitente}</Telefono>` : ""}
+          <Nif></Nif>
+          <Nombre>${remitenteNombre}</Nombre>
+          <Telefono>${telRemitente}</Telefono>
+          <Contacto></Contacto>
+          <Horario>
+            <Rangos>
+              <HorarioRangoRequest>
+                <Desde></Desde>
+                <Hasta></Hasta>
+              </HorarioRangoRequest>
+            </Rangos>
+          </Horario>
+          <Observaciones></Observaciones>
         </DatosRecogida>
         <DatosEntrega>
-          <Nif></Nif>
-          <Nombre>${destinatarioNombre}</Nombre>
           <Direccion>
+            <CodigoDireccion></CodigoDireccion>
+            <CodigoTipoVia></CodigoTipoVia>
             <Via>${destinatarioDireccion}</Via>
+            <Numero></Numero>
+            <Resto></Resto>
             <CodigoPostal>${destinatarioCodigoPostal}</CodigoPostal>
             <Poblacion>${destinatarioPoblacion}</Poblacion>
+            <Provincia></Provincia>
+            <Estado></Estado>
             <CodigoPais>ES</CodigoPais>
+            <TipoPuntoEntrega></TipoPuntoEntrega>
+            <CodigoPuntoEntrega></CodigoPuntoEntrega>
+            <CodigoFranquiciaAsociadaPuntoEntrega/>
+            <TipoPuntoRecogida></TipoPuntoRecogida>
+            <CodigoPuntoRecogida/>
+            <CodigoFranquiciaAsociadaPuntoRecogida/>
+            <Agencia></Agencia>
           </Direccion>
-          ${telDestinatario ? `<Telefono>${telDestinatario}</Telefono>` : ""}
+          <Nif></Nif>
+          <Nombre>${destinatarioNombre}</Nombre>
+          <Telefono>${telDestinatario}</Telefono>
+          <Contacto></Contacto>
+          <ALaAtencionDe></ALaAtencionDe>
+          <Horario>
+            <Rangos>
+              <HorarioRangoRequest>
+                <Desde></Desde>
+                <Hasta></Hasta>
+              </HorarioRangoRequest>
+            </Rangos>
+          </Horario>
           <Observaciones>${observaciones || pedidoCodigo}</Observaciones>
         </DatosEntrega>
         <DatosServicio>
           <Fecha>${fechaStr}</Fecha>
+          <NumeroAlbaran></NumeroAlbaran>
           <Referencia>${pedidoCodigo}</Referencia>
-          <EnFranquicia>N</EnFranquicia>
-          <CodigoServicio>0205</CodigoServicio>
+          <EnFranquicia></EnFranquicia>
+          <CodigoServicio>0200</CodigoServicio>
+          <DescripcionServicio></DescripcionServicio>
+          <Frecuencia></Frecuencia>
+          <CodigoPromocion></CodigoPromocion>
+          <NumeroSobre></NumeroSobre>
+          <Bultos>
+            <BultoRequest>
+              <Alto></Alto>
+              <Largo></Largo>
+              <Ancho></Ancho>
+              <Dimension></Dimension>
+              <Referencia></Referencia>
+              <Peso></Peso>
+            </BultoRequest>
+          </Bultos>
           <NumeroBultos>${numBultos}</NumeroBultos>
           <Peso>${Math.ceil(pesoKg)}</Peso>
-          <EntregaSabado>N</EntregaSabado>
+          <NumeroPuentes></NumeroPuentes>
+          <EntregaSabado></EntregaSabado>
+          <Entrega830></Entrega830>
+          <EntregaPartirDe></EntregaPartirDe>
+          <Gestion></Gestion>
+          <Retorno></Retorno>
+          <CodigoServicioRetorno></CodigoServicioRetorno>
+          <ConfirmacionInmediata></ConfirmacionInmediata>
+          <Reembolso></Reembolso>
+          <ImporteReembolso></ImporteReembolso>
+          <TipoMercancia></TipoMercancia>
+          <ValorDeclarado></ValorDeclarado>
+          <ServicioEspecial></ServicioEspecial>
+          <CodigoMoneda></CodigoMoneda>
+          <ValorEstadistico></ValorEstadistico>
+          <ValorEstadisticoEuros></ValorEstadisticoEuros>
           <Notificaciones>
-            ${destinatarioEmail ? `
-            <Notificacion>
+            <NotificacionRequest>
+              ${destinatarioEmail ? `
               <CanalNotificacion>1</CanalNotificacion>
               <TipoNotificacion>4</TipoNotificacion>
-              <MailSMS>${destinatarioEmail}</MailSMS>
-            </Notificacion>` : ""}
-            ${telDestinatario ? `
-            <Notificacion>
-              <CanalNotificacion>2</CanalNotificacion>
-              <TipoNotificacion>4</TipoNotificacion>
-              <MailSMS>${telDestinatario}</MailSMS>
-            </Notificacion>` : ""}
+              <MailSMS>${destinatarioEmail}</MailSMS>` : ""}
+            </NotificacionRequest>
           </Notificaciones>
+          <SeguroOpcional>
+            <CodigoNaturaleza></CodigoNaturaleza>
+            <ValorAsegurado></ValorAsegurado>
+          </SeguroOpcional>
+          <TramoHorario></TramoHorario>
+          <PortesDebidos></PortesDebidos>
+          <Mascara_Tipos></Mascara_Tipos>
+          <Mascara_Campos></Mascara_Campos>
+          <Asistente></Asistente>
         </DatosServicio>
       </request>
     </TransmEnvio>
-  </soap12:Body>
-</soap12:Envelope>`;
+  </Body>
+</Envelope>`;
 
     const response = await fetch(entorno, {
       method: "POST",
@@ -137,40 +209,33 @@ export async function POST(request: Request) {
 
     const xmlText = await response.text();
 
-    // Guardar respuesta raw en Supabase para debug
+    // Guardar respuesta en Supabase para debug
     const { createClient } = await import("@supabase/supabase-js");
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     await supabaseAdmin.from("pedidos").update({
-      notas_internas: `MRW [${new Date().toISOString()}]: ${xmlText.substring(0, 500)}`
+      notas_internas: `MRW [${new Date().toISOString()}]: ${xmlText.substring(0, 800)}`
     }).eq("id", pedidoId);
 
     // Parsear respuesta XML
-    const numeroEnvio = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1] || null;
-    const estado = xmlText.match(/<Estado>(.*?)<\/Estado>/)?.[1] || "0";
-    const mensaje = xmlText.match(/<Mensaje>(.*?)<\/Mensaje>/)?.[1] || "";
-    const urlResultado = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1] || "";
+    const numeroEnvio  = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1]   || null;
+    const estado       = xmlText.match(/<Estado>(.*?)<\/Estado>/)?.[1]             || "0";
+    const mensaje      = xmlText.match(/<Mensaje>(.*?)<\/Mensaje>/)?.[1]           || "";
+    const urlResultado = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1]                   || "";
 
     if (estado === "1" && numeroEnvio) {
-      return Response.json({
-        ok: true,
-        numeroEnvio,
-        urlResultado,
-        mensaje,
-      });
+      return Response.json({ ok: true, numeroEnvio, urlResultado, mensaje });
     } else {
-      console.error("MRW error:", mensaje, xmlText);
       return Response.json({
         ok: false,
         error: mensaje || "Error al crear envío en MRW",
-        xmlRaw: xmlText,
+        xmlRaw: xmlText.substring(0, 500),
       }, { status: 400 });
     }
 
   } catch (error) {
-    console.error("Error MRW crear-envio:", error);
     return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }
