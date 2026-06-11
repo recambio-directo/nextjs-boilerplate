@@ -439,13 +439,27 @@ INSTRUCCIONES:
 - Método: POST (multipart/form-data)
 - Campo: file
 - Formatos aceptados: CSV, XLSX, XLS
-- Columnas requeridas: referencia, descripcion, precio, stock
-- Columna opcional: marca
+- Columnas requeridas: referencia, descripcion, precio, marca, stock
+- Columna opcional: importe casco
 - Procesamiento automático: cada noche a las 5:00 AM
 
+FORMATO DE COLUMNAS:
+referencia   → Código de la pieza (OEM o IAM)
+descripcion  → Descripción del artículo
+precio       → Precio de venta sin IVA (si precio=0 se trata como casco)
+marca        → Fabricante o marca
+stock        → Unidades disponibles
+importe casco → Precio del casco (solo si aplica)
+
+NOTA CASCOS:
+Si una referencia lleva casco, incluir una fila adicional con
+precio=0 e importe casco=precio del casco. El sistema la
+asociará automáticamente a la referencia anterior.
+
 EJEMPLO CSV:
-referencia;descripcion;precio;stock;marca
-W79;FILTRO ACEITE MANN W79;4.50;25;MANN
+referencia;descripcion;precio;marca;stock;importe casco
+W79;FILTRO ACEITE MANN W79;4.50;MANN;25;0
+W79;CASCO FILTRO W79;0;MANN;25;2.50
 
 Soporte: info@recambio-directo.com
 ==========================================`;

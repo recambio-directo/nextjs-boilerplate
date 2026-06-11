@@ -19,7 +19,7 @@ function normalizarCabecera(header: string): string {
   if (["precio", "price", "pvp", "pvd", "tarifa", "precio venta", "p.venta", "pventa"].includes(h)) return "precio";
   if (["stock", "stocks", "cantidad", "qty", "quantity", "existencias", "unidades"].includes(h)) return "stock";
   if (["marca", "brand", "fabricante", "manufacturer"].includes(h)) return "marca";
-  if (["precio_casco", "casco", "importe casco", "p.casco", "pcasco"].includes(h)) return "precio_casco";
+  if (["importe casco", "precio_casco", "casco", "p.casco", "pcasco", "importe_casco"].includes(h)) return "precio_casco";
   if (["descuento", "dto", "discount"].includes(h)) return "descuento";
   return h;
 }
