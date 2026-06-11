@@ -107,7 +107,7 @@ export default function CheckoutPage() {
 
   // Lógica de visibilidad RD Pago
   const rdPagoActivo = creditoRD > 0;           // Admin lo activó con saldo
-  const rdPagoVisible = pedidosConTarjeta > 0;  // Ha hecho al menos 1 pedido con tarjeta
+  const rdPagoVisible = pedidosConTarjeta > 0 || creditoRD > 0;  // Ha hecho 1+ pedidos con tarjeta O tiene crédito asignado por admin
   // 0 pedidos → no se ve nada
   // 1+ pedidos, sin crédito → se ve en gris con botón info
   // crédito > 0 → se ve funcional
