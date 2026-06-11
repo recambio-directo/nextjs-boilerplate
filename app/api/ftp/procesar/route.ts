@@ -26,9 +26,21 @@ function normalizarCabecera(header: string): string {
 
 function parsearArchivo(buffer: Buffer): any[] {
   try {
-    const workbook = XLSX.read(buffer, { type: "buffer", codepage: 1252 });
+    // Intentar detectar si es CSV con tabulador
+    const texto = buffer.toString("latin1");
+    const primeraLinea = texto.split("\n")[0];
+    const esTabulador = primeraLinea.includes("\t");
+    const esPuntoYComa = primeraLinea.includes(";");
+
+    const workbook = XLSX.read(buffer, {
+      type: "buffer",
+      codepage: 1252,
+      raw: false,
+      ...(esTabulador ? { FS: "\t" } : esPuntoYComa ? { FS: ";" } : {}),
+    });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
+
     return raw.map(row => {
       const newRow: any = {};
       for (const key of Object.keys(row)) {
@@ -42,25 +54,24 @@ function parsearArchivo(buffer: Buffer): any[] {
 }
 
 function procesarFilasConCasco(filas: any[]): any[] {
-  // Regla: si precio = 0 → es casco de la referencia anterior
-  // Se asocia precio_casco a la fila anterior y se descarta
+  // Según datos reales:
+  // - Fila normal: precio > 0, importe_casco = precio del casco que lleva
+  // - Fila casco: descripcion contiene "CASCO" y precio > 0 pero importe_casco = 0
+  //   → NO insertar como pieza independiente
   const resultado: any[] = [];
 
-  for (let i = 0; i < filas.length; i++) {
-    const fila = filas[i];
+  for (const fila of filas) {
+    const descripcion = String(fila.descripcion || "").toUpperCase().trim();
     const precio = parseFloat(String(fila.precio || "0").replace(",", "."));
+    const precioCasco = parseFloat(String(fila.precio_casco || "0").replace(",", "."));
 
-    if (precio === 0) {
-      // Es un casco — asociar a la fila anterior si existe
-      if (resultado.length > 0) {
-        const precioCasco = parseFloat(String(fila.precio_casco || fila.importe_casco || "0").replace(",", "."));
-        resultado[resultado.length - 1].precio_casco = precioCasco > 0 ? precioCasco : null;
-      }
-      // No insertar esta fila
-      continue;
-    }
+    // Si la descripción contiene CASCO y no tiene importe_casco → es fila de casco, saltar
+    if (descripcion.includes("CASCO") && precioCasco === 0) continue;
 
-    resultado.push({ ...fila, precio_casco: null });
+    resultado.push({
+      ...fila,
+      precio_casco: precioCasco > 0 ? precioCasco : null,
+    });
   }
 
   return resultado;
