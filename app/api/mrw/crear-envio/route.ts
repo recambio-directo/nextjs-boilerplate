@@ -55,26 +55,34 @@ export async function POST(request: Request) {
     const telRemitente = limpiarTelefono(remitenteTelefono || "");
     const telDestinatario = limpiarTelefono(destinatarioTelefono || "");
 
+    // Estructura corregida según indicaciones técnico MRW:
+    // - AuthInfo va en soap12:Header (no dentro de TransmEnvio)
+    // - TransmEnvio va en soap12:Body > request
+    // - Añadir CodigoPais ES en cada dirección
+    // - CodigoServicio 0205 (Expedición)
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                  xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header>
+    <AuthInfo xmlns="http://www.mrw.es/">
+      <CodigoFranquicia>${franquicia}</CodigoFranquicia>
+      <CodigoAbonado>${abonado}</CodigoAbonado>
+      <CodigoDepartamento>${departamento}</CodigoDepartamento>
+      <UserName>${username}</UserName>
+      <Password>${password}</Password>
+    </AuthInfo>
+  </soap12:Header>
   <soap12:Body>
     <TransmEnvio xmlns="http://www.mrw.es/">
-      <AuthInfo>
-        <CodigoFranquicia>${franquicia}</CodigoFranquicia>
-        <CodigoAbonado>${abonado}</CodigoAbonado>
-        <CodigoDepartamento>${departamento}</CodigoDepartamento>
-        <UserName>${username}</UserName>
-        <Password>${password}</Password>
-      </AuthInfo>
-      <TransmEnvioRequest>
+      <request>
         <DatosRecogida>
           <Nombre>${remitenteNombre}</Nombre>
           <Direccion>
             <Via>${remitenteDireccion}</Via>
             <CodigoPostal>${remitenteCodigoPostal}</CodigoPostal>
             <Poblacion>${remitentePoblacion}</Poblacion>
+            <CodigoPais>ES</CodigoPais>
           </Direccion>
           ${telRemitente ? `<Telefono>${telRemitente}</Telefono>` : ""}
         </DatosRecogida>
@@ -85,6 +93,7 @@ export async function POST(request: Request) {
             <Via>${destinatarioDireccion}</Via>
             <CodigoPostal>${destinatarioCodigoPostal}</CodigoPostal>
             <Poblacion>${destinatarioPoblacion}</Poblacion>
+            <CodigoPais>ES</CodigoPais>
           </Direccion>
           ${telDestinatario ? `<Telefono>${telDestinatario}</Telefono>` : ""}
           <Observaciones>${observaciones || pedidoCodigo}</Observaciones>
@@ -93,7 +102,7 @@ export async function POST(request: Request) {
           <Fecha>${fechaStr}</Fecha>
           <Referencia>${pedidoCodigo}</Referencia>
           <EnFranquicia>N</EnFranquicia>
-          <CodigoServicio>0200</CodigoServicio>
+          <CodigoServicio>0205</CodigoServicio>
           <NumeroBultos>${numBultos}</NumeroBultos>
           <Peso>${Math.ceil(pesoKg)}</Peso>
           <EntregaSabado>N</EntregaSabado>
@@ -112,7 +121,7 @@ export async function POST(request: Request) {
             </Notificacion>` : ""}
           </Notificaciones>
         </DatosServicio>
-      </TransmEnvioRequest>
+      </request>
     </TransmEnvio>
   </soap12:Body>
 </soap12:Envelope>`;
