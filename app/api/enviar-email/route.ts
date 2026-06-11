@@ -309,6 +309,29 @@ export async function POST(request: Request) {
       ],
     });
 
+    // ── RESTAR STOCK EN SERVIDOR ──────────────────────────────────────────────
+    try {
+      for (const prod of (productos || [])) {
+        const cant = prod.cantidad || 1;
+        const provId = prod.proveedor_id;
+        const ref = prod.referencia;
+        if (!provId || !ref) continue;
+        const { data: pieza } = await supabase
+          .from("piezas_publicadas")
+          .select("id, stock")
+          .eq("proveedor_id", provId)
+          .ilike("referencia", ref)
+          .single();
+        if (pieza) {
+          await supabase.from("piezas_publicadas")
+            .update({ stock: Math.max(0, (pieza.stock || 0) - cant) })
+            .eq("id", pieza.id);
+        }
+      }
+    } catch (stockErr) {
+      console.error("Error restando stock:", stockErr);
+    }
+
     return Response.json({
       ok: true,
       mails: {
