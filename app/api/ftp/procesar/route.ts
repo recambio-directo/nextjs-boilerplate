@@ -14,11 +14,11 @@ const supabase = createClient(
 function normalizarCabecera(header: string): string {
   const h = (header || "").toLowerCase().trim()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (["referencia", "ref", "codigo", "cod", "partno", "part_no", "part number"].includes(h)) return "referencia";
-  if (["descripcion", "descripcion", "description", "desc", "nombre", "articulo"].includes(h)) return "descripcion";
-  if (["precio", "price", "pvp", "pvd", "tarifa", "precio venta", "p.venta", "pventa"].includes(h)) return "precio";
-  if (["stock", "stocks", "cantidad", "qty", "quantity", "existencias", "unidades"].includes(h)) return "stock";
-  if (["marca", "brand", "fabricante", "manufacturer"].includes(h)) return "marca";
+  if (["referencia", "referencia cat logo", "referencia catalogo", "ref", "codigo", "cod", "partno", "part_no", "part number"].includes(h)) return "referencia";
+  if (["descripcion", "description", "desc", "nombre", "articulo"].includes(h)) return "descripcion";
+  if (["precio", "precio venta neto", "precio venta", "price", "pvp", "pvd", "tarifa", "p.venta", "pventa"].includes(h)) return "precio";
+  if (["stock", "stocks", "stocks disponible", "cantidad", "qty", "quantity", "existencias", "unidades"].includes(h)) return "stock";
+  if (["marca", "descripcion marca", "brand", "fabricante", "manufacturer"].includes(h)) return "marca";
   if (["importe casco", "precio_casco", "casco", "p.casco", "pcasco", "importe_casco"].includes(h)) return "precio_casco";
   if (["descuento", "dto", "discount"].includes(h)) return "descuento";
   return h;
@@ -26,7 +26,7 @@ function normalizarCabecera(header: string): string {
 
 function parsearArchivo(buffer: Buffer): any[] {
   try {
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const workbook = XLSX.read(buffer, { type: "buffer", codepage: 1252 });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
     return raw.map(row => {
