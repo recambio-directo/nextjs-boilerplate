@@ -127,7 +127,16 @@ export async function POST(request: Request) {
     });
 
     const xmlText = await response.text();
-    console.log("MRW SAGEC response:", xmlText);
+
+    // Guardar respuesta raw en Supabase para debug
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await supabaseAdmin.from("pedidos").update({
+      notas_internas: `MRW [${new Date().toISOString()}]: ${xmlText.substring(0, 500)}`
+    }).eq("id", pedidoId);
 
     // Parsear respuesta XML
     const numeroEnvio = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1] || null;
@@ -153,6 +162,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Error MRW crear-envio:", error);
-    return Response.json({ ok: false, error: String(error), stack: error instanceof Error ? error.stack : "" }, { status: 500 });
+    return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }
