@@ -61,23 +61,32 @@ type Producto = {
 export type AlbaranProps = {
   codigo: string;
   fecha: string;
+  // Proveedor — todos los datos
   proveedorNombre: string;
   proveedorEmail: string;
   proveedorCif?: string;
   proveedorTelefono?: string;
   proveedorDireccion?: string;
+  proveedorCiudad?: string;
+  proveedorCodigoPostal?: string;
+  proveedorProvincia?: string;
+  // Cliente — todos los datos
   cliente: string;
   clienteEmail: string;
   telefono: string;
   cif: string;
   direccion: string;
+  ciudad?: string;
+  codigoPostal?: string;
+  provincia?: string;
+  // Pedido
   agencia: string;
   formaPago?: string;
   productos: Producto[];
   subtotal: number;
   iva: number;
   total: number;
-  gastosGestion?: number; // ← nuevo campo opcional
+  gastosGestion?: number;
 };
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
@@ -87,8 +96,10 @@ const FORMA_PAGO_LABELS: Record<string, string> = {
 };
 
 export function AlbaranPDF({
-  codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion,
-  cliente, clienteEmail, telefono, cif, direccion,
+  codigo, fecha,
+  proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono,
+  proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+  cliente, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia,
   agencia, formaPago, productos, subtotal, iva, total, gastosGestion,
 }: AlbaranProps) {
   const fechaFormateada = fecha
@@ -97,6 +108,12 @@ export function AlbaranPDF({
 
   const tieneGastosGestion = formaPago === "tarjeta" && gastosGestion && gastosGestion > 0;
   const totalFinal = tieneGastosGestion ? total + gastosGestion : total;
+
+  // Formatear dirección completa con CP y provincia
+  function formatDireccionCompleta(dir?: string, ciudad?: string, cp?: string, prov?: string) {
+    const partes = [dir, ciudad, cp, prov].filter(Boolean);
+    return partes.join(", ");
+  }
 
   return (
     <Document>
@@ -115,24 +132,38 @@ export function AlbaranPDF({
 
         <View style={styles.avisoBox}>
           <Text style={styles.avisoText}>
-            Pedido confirmado. El proveedor ha sido notificado y preparara tu pedido en la mayor brevedad posible.
+            Pedido confirmado. El proveedor ha sido notificado y preparara el pedido en la mayor brevedad posible.
           </Text>
         </View>
 
         <View style={styles.partesRow}>
+          {/* VENDEDOR */}
           <View style={styles.parteBox}>
             <Text style={styles.parteLabel}>VENDEDOR</Text>
             <Text style={styles.parteNombre}>{proveedorNombre}</Text>
             {!!proveedorCif && <Text style={styles.parteInfo}>CIF: {proveedorCif.toUpperCase()}</Text>}
             {!!proveedorDireccion && <Text style={styles.parteInfo}>{proveedorDireccion}</Text>}
+            {(!!proveedorCodigoPostal || !!proveedorCiudad) && (
+              <Text style={styles.parteInfo}>
+                {[proveedorCodigoPostal, proveedorCiudad].filter(Boolean).join(" ")}
+              </Text>
+            )}
+            {!!proveedorProvincia && <Text style={styles.parteInfo}>{proveedorProvincia}</Text>}
             {!!proveedorTelefono && <Text style={styles.parteInfo}>Tel: {proveedorTelefono}</Text>}
             <Text style={styles.parteInfo}>{proveedorEmail}</Text>
           </View>
+          {/* COMPRADOR */}
           <View style={styles.parteBox}>
             <Text style={styles.parteLabel}>COMPRADOR</Text>
             <Text style={styles.parteNombre}>{cliente}</Text>
             {!!cif && <Text style={styles.parteInfo}>CIF: {cif}</Text>}
             {!!direccion && <Text style={styles.parteInfo}>{direccion}</Text>}
+            {(!!codigoPostal || !!ciudad) && (
+              <Text style={styles.parteInfo}>
+                {[codigoPostal, ciudad].filter(Boolean).join(" ")}
+              </Text>
+            )}
+            {!!provincia && <Text style={styles.parteInfo}>{provincia}</Text>}
             {!!telefono && <Text style={styles.parteInfo}>Tel: {telefono}</Text>}
             {!!clienteEmail && <Text style={styles.parteInfo}>{clienteEmail}</Text>}
           </View>
@@ -158,7 +189,7 @@ export function AlbaranPDF({
               <Text style={styles.colRefVal}>{p.referencia}</Text>
               <Text style={styles.colDescVal}>
                 {p.descripcion || p.producto || "-"}
-                {p.impuesto && Number(p.impuesto) > 0 ? " (inc. ecotasa " + Number(p.impuesto).toFixed(2) + "EUR)" : ""}
+                {p.impuesto && Number(p.impuesto) > 0 ? " (inc. imp/casco " + Number(p.impuesto).toFixed(2) + "EUR)" : ""}
               </Text>
               <Text style={styles.colPrecioVal}>{precioTotal.toFixed(2)} EUR</Text>
               <Text style={styles.colNetoVal}>{precioTotal.toFixed(2)} EUR</Text>
@@ -166,7 +197,6 @@ export function AlbaranPDF({
           );
         })}
 
-        {/* TOTALES */}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Subtotal piezas</Text>
           <Text style={styles.totalValue}>{Number(subtotal).toFixed(2)} EUR</Text>
@@ -176,7 +206,6 @@ export function AlbaranPDF({
           <Text style={styles.totalValue}>{Number(iva).toFixed(2)} EUR</Text>
         </View>
 
-        {/* GASTOS DE GESTIÓN — solo si pago con tarjeta */}
         {tieneGastosGestion && (
           <View style={styles.totalRecargoRow}>
             <Text style={styles.totalRecargoLabel}>Gastos de gestion pago tarjeta (3%)</Text>
@@ -189,7 +218,6 @@ export function AlbaranPDF({
           <Text style={styles.totalFinalValue}>{Number(totalFinal).toFixed(2)} EUR</Text>
         </View>
 
-        {/* AVISO GASTOS DE GESTIÓN */}
         {tieneGastosGestion && (
           <View style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a", padding: 8, marginTop: 6 }}>
             <Text style={{ fontSize: 8, color: "#92400e" }}>
@@ -198,14 +226,12 @@ export function AlbaranPDF({
           </View>
         )}
 
-        {/* PORTE */}
         <View style={{ backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b", padding: 10, marginTop: 8 }}>
           <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#92400e", marginBottom: 4 }}>
             GASTOS DE TRANSPORTE — Facturados independientemente
           </Text>
           <Text style={{ fontSize: 9, color: "#78350f" }}>
             Agencia: {agencia} — El coste del porte sera facturado por separado y no esta incluido en el importe de piezas indicado.
-            El porte no es objeto de devolucion aunque se devuelva la mercancia.
           </Text>
         </View>
 
@@ -232,10 +258,7 @@ export function AlbaranPDF({
   );
 }
 
-
-// ============================================================
-// ETIQUETA DE ENVIO — sin cambios
-// ============================================================
+// ── ETIQUETA DE ENVÍO ────────────────────────────────────────────────────────
 
 const etiquetaStyles = StyleSheet.create({
   page: { padding: 0, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a", backgroundColor: "#ffffff" },
@@ -289,11 +312,17 @@ export type EtiquetaEnvioProps = {
   proveedorEmail: string;
   proveedorTelefono?: string;
   proveedorDireccion?: string;
+  proveedorCiudad?: string;
+  proveedorCodigoPostal?: string;
+  proveedorProvincia?: string;
   cliente: string;
   clienteEmail: string;
   telefono: string;
   cif: string;
   direccion: string;
+  ciudad?: string;
+  codigoPostal?: string;
+  provincia?: string;
   agencia: string;
   productos: { referencia: string; descripcion?: string; producto?: string; precio: number; impuesto?: number }[];
   subtotal: number;
@@ -302,9 +331,12 @@ export type EtiquetaEnvioProps = {
 };
 
 export function EtiquetaEnvioPDF({
-  codigo, fecha, proveedorNombre, proveedorEmail, proveedorTelefono,
-  proveedorDireccion, cliente, clienteEmail, telefono, cif,
-  direccion, agencia, productos, total,
+  codigo, fecha,
+  proveedorNombre, proveedorEmail, proveedorTelefono,
+  proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+  cliente, clienteEmail, telefono,
+  direccion, ciudad, codigoPostal, provincia,
+  agencia, productos, total,
 }: EtiquetaEnvioProps) {
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -331,6 +363,10 @@ export function EtiquetaEnvioPDF({
             <Text style={etiquetaStyles.bloqueLabel}>REMITENTE</Text>
             <Text style={etiquetaStyles.bloqueNombre}>{proveedorNombre}</Text>
             {!!proveedorDireccion && <Text style={etiquetaStyles.bloqueInfo}>{proveedorDireccion}</Text>}
+            {(!!proveedorCodigoPostal || !!proveedorCiudad) && (
+              <Text style={etiquetaStyles.bloqueInfo}>{[proveedorCodigoPostal, proveedorCiudad].filter(Boolean).join(" ")}</Text>
+            )}
+            {!!proveedorProvincia && <Text style={etiquetaStyles.bloqueInfo}>{proveedorProvincia}</Text>}
             {!!proveedorEmail && <Text style={etiquetaStyles.bloqueInfo}>{proveedorEmail}</Text>}
             {!!proveedorTelefono && <Text style={etiquetaStyles.bloqueTelefono}>Tlf: {proveedorTelefono}</Text>}
           </View>
@@ -338,6 +374,10 @@ export function EtiquetaEnvioPDF({
             <Text style={etiquetaStyles.bloqueLabel}>DESTINATARIO</Text>
             <Text style={etiquetaStyles.bloqueNombre}>{cliente}</Text>
             {!!direccion && <Text style={etiquetaStyles.bloqueInfo}>{direccion}</Text>}
+            {(!!codigoPostal || !!ciudad) && (
+              <Text style={etiquetaStyles.bloqueInfo}>{[codigoPostal, ciudad].filter(Boolean).join(" ")}</Text>
+            )}
+            {!!provincia && <Text style={etiquetaStyles.bloqueInfo}>{provincia}</Text>}
             {!!clienteEmail && <Text style={etiquetaStyles.bloqueInfo}>{clienteEmail}</Text>}
             {!!telefono && <Text style={etiquetaStyles.bloqueTelefono}>Tlf: {telefono}</Text>}
           </View>
@@ -383,8 +423,8 @@ export function EtiquetaEnvioPDF({
           <View style={{ ...etiquetaStyles.conductorField, marginRight: 0 }}><Text style={etiquetaStyles.conductorLabel}>Firma</Text><View style={etiquetaStyles.conductorLinea} /></View>
         </View>
         <View style={etiquetaStyles.portesBox}>
-          <Text style={etiquetaStyles.portesLabel}>Portes a cargo de: Recambio Directo S.L.</Text>
-          <Text style={etiquetaStyles.portesVal}>Metodo de pago: {codigo}</Text>
+          <Text style={etiquetaStyles.portesLabel}>Portes a cargo de: Recambio Directo</Text>
+          <Text style={etiquetaStyles.portesVal}>Referencia: {codigo}</Text>
         </View>
       </Page>
     </Document>

@@ -1,203 +1,325 @@
+// app/api/enviar-email/route.ts
+// Nuevo flujo de emails al confirmar pedido:
+// Mail 1 → Proveedor: albarán PDF adjunto
+// Mail 2 → Cliente: albarán PDF adjunto
+// Mail 3 → Proveedor: etiqueta PDF + dossier embalaje PDF
+
 import { Resend } from "resend";
-import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
-import { AlbaranPDF, EtiquetaEnvioPDF } from "../../lib/AlbaranPDF";
+import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
       proveedorEmail, proveedorNombre,
-      productos, cliente, clienteEmail,
-      telefono, cif, direccion, agencia,
-      subtotal, iva, total, codigo, fecha, formaPago,
-      pedidoId,
+      productos, cliente, clienteEmail, telefono, cif, direccion,
+      agencia, formaPago, subtotal, iva, total,
+      codigo, fecha, pedidoId,
     } = body;
 
+    // Obtener datos completos del proveedor y cliente desde Supabase
+    let proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "";
+    let proveedorCiudad = "", proveedorCodigoPostal = "", proveedorProvincia = "";
+    let clienteCiudad = "", clienteCodigoPostal = "", clienteProvincia = "";
+
+    // Buscar proveedor por email
+    const { data: provPerfil } = await supabase
+      .from("usuarios")
+      .select("cif, telefono, direccion, ciudad, codigo_postal, provincia")
+      .eq("email", proveedorEmail)
+      .maybeSingle();
+
+    if (provPerfil) {
+      proveedorCif = provPerfil.cif || "";
+      proveedorTelefono = provPerfil.telefono || "";
+      proveedorDireccion = provPerfil.direccion || "";
+      proveedorCiudad = provPerfil.ciudad || "";
+      proveedorCodigoPostal = provPerfil.codigo_postal || "";
+      proveedorProvincia = provPerfil.provincia || "";
+    }
+
+    // Buscar cliente por email
+    const { data: clientePerfil } = await supabase
+      .from("usuarios")
+      .select("ciudad, codigo_postal, provincia")
+      .eq("email", clienteEmail)
+      .maybeSingle();
+
+    if (clientePerfil) {
+      clienteCiudad = clientePerfil.ciudad || "";
+      clienteCodigoPostal = clientePerfil.codigo_postal || "";
+      clienteProvincia = clientePerfil.provincia || "";
+    }
+
+    // Obtener URLs de los PDFs guardados en Supabase Storage
+    const { data: pedidoData } = await supabase
+      .from("pedidos")
+      .select("albaran_url, etiqueta_envio_url")
+      .eq("id", pedidoId)
+      .single();
+
+    const albaranUrl = pedidoData?.albaran_url || null;
+    const etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
+
+    // Descargar PDFs como base64 para adjuntar
+    async function urlToBase64(url: string): Promise<string | null> {
+      try {
+        const res = await fetch(url);
+        const buffer = await res.arrayBuffer();
+        return Buffer.from(buffer).toString("base64");
+      } catch { return null; }
+    }
+
+    const albaranBase64 = albaranUrl ? await urlToBase64(albaranUrl) : null;
+    const etiquetaBase64 = etiquetaUrl ? await urlToBase64(etiquetaUrl) : null;
+
     const fechaFormateada = fecha
-      ? new Date(fecha).toLocaleDateString("es-ES")
+      ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
       : new Date().toLocaleDateString("es-ES");
 
-    const props = {
-      codigo, fecha: fecha || new Date().toISOString(),
-      proveedorNombre: proveedorNombre || "Proveedor",
-      proveedorEmail: proveedorEmail || "",
-      cliente, clienteEmail, telefono, cif, direccion, agencia,
-      formaPago: formaPago || "transferencia",
-      productos: productos || [],
-      subtotal: Number(subtotal),
-      iva: Number(iva),
-      total: Number(total),
-    };
+    const refsTexto = (productos || []).map((p: any) => `${p.referencia} — ${p.descripcion || ""}`).join("\n");
+    const agenciaUpper = (agencia || "").toUpperCase();
 
-    // Generar PDF albarán para el cliente
-    const albaranBuffer = await renderToBuffer(
-      React.createElement(AlbaranPDF, props) as any
-    );
+    // ── MAIL 1: PROVEEDOR — Nuevo pedido + albarán ────────────────────────────
+    const mailProveedor = await resend.emails.send({
+      from: "Recambio Directo <info@recambio-directo.com>",
+      to: proveedorEmail,
+      subject: `📦 Nuevo pedido ${codigo} — Recambio Directo`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:24px">
+          <div style="background:#0b1736;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:white;margin:0;font-size:24px;letter-spacing:1px">RECAMBIO DIRECTO</h1>
+            <p style="color:#94a3b8;margin:6px 0 0;font-size:13px">Marketplace B2B de Recambios de Automocion</p>
+          </div>
+          <div style="background:white;padding:28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none">
+            <div style="background:#dcfce7;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+              <p style="color:#15803d;font-weight:700;margin:0;font-size:15px">✅ Nuevo pedido recibido — ${codigo}</p>
+            </div>
+            <p style="color:#374151;font-size:15px">Hola <strong>${proveedorNombre}</strong>,</p>
+            <p style="color:#374151">Has recibido un nuevo pedido a través de Recambio Directo. Adjunto encontrarás el albarán con todos los detalles.</p>
 
-    // Generar PDF etiqueta de envio para el proveedor
-    const etiquetaBuffer = await renderToBuffer(
-      React.createElement(EtiquetaEnvioPDF, props) as any
-    );
-
-    // Subir PDFs a Supabase Storage y guardar URLs en el pedido
-    if (pedidoId) {
-      try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabaseAdmin = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
-        const albaranPath = `documentos/${codigo}/albaran-${codigo}.pdf`;
-        const etiquetaPath = `documentos/${codigo}/etiqueta-envio-${codigo}.pdf`;
-
-        const uploadAlbaran = await supabaseAdmin.storage
-          .from("FACTURAS")
-          .upload(albaranPath, albaranBuffer, { contentType: "application/pdf", upsert: true });
-        
-        const uploadPacking = await supabaseAdmin.storage
-          .from("FACTURAS")
-          .upload(etiquetaPath, etiquetaBuffer, { contentType: "application/pdf", upsert: true });
-
-        if (uploadAlbaran.error) {
-          console.error("Error subiendo albaran:", uploadAlbaran.error);
-        }
-        if (uploadPacking.error) {
-          console.error("Error subiendo packing:", uploadPacking.error);
-        }
-
-        if (!uploadAlbaran.error && !uploadPacking.error) {
-          const { data: albaranUrl } = supabaseAdmin.storage.from("FACTURAS").getPublicUrl(albaranPath);
-          const { data: etiquetaUrl } = supabaseAdmin.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
-
-          const { error: updateError } = await supabaseAdmin.from("pedidos").update({
-            albaran_url: albaranUrl.publicUrl,
-            etiqueta_envio_url: etiquetaUrl.publicUrl,
-          }).eq("id", pedidoId);
-
-          if (updateError) {
-            console.error("Error guardando URLs en pedido:", updateError);
-          } else {
-            console.log("PDFs guardados correctamente para pedido", pedidoId);
-          }
-        }
-      } catch (storageErr) {
-        console.error("Error en storage PDFs:", storageErr);
-      }
-    } else {
-      console.warn("No se recibio pedidoId — PDFs no guardados en BD");
-    }
-
-    const productosHtml = (productos || []).map((p: any) =>
-      `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:700;color:#0b1736;">${p.referencia}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151;">${p.descripcion || "-"}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:center;">1</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;">${Number(p.precio).toFixed(2)} EUR</td>
-      </tr>`
-    ).join("");
-
-    // ===== EMAIL AL PROVEEDOR con Etiqueta de envio =====
-    if (proveedorEmail) {
-      await resend.emails.send({
-        from: "Recambio Directo <noreply@recambio-directo.com>",
-        to: [proveedorEmail],
-        subject: `📦 Nuevo pedido — ${codigo}`,
-        attachments: [
-          { filename: `etiqueta-envio-${codigo}.pdf`, content: etiquetaBuffer },
-        ],
-        html: `
-          <div style="font-family:Arial;padding:30px;background:#f3f4f6;">
-            <div style="background:white;padding:32px;border-radius:12px;max-width:600px;margin:auto;">
-              <h1 style="color:#dc2626;margin-bottom:8px;font-size:24px;">📦 Nuevo pedido recibido</h1>
-              <p style="color:#374151;font-size:15px;line-height:1.6;margin-bottom:20px;">
-                Hola <strong>${proveedorNombre}</strong>, has recibido un nuevo pedido en Recambio Directo.
-                Encontraras el <strong>etiqueta de envio</strong> adjunto con todas las referencias a preparar.
-              </p>
-              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin-bottom:20px;">
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Pedido:</strong> ${codigo}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Fecha:</strong> ${fechaFormateada}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Cliente:</strong> ${cliente}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Transporte:</strong> ${agencia}</p>
-                <p style="margin:0;font-size:14px;"><strong>Total:</strong> ${Number(total).toFixed(2)} EUR</p>
-              </div>
-              <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px;">
-                <thead>
-                  <tr style="background:#1e293b;color:white;">
-                    <th style="padding:10px 12px;text-align:left;">Referencia</th>
-                    <th style="padding:10px 12px;text-align:left;">Descripcion</th>
-                    <th style="padding:10px 12px;text-align:center;">Cant.</th>
-                    <th style="padding:10px 12px;text-align:right;">Precio</th>
-                  </tr>
-                </thead>
-                <tbody>${productosHtml}</tbody>
+            <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
+              <p style="font-weight:700;color:#0b1736;margin:0 0 12px;font-size:14px">📋 RESUMEN DEL PEDIDO</p>
+              <table style="width:100%;font-size:13px;color:#374151">
+                <tr><td style="padding:4px 0;color:#64748b;width:140px">Código pedido:</td><td><strong style="color:#2563eb">${codigo}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Fecha:</td><td>${fechaFormateada}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Comprador:</td><td><strong>${cliente}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Email comprador:</td><td>${clienteEmail}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Teléfono:</td><td>${telefono || "-"}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Dirección entrega:</td><td>${direccion}${clienteCiudad ? ", " + clienteCiudad : ""}${clienteCodigoPostal ? " " + clienteCodigoPostal : ""}${clienteProvincia ? ", " + clienteProvincia : ""}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Agencia envío:</td><td><strong>${agenciaUpper}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Forma de pago:</td><td>${formaPago === "rd_pago" ? "RD Pago" : "Tarjeta bancaria"}</td></tr>
               </table>
-              <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin-bottom:20px;">
-                <p style="margin:0;color:#92400e;font-size:13px;">
-                  Prepara el material del etiqueta de envio adjunto. La etiqueta de transporte <strong>${agencia}</strong> llegara en breve.
-                </p>
-              </div>
-              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;">
-                <p style="margin:0;color:#166534;font-size:13px;">
-                  Recambio Directo gestionara el cobro y te transferira el importe a los 7 dias de la entrega confirmada.
-                </p>
-              </div>
-              <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
-              <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">Recambio Directo — Marketplace B2B de recambios de automociOn</p>
             </div>
-          </div>`,
-      });
-    }
 
-    // ===== EMAIL AL CLIENTE con Albarán =====
-    if (clienteEmail) {
-      await resend.emails.send({
-        from: "Recambio Directo <noreply@recambio-directo.com>",
-        to: [clienteEmail],
-        subject: `Pedido confirmado — ${codigo}`,
-        attachments: [
-          { filename: `albaran-${codigo}.pdf`, content: albaranBuffer },
-        ],
-        html: `
-          <div style="font-family:Arial;padding:30px;background:#f3f4f6;">
-            <div style="background:white;padding:32px;border-radius:12px;max-width:600px;margin:auto;">
-              <h1 style="color:#0b1736;margin-bottom:8px;font-size:24px;">Pedido confirmado</h1>
-              <p style="color:#374151;font-size:15px;line-height:1.6;margin-bottom:20px;">
-                Hola <strong>${cliente}</strong>, tu pedido ha sido confirmado.
-                Encontraras el <strong>albaran</strong> adjunto en PDF.
+            <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:20px 0">
+              <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
+              ${(productos || []).map((p: any) => `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">
+                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""}</span>
+                  <span style="color:#16a34a;font-weight:700">${(Number(p.precio) + Number(p.impuesto || 0)).toFixed(2)}€</span>
+                </div>
+              `).join("")}
+              <div style="text-align:right;margin-top:12px;font-size:14px">
+                <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
+              </div>
+            </div>
+
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
+              <p style="color:#1e40af;font-size:13px;margin:0">
+                📧 Recibirás un segundo email con la <strong>etiqueta de envío</strong> y las <strong>instrucciones de embalaje</strong>.
+                Por favor, prepara el pedido y espera la recogida de <strong>${agenciaUpper}</strong>.
               </p>
-              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;">
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Codigo:</strong> ${codigo}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Fecha:</strong> ${fechaFormateada}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Proveedor:</strong> ${proveedorNombre}</p>
-                <p style="margin:0 0 8px;font-size:14px;"><strong>Transporte:</strong> ${agencia}</p>
-                <p style="margin:0;font-size:14px;"><strong>Total:</strong> ${Number(total).toFixed(2)} EUR</p>
-              </div>
-              <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:14px 18px;margin-bottom:24px;">
-                <p style="margin:0;color:#1e40af;font-size:13px;">
-                  El proveedor esta preparando tu pedido. Recibiras una notificacion cuando sea enviado con el numero de seguimiento.
-                </p>
-              </div>
-              <div style="text-align:center;margin:28px 0;">
-                <a href="https://recambio-directo.com/dashboard/pedidos"
-                  style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
-                  Ver mis pedidos
-                </a>
-              </div>
-              <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
-              <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">Recambio Directo — Marketplace B2B de recambios de automociOn</p>
             </div>
-          </div>`,
-      });
-    }
 
-    return Response.json({ ok: true });
+            <p style="color:#64748b;font-size:12px;margin-top:24px">
+              Gestiona este pedido desde tu panel: <a href="https://www.recambio-directo.com/dashboard/proveedor" style="color:#2563eb">Panel Proveedor</a>
+            </p>
+          </div>
+          <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
+        </div>
+      `,
+      attachments: albaranBase64 ? [{
+        filename: `albaran-${codigo}.pdf`,
+        content: albaranBase64,
+      }] : [],
+    });
+
+    // ── MAIL 2: CLIENTE — Confirmación + albarán ──────────────────────────────
+    const mailCliente = await resend.emails.send({
+      from: "Recambio Directo <info@recambio-directo.com>",
+      to: clienteEmail,
+      subject: `✅ Tu pedido ${codigo} está confirmado — Recambio Directo`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:24px">
+          <div style="background:#0b1736;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:white;margin:0;font-size:24px;letter-spacing:1px">RECAMBIO DIRECTO</h1>
+            <p style="color:#94a3b8;margin:6px 0 0;font-size:13px">Marketplace B2B de Recambios de Automocion</p>
+          </div>
+          <div style="background:white;padding:28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none">
+            <div style="background:#dcfce7;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+              <p style="color:#15803d;font-weight:700;margin:0;font-size:15px">✅ Pedido confirmado — ${codigo}</p>
+            </div>
+            <p style="color:#374151;font-size:15px">Hola <strong>${cliente}</strong>,</p>
+            <p style="color:#374151">Tu pedido ha sido confirmado y el proveedor ha sido notificado. Adjunto encontrarás el albarán del pedido.</p>
+
+            <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
+              <p style="font-weight:700;color:#0b1736;margin:0 0 12px;font-size:14px">📋 TU PEDIDO</p>
+              <table style="width:100%;font-size:13px;color:#374151">
+                <tr><td style="padding:4px 0;color:#64748b;width:140px">Código pedido:</td><td><strong style="color:#2563eb">${codigo}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Fecha:</td><td>${fechaFormateada}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Proveedor:</td><td><strong>${proveedorNombre}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Agencia envío:</td><td><strong>${agenciaUpper}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Dirección entrega:</td><td>${direccion}${clienteCiudad ? ", " + clienteCiudad : ""}${clienteCodigoPostal ? " " + clienteCodigoPostal : ""}${clienteProvincia ? ", " + clienteProvincia : ""}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b">Forma de pago:</td><td>${formaPago === "rd_pago" ? "RD Pago" : "Tarjeta bancaria"}</td></tr>
+              </table>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:20px 0">
+              <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
+              ${(productos || []).map((p: any) => `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">
+                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""}</span>
+                  <span style="color:#16a34a;font-weight:700">${(Number(p.precio) + Number(p.impuesto || 0)).toFixed(2)}€</span>
+                </div>
+              `).join("")}
+              <div style="text-align:right;margin-top:12px;font-size:14px">
+                <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
+              </div>
+            </div>
+
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
+              <p style="color:#1e40af;font-size:13px;margin:0">
+                🚚 Recibirás una notificación cuando tu pedido sea enviado con el número de seguimiento de <strong>${agenciaUpper}</strong>.
+              </p>
+            </div>
+
+            <p style="color:#64748b;font-size:12px;margin-top:24px">
+              Sigue tu pedido desde tu panel: <a href="https://www.recambio-directo.com/dashboard/pedidos" style="color:#2563eb">Ver mis pedidos</a>
+            </p>
+          </div>
+          <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
+        </div>
+      `,
+      attachments: albaranBase64 ? [{
+        filename: `albaran-${codigo}.pdf`,
+        content: albaranBase64,
+      }] : [],
+    });
+
+    // ── MAIL 3: PROVEEDOR — Etiqueta + dossier embalaje ───────────────────────
+    const mailEmbalaje = await resend.emails.send({
+      from: "Recambio Directo <info@recambio-directo.com>",
+      to: proveedorEmail,
+      subject: `📦 Instrucciones de embalaje y etiqueta — Pedido ${codigo}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:24px">
+          <div style="background:#0b1736;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:white;margin:0;font-size:24px;letter-spacing:1px">RECAMBIO DIRECTO</h1>
+            <p style="color:#94a3b8;margin:6px 0 0;font-size:13px">Instrucciones de embalaje — Pedido ${codigo}</p>
+          </div>
+          <div style="background:white;padding:28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none">
+            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+              <p style="color:#92400e;font-weight:700;margin:0;font-size:15px">📦 Instrucciones de embalaje — ${codigo}</p>
+            </div>
+            <p style="color:#374151;font-size:15px">Hola <strong>${proveedorNombre}</strong>,</p>
+            <p style="color:#374151">Adjunto encontrarás la <strong>etiqueta de envío</strong> y el <strong>dossier de instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>
+
+            <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
+              <p style="font-weight:700;color:#0b1736;margin:0 0 14px;font-size:14px">📋 INSTRUCCIONES RÁPIDAS</p>
+
+              <div style="display:flex;gap:12px;margin-bottom:12px">
+                <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">1</div>
+                <div>
+                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Prepara el embalaje</p>
+                  <p style="color:#64748b;font-size:12px;margin:0">Usa una caja de cartón resistente. No reutilices cajas dañadas o deterioradas.</p>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px;margin-bottom:12px">
+                <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">2</div>
+                <div>
+                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Protege la mercancía</p>
+                  <p style="color:#64748b;font-size:12px;margin:0">Envuelve cada pieza con plástico de burbujas o papel de relleno. Las piezas metálicas deben ir separadas para evitar golpes.</p>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px;margin-bottom:12px">
+                <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">3</div>
+                <div>
+                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Incluye el albarán dentro</p>
+                  <p style="color:#64748b;font-size:12px;margin:0">Mete una copia del albarán dentro del paquete antes de cerrarlo.</p>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px;margin-bottom:12px">
+                <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">4</div>
+                <div>
+                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Pega la etiqueta</p>
+                  <p style="color:#64748b;font-size:12px;margin:0">Imprime y pega la etiqueta adjunta en la parte superior de la caja. Debe ser visible y no estar doblada.</p>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px">
+                <div style="width:28px;height:28px;background:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">5</div>
+                <div>
+                  <p style="font-weight:700;color:#16a34a;margin:0 0 4px;font-size:13px">Espera la recogida de ${agenciaUpper}</p>
+                  <p style="color:#64748b;font-size:12px;margin:0">La agencia pasará a recoger el paquete. Consérva el resguardo de entrega como justificante.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin:16px 0">
+              <p style="color:#dc2626;font-size:13px;font-weight:700;margin:0 0 6px">⚠️ IMPORTANTE</p>
+              <ul style="color:#7f1d1d;font-size:12px;margin:0;padding-left:18px">
+                <li style="margin-bottom:4px">No uses celo ni cinta de pintor para cerrar la caja — usa cinta de embalar resistente</li>
+                <li style="margin-bottom:4px">Los líquidos deben ir en bolsa hermética dentro de la caja</li>
+                <li style="margin-bottom:4px">Si el paquete supera 30 kg avisa a Recambio Directo antes del envío</li>
+                <li>Cualquier daño por embalaje deficiente puede reclamarse al remitente</li>
+              </ul>
+            </div>
+
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin:16px 0">
+              <p style="color:#166534;font-size:13px;margin:0">
+                📎 Adjuntos a este email: <strong>etiqueta de envío (PDF)</strong> y <strong>dossier de instrucciones completo (PDF)</strong>.
+              </p>
+            </div>
+
+            <p style="color:#64748b;font-size:12px;margin-top:20px">
+              ¿Tienes algún problema con el pedido? Contáctanos en 
+              <a href="mailto:info@recambio-directo.com" style="color:#2563eb">info@recambio-directo.com</a>
+              o desde tu <a href="https://www.recambio-directo.com/dashboard/proveedor" style="color:#2563eb">panel de proveedor</a>.
+            </p>
+          </div>
+          <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
+        </div>
+      `,
+      attachments: [
+        ...(etiquetaBase64 ? [{
+          filename: `etiqueta-envio-${codigo}.pdf`,
+          content: etiquetaBase64,
+        }] : []),
+      ],
+    });
+
+    return Response.json({
+      ok: true,
+      mails: {
+        proveedor: mailProveedor.data?.id || null,
+        cliente: mailCliente.data?.id || null,
+        embalaje: mailEmbalaje.data?.id || null,
+      }
+    });
 
   } catch (error) {
     console.error("Error enviando emails:", error);
-    return Response.json({ error: String(error) }, { status: 500 });
+    return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }
