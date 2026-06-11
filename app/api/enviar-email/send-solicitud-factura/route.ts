@@ -1,8 +1,8 @@
+// app/api/send-solicitud-factura/route.ts
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     // ── 1. EMAIL AL PROVEEDOR ──
     await resend.emails.send({
-      from: "Recambio Directo <noreply@recambio-directo.com>",
+      from: "Recambio Directo <info@recambio-directo.com>",
       to: [emailProveedor],
       subject: `🧾 Solicitud de factura — Pedido ${pedidoCodigo}`,
       html: `
@@ -50,6 +50,12 @@ export async function POST(request: Request) {
                 ⚠️ <strong>Acción requerida:</strong> Sube la factura PDF en el panel de pedidos de Recambio Directo para que el cliente pueda descargarla.
               </p>
             </div>
+            <div style="text-align:center;margin:20px 0;">
+              <a href="https://www.recambio-directo.com/dashboard/proveedor"
+                style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
+                Ir al panel de pedidos →
+              </a>
+            </div>
             <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
             <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">Recambio Directo — Marketplace B2B de recambios de automoción</p>
           </div>
@@ -59,7 +65,7 @@ export async function POST(request: Request) {
 
     // ── 2. EMAIL DE CONFIRMACIÓN AL CLIENTE ──
     await resend.emails.send({
-      from: "Recambio Directo <noreply@recambio-directo.com>",
+      from: "Recambio Directo <info@recambio-directo.com>",
       to: [clienteEmail],
       subject: `✅ Solicitud de factura enviada — ${pedidoCodigo}`,
       html: `
@@ -82,37 +88,22 @@ export async function POST(request: Request) {
       `,
     });
 
-    // ── 3. NOTIFICACIÓN EN CAMPANITA DEL PROVEEDOR ──
-    // Buscar o crear conversación vinculada al pedido
+    // ── 3. NOTIFICACIÓN CAMPANITA AL PROVEEDOR ──
     if (pedidoId) {
       try {
-        // Obtener el user_id del cliente por email
         const { data: clienteUser } = await supabase
-          .from("usuarios")
-          .select("id")
-          .eq("email", clienteEmail)
-          .single();
-
-        // Obtener el user_id del proveedor por email
+          .from("usuarios").select("id").eq("email", clienteEmail).single();
         const { data: proveedorUser } = await supabase
-          .from("usuarios")
-          .select("id")
-          .eq("email", emailProveedor)
-          .single();
+          .from("usuarios").select("id").eq("email", emailProveedor).single();
 
         if (clienteUser?.id && proveedorUser?.id) {
-          // Buscar conversación existente para este pedido
           let convId: number | null = null;
           const { data: convExistente } = await supabase
-            .from("conversaciones")
-            .select("id")
-            .eq("pedido_id", pedidoId)
-            .maybeSingle();
+            .from("conversaciones").select("id").eq("pedido_id", pedidoId).maybeSingle();
 
           if (convExistente?.id) {
             convId = convExistente.id;
           } else {
-            // Crear conversación nueva vinculada al pedido
             const { data: nuevaConv } = await supabase
               .from("conversaciones")
               .insert({
@@ -123,14 +114,12 @@ export async function POST(request: Request) {
                 ultimo_mensaje: "",
                 updated_at: new Date().toISOString(),
               })
-              .select("id")
-              .single();
+              .select("id").single();
             if (nuevaConv?.id) convId = nuevaConv.id;
           }
 
           if (convId) {
             const textoNotif = `🧾 ${clienteNombre} solicita factura del pedido ${pedidoCodigo}`;
-            // Insertar mensaje en la conversación — esto dispara el realtime del proveedor
             await supabase.from("mensajes").insert({
               conversacion_id: convId,
               user_id: clienteUser.id,
@@ -138,15 +127,13 @@ export async function POST(request: Request) {
               emisor: "sistema",
               leido: false,
             });
-            // Actualizar último mensaje de la conversación
             await supabase.from("conversaciones")
               .update({ ultimo_mensaje: textoNotif, updated_at: new Date().toISOString() })
               .eq("id", convId);
           }
         }
       } catch (notifError) {
-        // No bloqueamos la respuesta si falla la notificación
-        console.error("Error creando notificación campanita:", notifError);
+        console.error("Error campanita:", notifError);
       }
     }
 

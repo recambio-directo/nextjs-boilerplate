@@ -1,11 +1,16 @@
+// app/api/send-anulacion/route.ts
 import { Resend } from "resend";
+import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
     const {
       pedidoCodigo, pedidoId, pedidoTotal, pedidoFecha,
       anuladorTipo, anuladorNombre,
@@ -28,10 +33,10 @@ export async function POST(request: Request) {
         <p style="margin:0;color:#374151;font-size:14px;">${motivoAnulacion}</p>
       </div>` : "";
 
-    // EMAIL AL PROVEEDOR
+    // ── 1. EMAIL AL PROVEEDOR ──
     if (proveedorEmail) {
       await resend.emails.send({
-        from: "Recambio Directo <noreply@recambio-directo.com>",
+        from: "Recambio Directo <info@recambio-directo.com>",
         to: [proveedorEmail],
         subject: `❌ Pedido anulado — ${pedidoCodigo}`,
         html: `
@@ -54,7 +59,7 @@ export async function POST(request: Request) {
               </div>` : ""}
               <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin-bottom:20px;">
                 <p style="margin:0;color:#92400e;font-size:13px;">
-                  ⚠️ <strong>No prepares este pedido.</strong> Ha sido anulado y no debe ser enviado.
+                  ⚠️ <strong>No prepares ni envíes este pedido.</strong> Ha sido anulado y el envío debe cancelarse con ${(body.agencia || "la agencia de transporte").toUpperCase()}.
                 </p>
               </div>
               <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
@@ -64,10 +69,10 @@ export async function POST(request: Request) {
       });
     }
 
-    // EMAIL AL CLIENTE
+    // ── 2. EMAIL AL CLIENTE ──
     if (clienteEmail) {
       await resend.emails.send({
-        from: "Recambio Directo <noreply@recambio-directo.com>",
+        from: "Recambio Directo <info@recambio-directo.com>",
         to: [clienteEmail],
         subject: `❌ Pedido anulado — ${pedidoCodigo}`,
         html: `
@@ -95,16 +100,65 @@ export async function POST(request: Request) {
                 </p>
               </div>
               <div style="text-align:center;margin:28px 0;">
-                <a href="https://recambio-directo.com/dashboard/pedidos"
+                <a href="https://www.recambio-directo.com/dashboard/pedidos"
                   style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
                   Ver mis pedidos →
                 </a>
               </div>
               <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
-              <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">Recambio Directo · Marketplace B2B de recambios de automoción · España</p>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">Recambio Directo · Marketplace B2B · España</p>
             </div>
           </div>`,
       });
+    }
+
+    // ── 3. NOTIFICACIÓN CAMPANITA AL PROVEEDOR ──
+    if (pedidoId && clienteEmail && proveedorEmail) {
+      try {
+        const { data: clienteUser } = await supabase
+          .from("usuarios").select("id").eq("email", clienteEmail).single();
+        const { data: proveedorUser } = await supabase
+          .from("usuarios").select("id").eq("email", proveedorEmail).single();
+
+        if (clienteUser?.id && proveedorUser?.id) {
+          let convId: number | null = null;
+          const { data: convExistente } = await supabase
+            .from("conversaciones").select("id").eq("pedido_id", pedidoId).maybeSingle();
+
+          if (convExistente?.id) {
+            convId = convExistente.id;
+          } else {
+            const { data: nuevaConv } = await supabase
+              .from("conversaciones")
+              .insert({
+                user1_id: clienteUser.id,
+                user2_id: proveedorUser.id,
+                pedido_id: pedidoId,
+                referencia: `Pedido ${pedidoCodigo}`,
+                ultimo_mensaje: "",
+                updated_at: new Date().toISOString(),
+              })
+              .select("id").single();
+            if (nuevaConv?.id) convId = nuevaConv.id;
+          }
+
+          if (convId) {
+            const textoNotif = `❌ Pedido ${pedidoCodigo} anulado — ${motivoAnulacion || "Sin motivo especificado"}`;
+            await supabase.from("mensajes").insert({
+              conversacion_id: convId,
+              user_id: clienteUser.id,
+              mensaje: textoNotif,
+              emisor: "sistema",
+              leido: false,
+            });
+            await supabase.from("conversaciones")
+              .update({ ultimo_mensaje: textoNotif, updated_at: new Date().toISOString() })
+              .eq("id", convId);
+          }
+        }
+      } catch (notifError) {
+        console.error("Error campanita anulación:", notifError);
+      }
     }
 
     return Response.json({ ok: true });
