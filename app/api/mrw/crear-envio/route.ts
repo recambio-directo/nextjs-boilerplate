@@ -1,39 +1,25 @@
 // app/api/mrw/crear-envio/route.ts
-// Registra una recogida en MRW via SAGEC WebService (SOAP)
-// Estructura validada por técnico MRW el 11/06/2026
+// SOAP 1.1 con text/xml — según WSDL oficial sagec-test.mrw.es/MRWEnvio.asmx?op=TransmEnvio
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      pedidoId,
-      pedidoCodigo,
-      remitenteNombre,
-      remitenteDireccion,
-      remitenteCodigoPostal,
-      remitentePoblacion,
-      remitenteTelefono,
-      destinatarioNombre,
-      destinatarioDireccion,
-      destinatarioCodigoPostal,
-      destinatarioPoblacion,
-      destinatarioTelefono,
-      destinatarioEmail,
-      pesoKg = 5,
-      numBultos = 1,
-      fechaRecogida,
-      observaciones = "",
+      pedidoId, pedidoCodigo,
+      remitenteNombre, remitenteDireccion, remitenteCodigoPostal, remitentePoblacion, remitenteTelefono,
+      destinatarioNombre, destinatarioDireccion, destinatarioCodigoPostal, destinatarioPoblacion, destinatarioTelefono, destinatarioEmail,
+      pesoKg = 5, numBultos = 1, fechaRecogida, observaciones = "",
     } = body;
 
     const entorno = process.env.MRW_ENTORNO === "test"
       ? "https://sagec-test.mrw.es/MRWEnvio.asmx"
       : "https://sagec.mrw.es/MRWEnvio.asmx";
 
-    const franquicia  = process.env.MRW_FRANQUICIA   || "";
-    const abonado     = process.env.MRW_ABONADO      || "";
-    const departamento= process.env.MRW_DEPARTAMENTO || "";
-    const username    = process.env.MRW_USERNAME     || "";
-    const password    = process.env.MRW_PASSWORD     || "";
+    const franquicia   = process.env.MRW_FRANQUICIA    || "";
+    const abonado      = process.env.MRW_ABONADO       || "";
+    const departamento = process.env.MRW_DEPARTAMENTO  || "";
+    const username     = process.env.MRW_USERNAME      || "";
+    const password     = process.env.MRW_PASSWORD      || "";
 
     const hoy = new Date();
     const fechaStr = fechaRecogida || [
@@ -47,13 +33,15 @@ export async function POST(request: Request) {
       return tel.replace(/[\s\-\+]/g, "").replace(/^(0034|34|\+34)/, "").slice(0, 9);
     }
 
-    const telRemitente   = limpiarTelefono(remitenteTelefono   || "");
-    const telDestinatario= limpiarTelefono(destinatarioTelefono|| "");
+    const telRemitente    = limpiarTelefono(remitenteTelefono    || "");
+    const telDestinatario = limpiarTelefono(destinatarioTelefono || "");
 
-    // XML exacto validado por técnico MRW
+    // SOAP 1.1 — según WSDL oficial
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
-  <Header>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Header>
     <AuthInfo xmlns="http://www.mrw.es/">
       <CodigoFranquicia>${franquicia}</CodigoFranquicia>
       <CodigoAbonado>${abonado}</CodigoAbonado>
@@ -61,8 +49,8 @@ export async function POST(request: Request) {
       <UserName>${username}</UserName>
       <Password>${password}</Password>
     </AuthInfo>
-  </Header>
-  <Body>
+  </soap:Header>
+  <soap:Body>
     <TransmEnvio xmlns="http://www.mrw.es/">
       <request>
         <ModificaDatosEnvio>
@@ -82,24 +70,17 @@ export async function POST(request: Request) {
             <CodigoPais>ES</CodigoPais>
             <TipoPuntoEntrega></TipoPuntoEntrega>
             <CodigoPuntoEntrega></CodigoPuntoEntrega>
-            <CodigoFranquiciaAsociadaPuntoEntrega/>
+            <CodigoFranquiciaAsociadaPuntoEntrega></CodigoFranquiciaAsociadaPuntoEntrega>
             <TipoPuntoRecogida></TipoPuntoRecogida>
-            <CodigoPuntoRecogida/>
-            <CodigoFranquiciaAsociadaPuntoRecogida/>
+            <CodigoPuntoRecogida></CodigoPuntoRecogida>
+            <CodigoFranquiciaAsociadaPuntoRecogida></CodigoFranquiciaAsociadaPuntoRecogida>
             <Agencia></Agencia>
           </Direccion>
           <Nif></Nif>
           <Nombre>${remitenteNombre}</Nombre>
           <Telefono>${telRemitente}</Telefono>
           <Contacto></Contacto>
-          <Horario>
-            <Rangos>
-              <HorarioRangoRequest>
-                <Desde></Desde>
-                <Hasta></Hasta>
-              </HorarioRangoRequest>
-            </Rangos>
-          </Horario>
+          <Horario><Rangos xsi:nil="true" /></Horario>
           <Observaciones></Observaciones>
         </DatosRecogida>
         <DatosEntrega>
@@ -116,10 +97,10 @@ export async function POST(request: Request) {
             <CodigoPais>ES</CodigoPais>
             <TipoPuntoEntrega></TipoPuntoEntrega>
             <CodigoPuntoEntrega></CodigoPuntoEntrega>
-            <CodigoFranquiciaAsociadaPuntoEntrega/>
+            <CodigoFranquiciaAsociadaPuntoEntrega></CodigoFranquiciaAsociadaPuntoEntrega>
             <TipoPuntoRecogida></TipoPuntoRecogida>
-            <CodigoPuntoRecogida/>
-            <CodigoFranquiciaAsociadaPuntoRecogida/>
+            <CodigoPuntoRecogida></CodigoPuntoRecogida>
+            <CodigoFranquiciaAsociadaPuntoRecogida></CodigoFranquiciaAsociadaPuntoRecogida>
             <Agencia></Agencia>
           </Direccion>
           <Nif></Nif>
@@ -127,36 +108,21 @@ export async function POST(request: Request) {
           <Telefono>${telDestinatario}</Telefono>
           <Contacto></Contacto>
           <ALaAtencionDe></ALaAtencionDe>
-          <Horario>
-            <Rangos>
-              <HorarioRangoRequest>
-                <Desde></Desde>
-                <Hasta></Hasta>
-              </HorarioRangoRequest>
-            </Rangos>
-          </Horario>
+          <Horario><Rangos xsi:nil="true" /></Horario>
           <Observaciones>${observaciones || pedidoCodigo}</Observaciones>
         </DatosEntrega>
         <DatosServicio>
           <Fecha>${fechaStr}</Fecha>
           <NumeroAlbaran></NumeroAlbaran>
           <Referencia>${pedidoCodigo}</Referencia>
+          <CorrelacionRef></CorrelacionRef>
           <EnFranquicia></EnFranquicia>
           <CodigoServicio>0200</CodigoServicio>
           <DescripcionServicio></DescripcionServicio>
           <Frecuencia></Frecuencia>
           <CodigoPromocion></CodigoPromocion>
           <NumeroSobre></NumeroSobre>
-          <Bultos>
-            <BultoRequest>
-              <Alto></Alto>
-              <Largo></Largo>
-              <Ancho></Ancho>
-              <Dimension></Dimension>
-              <Referencia></Referencia>
-              <Peso></Peso>
-            </BultoRequest>
-          </Bultos>
+          <Bultos><BultoRequest xsi:nil="true" /></Bultos>
           <NumeroBultos>${numBultos}</NumeroBultos>
           <Peso>${Math.ceil(pesoKg)}</Peso>
           <NumeroPuentes></NumeroPuentes>
@@ -176,15 +142,11 @@ export async function POST(request: Request) {
           <ValorEstadistico></ValorEstadistico>
           <ValorEstadisticoEuros></ValorEstadisticoEuros>
           <Notificaciones>
-            <NotificacionRequest>
-              ${destinatarioEmail ? `
-              <CanalNotificacion>1</CanalNotificacion>
-              <TipoNotificacion>4</TipoNotificacion>
-              <MailSMS>${destinatarioEmail}</MailSMS>` : ""}
-            </NotificacionRequest>
+            <NotificacionRequest xsi:nil="true" />
           </Notificaciones>
           <SeguroOpcional>
             <CodigoNaturaleza></CodigoNaturaleza>
+            <CantidadBoletos></CantidadBoletos>
             <ValorAsegurado></ValorAsegurado>
           </SeguroOpcional>
           <TramoHorario></TramoHorario>
@@ -195,14 +157,14 @@ export async function POST(request: Request) {
         </DatosServicio>
       </request>
     </TransmEnvio>
-  </Body>
-</Envelope>`;
+  </soap:Body>
+</soap:Envelope>`;
 
     const response = await fetch(entorno, {
       method: "POST",
       headers: {
-        "Content-Type": "application/soap+xml; charset=utf-8",
-        "SOAPAction": "http://www.mrw.es/TransmEnvio",
+        "Content-Type": "text/xml; charset=utf-8",
+        "SOAPAction": "\"http://www.mrw.es/TransmEnvio\"",
       },
       body: soapBody,
     });
@@ -215,23 +177,21 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    await supabaseAdmin.from("pedidos").update({
-      notas_internas: `MRW [${new Date().toISOString()}]: ${xmlText.substring(0, 800)}`
-    }).eq("id", pedidoId);
+    await supabaseAdmin.from("pedidos")
+      .update({ notas_internas: `MRW [${new Date().toISOString()}]: ${xmlText.substring(0, 800)}` })
+      .eq("id", pedidoId);
 
-    // Parsear respuesta XML
-    const numeroEnvio  = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1]   || null;
-    const estado       = xmlText.match(/<Estado>(.*?)<\/Estado>/)?.[1]             || "0";
-    const mensaje      = xmlText.match(/<Mensaje>(.*?)<\/Mensaje>/)?.[1]           || "";
-    const urlResultado = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1]                   || "";
+    // Respuesta SOAP 1.1: <NumeroEnvio> directamente en TransmEnvioResult
+    const numeroEnvio = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1] || null;
+    const urlResultado = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1] || "";
 
-    if (estado === "1" && numeroEnvio) {
-      return Response.json({ ok: true, numeroEnvio, urlResultado, mensaje });
+    if (numeroEnvio && numeroEnvio.trim() !== "") {
+      return Response.json({ ok: true, numeroEnvio: numeroEnvio.trim(), urlResultado });
     } else {
       return Response.json({
         ok: false,
-        error: mensaje || "Error al crear envío en MRW",
-        xmlRaw: xmlText.substring(0, 500),
+        error: "MRW no devolvió número de envío",
+        xmlRaw: xmlText.substring(0, 600),
       }, { status: 400 });
     }
 
