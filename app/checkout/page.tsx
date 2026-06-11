@@ -225,17 +225,24 @@ export default function CheckoutPage() {
       if (emailProveedor) {
         try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
       }
-    }
-    await supabase.from("cesta").delete().eq("user_id", user.id);
-    for (const [, grupo] of grupos) {
+
+      // Restar stock al confirmar pedido
       for (const prod of grupo.productos) {
-        if (prod.proveedor_id && prod.referencia) {
-          const cant = cantidades[prod.referencia] || 1;
-          const { data: pieza } = await supabase.from("piezas_publicadas").select("id, stock").eq("proveedor_id", prod.proveedor_id).eq("referencia", prod.referencia).single();
-          if (pieza) await supabase.from("piezas_publicadas").update({ stock: Math.max(0, (pieza.stock || 0) - cant) }).eq("id", pieza.id);
+        const cant = cantidades[prod.referencia] || 1;
+        const { data: pieza } = await supabase
+          .from("piezas_publicadas")
+          .select("id, stock")
+          .eq("proveedor_id", provId)
+          .eq("referencia", prod.referencia)
+          .single();
+        if (pieza) {
+          await supabase.from("piezas_publicadas")
+            .update({ stock: Math.max(0, (pieza.stock || 0) - cant) })
+            .eq("id", pieza.id);
         }
       }
     }
+    await supabase.from("cesta").delete().eq("user_id", user.id);
     if (formaPago === "rd_pago") {
       const nuevoCreditoRD = Math.max(0, creditoRD - total);
       await supabase.from("usuarios").update({ credito_rd: nuevoCreditoRD }).eq("id", user.id);
