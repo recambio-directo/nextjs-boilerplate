@@ -185,5 +185,154 @@ export async function GET() {
     await sb.from("pedidos").update({ notas_internas: `MRW TEST [${new Date().toISOString()}]: ${JSON.stringify(results, null, 2).substring(0, 1000)}` }).eq("id", 1);
   } catch(e) {}
 
+  // Intento 4: XML LITERAL del técnico incluyendo comentarios tal cual
+  const xmlTecnico = `<Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
+	<Header>
+		<AuthInfo xmlns="http://www.mrw.es/">
+			<CodigoFranquicia>02804</CodigoFranquicia>
+			<CodigoAbonado>099960</CodigoAbonado>
+			<CodigoDepartamento></CodigoDepartamento>
+			<UserName>${username}</UserName>
+			<Password>${password}</Password>
+		</AuthInfo>
+	</Header>
+	<Body>
+		<TransmEnvio xmlns="http://www.mrw.es/">
+			<request>
+				<ModificaDatosEnvio>
+				   <NumeroEnvioOriginal></NumeroEnvioOriginal>
+				</ModificaDatosEnvio>			
+				<DatosRecogida>
+					<Direccion>
+						<CodigoDireccion></CodigoDireccion>
+						<CodigoTipoVia></CodigoTipoVia>
+						<Via>C/ Sola 16</Via>
+						<Numero></Numero>
+						<Resto></Resto>
+						<CodigoPostal>30430</CodigoPostal>
+						<Poblacion>Cehegin</Poblacion>
+						<Provincia></Provincia>
+						<Estado></Estado>
+						<CodigoPais>ES</CodigoPais>
+						<TipoPuntoEntrega></TipoPuntoEntrega>
+						<CodigoPuntoEntrega></CodigoPuntoEntrega>
+						<CodigoFranquiciaAsociadaPuntoEntrega/>
+						<TipoPuntoRecogida></TipoPuntoRecogida>
+						<CodigoPuntoRecogida/>
+						<CodigoFranquiciaAsociadaPuntoRecogida/>
+						<Agencia></Agencia>
+					</Direccion>
+					<Nif></Nif>
+					<Nombre>Auto Recambios Gran Via</Nombre>
+					<Telefono>744487895</Telefono>
+					<Contacto></Contacto>
+					<Horario>
+						<Rangos>
+							<HorarioRangoRequest>
+								<Desde></Desde>
+								<Hasta></Hasta>
+							</HorarioRangoRequest>
+						</Rangos>
+					</Horario>
+					<Observaciones></Observaciones>
+				</DatosRecogida>
+				<DatosEntrega>
+					<Direccion>
+						<CodigoDireccion></CodigoDireccion>
+						<CodigoTipoVia></CodigoTipoVia>
+						<Via>Calle Mayor 1</Via>
+						<Numero></Numero>
+						<Resto></Resto>
+						<CodigoPostal>28001</CodigoPostal>
+						<Poblacion>MADRID</Poblacion>
+						<Provincia></Provincia>
+						<Estado></Estado>
+						<CodigoPais>ES</CodigoPais>
+						<TipoPuntoEntrega></TipoPuntoEntrega>
+						<CodigoPuntoEntrega></CodigoPuntoEntrega>
+						<CodigoFranquiciaAsociadaPuntoEntrega/>
+						<TipoPuntoRecogida></TipoPuntoRecogida>
+						<CodigoPuntoRecogida/>
+						<CodigoFranquiciaAsociadaPuntoRecogida/>
+						<Agencia></Agencia>
+					</Direccion>
+					<Nif></Nif>
+					<Nombre>Taller Prueba</Nombre>
+					<Telefono>600000000</Telefono>
+					<Contacto></Contacto>
+					<ALaAtencionDe></ALaAtencionDe>
+					<Horario>
+						<Rangos>
+							<HorarioRangoRequest>
+								<Desde></Desde>
+								<Hasta></Hasta>
+							</HorarioRangoRequest>
+						</Rangos>
+					</Horario>
+					<Observaciones>RD-TEST-001</Observaciones>
+				</DatosEntrega>
+				<DatosServicio>
+					<Fecha>11/06/2026</Fecha>
+					<NumeroAlbaran></NumeroAlbaran>
+					<Referencia>RD-TEST-001</Referencia>
+					<EnFranquicia></EnFranquicia>
+					<CodigoServicio>0200</CodigoServicio>
+					<DescripcionServicio></DescripcionServicio>
+					<Frecuencia></Frecuencia>
+					<CodigoPromocion></CodigoPromocion>
+					<NumeroSobre></NumeroSobre>
+					<Bultos>
+						<BultoRequest>
+							<Alto></Alto>
+							<Largo></Largo>
+							<Ancho></Ancho>
+							<Dimension></Dimension>
+							<Referencia></Referencia>
+							<Peso></Peso>
+						</BultoRequest>
+					</Bultos>
+					<NumeroBultos>1</NumeroBultos>
+					<Peso>5</Peso>
+					<NumeroPuentes></NumeroPuentes>
+					<EntregaSabado></EntregaSabado>
+					<Entrega830></Entrega830>
+					<EntregaPartirDe></EntregaPartirDe>
+					<Gestion></Gestion>
+					<Retorno></Retorno>
+					<CodigoServicioRetorno></CodigoServicioRetorno>
+					<ConfirmacionInmediata></ConfirmacionInmediata>
+					<Reembolso></Reembolso>
+					<ImporteReembolso></ImporteReembolso>
+					<TipoMercancia></TipoMercancia>
+					<ValorDeclarado></ValorDeclarado>
+					<ServicioEspecial></ServicioEspecial>
+					<CodigoMoneda></CodigoMoneda>
+					<ValorEstadistico></ValorEstadistico>
+					<ValorEstadisticoEuros></ValorEstadisticoEuros>
+					<Notificaciones>
+						<NotificacionRequest>
+						</NotificacionRequest>
+					</Notificaciones>
+					<SeguroOpcional>
+						<CodigoNaturaleza></CodigoNaturaleza>
+						<ValorAsegurado></ValorAsegurado>
+					</SeguroOpcional>
+					<TramoHorario></TramoHorario>
+					<PortesDebidos></PortesDebidos>
+					<Mascara_Tipos></Mascara_Tipos>
+					<Mascara_Campos></Mascara_Campos>
+					<Asistente></Asistente>
+				</DatosServicio>
+			</request>
+		</TransmEnvio>
+	</Body>
+</Envelope>`;
+
+  try {
+    const r4 = await fetch(entorno, { method: "POST", headers: { "Content-Type": "application/soap+xml; charset=utf-8" }, body: xmlTecnico });
+    const t4 = await r4.text();
+    results.intentos.push({ headers: "XML LITERAL TECNICO sin declaracion xml", status: r4.status, esHTML: t4.includes("<!DOCTYPE"), primeros400: t4.substring(0, 400) });
+  } catch(e) { results.intentos.push({ headers: "XML LITERAL TECNICO", error: String(e) }); }
+
   return Response.json(results);
 }
