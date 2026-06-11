@@ -24,6 +24,8 @@ export default function CheckoutPage() {
   const [direccion, setDireccion] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [cif, setCif] = useState("");
+  const [codigoPostal, setCodigoPostal] = useState("");
+  const [provincia, setProvincia] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
   const [productos, setProductos] = useState<Producto[]>([]);
   const [transporte, setTransporte] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export default function CheckoutPage() {
       setEmpresa(perfil.nombre_empresa || ""); setTelefono(perfil.telefono || "");
       setDireccion(perfil.direccion || ""); setCiudad(perfil.ciudad || "");
       setCif(perfil.cif || ""); setCreditoRD(Number(perfil.credito_rd) || 0);
+      setCodigoPostal(perfil.codigo_postal || ""); setProvincia(perfil.provincia || "");
       setEmpresaEdit(perfil.nombre_empresa || ""); setTelefonoEdit(perfil.telefono || "");
       setDireccionEdit(perfil.direccion || ""); setCiudadEdit(perfil.ciudad || "");
       setCifEdit(perfil.cif || "");
@@ -125,10 +128,18 @@ export default function CheckoutPage() {
   const numProveedores = new Set(productos.map(p => p.proveedor_id)).size;
   const grupos = getGruposPorProveedor();
 
-  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string) {
+  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string) {
     try {
       const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
-      const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, cliente: empresa, clienteEmail, telefono, cif, direccion: direccion + (ciudad ? ", " + ciudad : ""), agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion };
+      const props = {
+        codigo, fecha,
+        proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono,
+        proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+        cliente: empresa, clienteEmail, telefono, cif,
+        direccion, ciudad, codigoPostal, provincia,
+        agencia: transporte || "", formaPago, productos: productosGrupo,
+        subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion,
+      };
       const albaranBlob = await pdf(React.createElement(AlbaranPDF, props) as any).toBlob();
       const etiquetaBlob = await pdf(React.createElement(EtiquetaEnvioPDF, props) as any).toBlob();
       const albaranPath = `documentos/${codigo}/albaran-${codigo}.pdf`;
@@ -166,19 +177,25 @@ export default function CheckoutPage() {
       const totalGrupo = subtotalGrupo + transporteGrupo + ivaGrupo;
       const totalSinPorte = subtotalGrupo + ivaGrupo;
       const codigo = "RD-" + Math.floor(Math.random() * 9000000 + 1000000);
-      let emailProveedor = "", nombreProveedor = grupo.nombre, proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "";
+      let emailProveedor = "", nombreProveedor = grupo.nombre, proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "", proveedorCiudad = "", proveedorCodigoPostal = "", proveedorProvincia = "";
       if (provId !== "sin_proveedor") {
-        const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa, cif, telefono, direccion, ciudad").eq("id", provId).single();
+        const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa, cif, telefono, direccion, ciudad, codigo_postal, provincia").eq("id", provId).single();
         emailProveedor = prov?.email || ""; nombreProveedor = prov?.nombre_empresa || grupo.nombre;
         proveedorCif = prov?.cif || ""; proveedorTelefono = prov?.telefono || "";
-        proveedorDireccion = [prov?.direccion, prov?.ciudad].filter(Boolean).join(", ");
+        proveedorDireccion = prov?.direccion || "";
+        proveedorCiudad = prov?.ciudad || ""; proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
       }
       const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       pedidosCreados.push(codigo);
       primerPedido = false;
-      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+      if (pedidoInsertado?.id) await generarYGuardarPDFs(
+        pedidoInsertado.id, codigo,
+        nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
+        proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+        grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha
+      );
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
