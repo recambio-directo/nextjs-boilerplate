@@ -9,5 +9,10 @@
       "schedule": "0 5 * * *"
     }
   ],
+  "functions": {
+    "app/api/mrw/**": {
+      "maxDuration": 30
+    }
+  },
   "version": 2
 }
