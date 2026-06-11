@@ -36,12 +36,10 @@ export async function POST(request: Request) {
     const telRemitente    = limpiarTelefono(remitenteTelefono    || "");
     const telDestinatario = limpiarTelefono(destinatarioTelefono || "");
 
-    // SOAP 1.1 — según WSDL oficial
+    // Estructura EXACTA del técnico MRW — sin prefijo soap:, namespace en Envelope
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Header>
+<Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
+  <Header>
     <AuthInfo xmlns="http://www.mrw.es/">
       <CodigoFranquicia>${franquicia}</CodigoFranquicia>
       <CodigoAbonado>${abonado}</CodigoAbonado>
@@ -49,8 +47,8 @@ export async function POST(request: Request) {
       <UserName>${username}</UserName>
       <Password>${password}</Password>
     </AuthInfo>
-  </soap:Header>
-  <soap:Body>
+  </Header>
+  <Body>
     <TransmEnvio xmlns="http://www.mrw.es/">
       <request>
         <ModificaDatosEnvio>
@@ -70,17 +68,24 @@ export async function POST(request: Request) {
             <CodigoPais>ES</CodigoPais>
             <TipoPuntoEntrega></TipoPuntoEntrega>
             <CodigoPuntoEntrega></CodigoPuntoEntrega>
-            <CodigoFranquiciaAsociadaPuntoEntrega></CodigoFranquiciaAsociadaPuntoEntrega>
+            <CodigoFranquiciaAsociadaPuntoEntrega/>
             <TipoPuntoRecogida></TipoPuntoRecogida>
-            <CodigoPuntoRecogida></CodigoPuntoRecogida>
-            <CodigoFranquiciaAsociadaPuntoRecogida></CodigoFranquiciaAsociadaPuntoRecogida>
+            <CodigoPuntoRecogida/>
+            <CodigoFranquiciaAsociadaPuntoRecogida/>
             <Agencia></Agencia>
           </Direccion>
           <Nif></Nif>
           <Nombre>${remitenteNombre}</Nombre>
           <Telefono>${telRemitente}</Telefono>
           <Contacto></Contacto>
-          <Horario><Rangos xsi:nil="true" /></Horario>
+          <Horario>
+            <Rangos>
+              <HorarioRangoRequest>
+                <Desde></Desde>
+                <Hasta></Hasta>
+              </HorarioRangoRequest>
+            </Rangos>
+          </Horario>
           <Observaciones></Observaciones>
         </DatosRecogida>
         <DatosEntrega>
@@ -97,10 +102,10 @@ export async function POST(request: Request) {
             <CodigoPais>ES</CodigoPais>
             <TipoPuntoEntrega></TipoPuntoEntrega>
             <CodigoPuntoEntrega></CodigoPuntoEntrega>
-            <CodigoFranquiciaAsociadaPuntoEntrega></CodigoFranquiciaAsociadaPuntoEntrega>
+            <CodigoFranquiciaAsociadaPuntoEntrega/>
             <TipoPuntoRecogida></TipoPuntoRecogida>
-            <CodigoPuntoRecogida></CodigoPuntoRecogida>
-            <CodigoFranquiciaAsociadaPuntoRecogida></CodigoFranquiciaAsociadaPuntoRecogida>
+            <CodigoPuntoRecogida/>
+            <CodigoFranquiciaAsociadaPuntoRecogida/>
             <Agencia></Agencia>
           </Direccion>
           <Nif></Nif>
@@ -108,21 +113,36 @@ export async function POST(request: Request) {
           <Telefono>${telDestinatario}</Telefono>
           <Contacto></Contacto>
           <ALaAtencionDe></ALaAtencionDe>
-          <Horario><Rangos xsi:nil="true" /></Horario>
+          <Horario>
+            <Rangos>
+              <HorarioRangoRequest>
+                <Desde></Desde>
+                <Hasta></Hasta>
+              </HorarioRangoRequest>
+            </Rangos>
+          </Horario>
           <Observaciones>${observaciones || pedidoCodigo}</Observaciones>
         </DatosEntrega>
         <DatosServicio>
           <Fecha>${fechaStr}</Fecha>
           <NumeroAlbaran></NumeroAlbaran>
           <Referencia>${pedidoCodigo}</Referencia>
-          <CorrelacionRef></CorrelacionRef>
           <EnFranquicia></EnFranquicia>
           <CodigoServicio>0200</CodigoServicio>
           <DescripcionServicio></DescripcionServicio>
           <Frecuencia></Frecuencia>
           <CodigoPromocion></CodigoPromocion>
           <NumeroSobre></NumeroSobre>
-          <Bultos><BultoRequest xsi:nil="true" /></Bultos>
+          <Bultos>
+            <BultoRequest>
+              <Alto></Alto>
+              <Largo></Largo>
+              <Ancho></Ancho>
+              <Dimension></Dimension>
+              <Referencia></Referencia>
+              <Peso></Peso>
+            </BultoRequest>
+          </Bultos>
           <NumeroBultos>${numBultos}</NumeroBultos>
           <Peso>${Math.ceil(pesoKg)}</Peso>
           <NumeroPuentes></NumeroPuentes>
@@ -142,11 +162,11 @@ export async function POST(request: Request) {
           <ValorEstadistico></ValorEstadistico>
           <ValorEstadisticoEuros></ValorEstadisticoEuros>
           <Notificaciones>
-            <NotificacionRequest xsi:nil="true" />
+            <NotificacionRequest>
+            </NotificacionRequest>
           </Notificaciones>
           <SeguroOpcional>
             <CodigoNaturaleza></CodigoNaturaleza>
-            <CantidadBoletos></CantidadBoletos>
             <ValorAsegurado></ValorAsegurado>
           </SeguroOpcional>
           <TramoHorario></TramoHorario>
@@ -157,14 +177,13 @@ export async function POST(request: Request) {
         </DatosServicio>
       </request>
     </TransmEnvio>
-  </soap:Body>
-</soap:Envelope>`;
+  </Body>
+</Envelope>`;
 
     const response = await fetch(entorno, {
       method: "POST",
       headers: {
-        "Content-Type": "text/xml; charset=utf-8",
-        "SOAPAction": "\"http://www.mrw.es/TransmEnvio\"",
+        "Content-Type": "application/soap+xml; charset=utf-8",
       },
       body: soapBody,
     });
