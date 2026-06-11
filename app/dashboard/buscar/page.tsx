@@ -263,7 +263,7 @@ function BuscarPageInner() {
                     <div style={{ textAlign: "right" }}>
                       <p style={{ fontSize: 22, fontWeight: 900, color: "#22c55e", lineHeight: 1 }}>{Number(oferta.precio).toFixed(2)}€</p>
                       {oferta.impuesto && Number(oferta.impuesto) > 0 && (
-                        <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ eco</p>
+                        <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ imp/casco</p>
                       )}
                     </div>
                   </div>
@@ -338,7 +338,7 @@ function BuscarPageInner() {
                   <div style={{ color: "#cbd5e1", fontWeight: 700 }}>{oferta.provincia || "-"}</div>
                   <div>
                     <div style={{ fontSize: 36, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
-                    {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ eco</div>}
+                    {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ imp/casco</div>}
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     {tipoUp === "UNIVERSAL" && oferta.foto_url && (
