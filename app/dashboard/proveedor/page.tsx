@@ -592,7 +592,7 @@ export default function ProveedorPage() {
                 <>
                   <div style={tableContainer}>
                     <table style={tableStyle}>
-                      <thead><tr>{["REFERENCIA","DESCRIPCIÓN","MARCA","PRECIO","STOCK","PROVINCIA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["REFERENCIA","DESCRIPCIÓN","MARCA","PRECIO","IMP/CASCO","STOCK","PROVINCIA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                       <tbody>
                         {piezas.map(pieza => (
                           <tr key={pieza.id} style={trStyle}>
@@ -600,6 +600,7 @@ export default function ProveedorPage() {
                             <td style={tdStyle}>{pieza.descripcion}</td>
                             <td style={tdStyle}>{pieza.marca || "-"}</td>
                             <td style={tdStyle}>{editandoId === pieza.id ? <input value={editPrecio} onChange={e => setEditPrecio(e.target.value)} style={miniInput} type="number" /> : <span style={{ color: "#22c55e", fontWeight: 900 }}>{pieza.precio}€</span>}</td>
+                            <td style={tdStyle}>{(pieza as any).impuesto > 0 ? <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 13 }}>+{Number((pieza as any).impuesto).toFixed(2)}€</span> : <span style={{ color: "#475569" }}>—</span>}</td>
                             <td style={tdStyle}>{editandoId === pieza.id ? <input value={editStock} onChange={e => setEditStock(e.target.value)} style={miniInput} type="number" /> : <span style={stockBadge}>{pieza.stock} uds</span>}</td>
                             <td style={tdStyle}>{pieza.provincia || "-"}</td>
                             <td style={tdStyle}>
