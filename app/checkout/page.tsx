@@ -29,11 +29,13 @@ export default function CheckoutPage() {
   const [transporte, setTransporte] = useState<string | null>(null);
   const [formaPago, setFormaPago] = useState<"rd_pago" | "tarjeta">("tarjeta");
   const [creditoRD, setCreditoRD] = useState(0);
+  const [pedidosConTarjeta, setPedidosConTarjeta] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [editandoDatos, setEditandoDatos] = useState(false);
   const [mostrarStripe, setMostrarStripe] = useState(false);
+  const [mostrarModalRD, setMostrarModalRD] = useState(false);
   const [empresaEdit, setEmpresaEdit] = useState("");
   const [telefonoEdit, setTelefonoEdit] = useState("");
   const [direccionEdit, setDireccionEdit] = useState("");
@@ -57,9 +59,21 @@ export default function CheckoutPage() {
     setClienteEmail(user.email || "");
     const { data: perfil } = await supabase.from("usuarios").select("*").eq("id", user.id).single();
     if (perfil) {
-      setEmpresa(perfil.nombre_empresa || ""); setTelefono(perfil.telefono || ""); setDireccion(perfil.direccion || ""); setCiudad(perfil.ciudad || ""); setCif(perfil.cif || ""); setCreditoRD(Number(perfil.credito_rd) || 0);
-      setEmpresaEdit(perfil.nombre_empresa || ""); setTelefonoEdit(perfil.telefono || ""); setDireccionEdit(perfil.direccion || ""); setCiudadEdit(perfil.ciudad || ""); setCifEdit(perfil.cif || "");
+      setEmpresa(perfil.nombre_empresa || ""); setTelefono(perfil.telefono || "");
+      setDireccion(perfil.direccion || ""); setCiudad(perfil.ciudad || "");
+      setCif(perfil.cif || ""); setCreditoRD(Number(perfil.credito_rd) || 0);
+      setEmpresaEdit(perfil.nombre_empresa || ""); setTelefonoEdit(perfil.telefono || "");
+      setDireccionEdit(perfil.direccion || ""); setCiudadEdit(perfil.ciudad || "");
+      setCifEdit(perfil.cif || "");
     }
+    // Contar pedidos previos pagados con tarjeta
+    const { count } = await supabase.from("pedidos")
+      .select("*", { count: "exact", head: true })
+      .eq("cliente_id", user.id)
+      .eq("forma_pago", "tarjeta")
+      .eq("anulado", false);
+    setPedidosConTarjeta(count || 0);
+
     const { data: cesta } = await supabase.from("cesta").select("*").eq("user_id", user.id).order("id", { ascending: true });
     if (cesta) {
       const vistos = new Set<string>();
@@ -90,6 +104,13 @@ export default function CheckoutPage() {
   const iva = subtotal * 0.21;
   const total = subtotal + precioTransporte + iva;
   const puedeConfirmar = productos.length > 0 && transporte !== null && !cargando;
+
+  // Lógica de visibilidad RD Pago
+  const rdPagoActivo = creditoRD > 0;           // Admin lo activó con saldo
+  const rdPagoVisible = pedidosConTarjeta > 0;  // Ha hecho al menos 1 pedido con tarjeta
+  // 0 pedidos → no se ve nada
+  // 1+ pedidos, sin crédito → se ve en gris con botón info
+  // crédito > 0 → se ve funcional
 
   function getGruposPorProveedor(): Map<string, { nombre: string; productos: Producto[] }> {
     const grupos = new Map<string, { nombre: string; productos: Producto[] }>();
@@ -148,7 +169,9 @@ export default function CheckoutPage() {
       let emailProveedor = "", nombreProveedor = grupo.nombre, proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "";
       if (provId !== "sin_proveedor") {
         const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa, cif, telefono, direccion, ciudad").eq("id", provId).single();
-        emailProveedor = prov?.email || ""; nombreProveedor = prov?.nombre_empresa || grupo.nombre; proveedorCif = prov?.cif || ""; proveedorTelefono = prov?.telefono || ""; proveedorDireccion = [prov?.direccion, prov?.ciudad].filter(Boolean).join(", ");
+        emailProveedor = prov?.email || ""; nombreProveedor = prov?.nombre_empresa || grupo.nombre;
+        proveedorCif = prov?.cif || ""; proveedorTelefono = prov?.telefono || "";
+        proveedorDireccion = [prov?.direccion, prov?.ciudad].filter(Boolean).join(", ");
       }
       const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
@@ -157,65 +180,29 @@ export default function CheckoutPage() {
       primerPedido = false;
       if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
-      // DEBUG MRW
-      alert(`DEBUG: transporte="${transporte}" pedidoId="${pedidoInsertado?.id}" codigo="${codigo}"`);
-
-      // Registrar recogida MRW si el transporte elegido es MRW
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
-          // Extraer CP y ciudad del proveedor y del cliente
           const provDireccionParts = proveedorDireccion.split(",");
           const provCiudad = provDireccionParts[provDireccionParts.length - 1]?.trim() || "";
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
-
-          // Obtener CP del proveedor desde Supabase
           let provCP = "";
           if (provId !== "sin_proveedor") {
             const { data: provExtra } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
             provCP = provExtra?.codigo_postal || "";
           }
-
-          // CP del cliente
           const { data: clienteExtra } = await supabase.from("usuarios").select("codigo_postal").eq("id", user.id).single();
           const clienteCP = clienteExtra?.codigo_postal || "";
-          const clienteCiudad = ciudad || "";
-          const clienteDireccionSolo = direccion || "";
-
           const mrwRes = await fetch("/api/mrw/crear-envio", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedidoId: pedidoInsertado.id,
-              pedidoCodigo: codigo,
-              remitenteNombre: nombreProveedor,
-              remitenteDireccion: provDireccionSolo,
-              remitenteCodigoPostal: provCP,
-              remitentePoblacion: provCiudad,
-              remitenteTelefono: proveedorTelefono,
-              destinatarioNombre: empresa || user.email,
-              destinatarioDireccion: clienteDireccionSolo,
-              destinatarioCodigoPostal: clienteCP,
-              destinatarioPoblacion: clienteCiudad,
-              destinatarioTelefono: telefono,
-              destinatarioEmail: user.email,
-              pesoKg: Math.max(1, grupo.productos.length * 2),
-            }),
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: provCP, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: clienteCP, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }),
           });
           const mrwData = await mrwRes.json();
           if (mrwData.ok && mrwData.numeroEnvio) {
-            await supabase.from("pedidos")
-              .update({ tracking: mrwData.numeroEnvio, estado_envio: "preparando" })
-              .eq("id", pedidoInsertado.id);
-            console.log(`MRW envío creado: ${mrwData.numeroEnvio} para pedido ${codigo}`);
+            await supabase.from("pedidos").update({ tracking: mrwData.numeroEnvio, estado_envio: "preparando" }).eq("id", pedidoInsertado.id);
           } else {
             console.error("MRW error:", mrwData.error);
-            alert("MRW respuesta:\n" + (mrwData.error || "") + "\n\nXML: " + (mrwData.xmlRaw || "").substring(0, 300));
           }
-        } catch (mrwErr) {
-          console.error("Error MRW:", mrwErr);
-          alert("MRW Error: " + String(mrwErr));
-          // No bloqueamos el pedido si MRW falla
-        }
+        } catch (mrwErr) { console.error("Error MRW:", mrwErr); }
       }
 
       if (emailProveedor) {
@@ -243,6 +230,83 @@ export default function CheckoutPage() {
     else window.location.href = "/dashboard/pedidos";
   }
 
+  // MODAL RD PAGO INFO
+  const ModalRDPago = () => (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#0f172a", borderRadius: 24, padding: isMobile ? 24 : 36, maxWidth: 480, width: "100%", border: "1px solid rgba(37,99,235,0.3)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>💳</div>
+          <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>¿Qué es RD Pago?</h2>
+          <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>
+            RD Pago es un crédito exclusivo que Recambio Directo concede a clientes con historial de compra verificado, que te permite comprar ahora y pagar en tu factura mensual.
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 12, marginBottom: 24 }}>
+          {[
+            { icon: "✅", text: "Sin recargos ni intereses" },
+            { icon: "📦", text: "Compra ahora, paga en tu factura mensual" },
+            { icon: "🔒", text: "Solo para clientes verificados con historial de pagos" },
+            { icon: "📞", text: "Activación manual por el equipo de Recambio Directo" },
+          ].map(({ icon, text }) => (
+            <div key={text} style={{ display: "flex", gap: 12, alignItems: "center", background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.12)", borderRadius: 10, padding: "10px 14px" }}>
+              <span style={{ fontSize: 18 }}>{icon}</span>
+              <span style={{ color: "#cbd5e1", fontSize: 14 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12, padding: "14px 16px", marginBottom: 20, textAlign: "center" as const }}>
+          <p style={{ color: "#4ade80", fontSize: 13, fontWeight: 700, margin: 0 }}>
+            ¿Te interesa? Escríbenos a{" "}
+            <a href="mailto:info@recambio-directo.com" style={{ color: "#4ade80" }}>info@recambio-directo.com</a>
+            {" "}y lo gestionamos en 24h.
+          </p>
+        </div>
+        <button onClick={() => setMostrarModalRD(false)} style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>
+          Entendido
+        </button>
+      </div>
+    </div>
+  );
+
+  // BLOQUE FORMA DE PAGO (compartido móvil/desktop)
+  const FormaPagoBlock = () => (
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+      {/* RD Pago — solo visible si tiene 1+ pedidos con tarjeta */}
+      {rdPagoVisible && (
+        rdPagoActivo ? (
+          // Funcional — tiene crédito asignado
+          <button onClick={() => setFormaPago("rd_pago")} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, cursor: "pointer", background: formaPago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "rd_pago" ? "2px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontWeight: 800, color: formaPago === "rd_pago" ? "#60a5fa" : "white", margin: 0 }}>RD Pago</p>
+                <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Crédito disponible</p>
+              </div>
+              <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16 }}>{creditoRD.toFixed(2)}€</span>
+            </div>
+          </button>
+        ) : (
+          // En gris — tiene historial pero no crédito asignado todavía
+          <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", opacity: 0.7 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontWeight: 800, color: "#64748b", margin: 0 }}>RD Pago</p>
+                <p style={{ color: "#475569", fontSize: 12, margin: "4px 0 0" }}>Crédito no disponible</p>
+              </div>
+              <button onClick={() => setMostrarModalRD(true)} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
+                ¿Qué es?
+              </button>
+            </div>
+          </div>
+        )
+      )}
+      {/* Tarjeta — siempre visible */}
+      <button onClick={() => setFormaPago("tarjeta")} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, cursor: "pointer", background: formaPago === "tarjeta" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "tarjeta" ? "2px solid rgba(139,92,246,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
+        <p style={{ fontWeight: 800, color: formaPago === "tarjeta" ? "#a78bfa" : "white", margin: 0 }}>Tarjeta bancaria</p>
+        <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Pago seguro con tarjeta</p>
+      </button>
+    </div>
+  );
+
   const opciones = [
     { key: "MRW", color: "#E30613", label: "MRW 24H", precio: "7.95€" },
     { key: "GLS", color: "#F5A800", label: "GLS", precio: "6.50€" },
@@ -253,6 +317,7 @@ export default function CheckoutPage() {
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", minHeight: "100vh", padding: "16px 12px 100px" }}>
+      {mostrarModalRD && <ModalRDPago />}
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>FINALIZAR PEDIDO</h1>
       <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 20 }}>Revisa y confirma tu pedido</p>
 
@@ -271,7 +336,6 @@ export default function CheckoutPage() {
                     <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                       <p style={{ fontWeight: 800, fontSize: 14, marginBottom: 2 }}>{p.referencia}</p>
                       <p style={{ color: "#94a3b8", fontSize: 12 }}>{(p.descripcion || "").substring(0, 30)}</p>
-                      {/* Cantidad */}
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                         <button onClick={() => setCantidades(prev => ({ ...prev, [p.referencia]: Math.max(1, (prev[p.referencia] || 1) - 1) }))} style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "white", cursor: "pointer", fontSize: 16 }}>-</button>
                         <span style={{ fontWeight: 700, fontSize: 15, minWidth: 20, textAlign: "center" }}>{cantidades[p.referencia] || 1}</span>
@@ -306,21 +370,10 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* FORMA DE PAGO */}
+      {/* FORMA DE PAGO MÓVIL */}
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>💳 Forma de pago</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setFormaPago("rd_pago")} disabled={creditoRD <= 0} style={{ padding: "14px 16px", borderRadius: 12, textAlign: "left", cursor: creditoRD > 0 ? "pointer" : "not-allowed", background: formaPago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "rd_pago" ? "2px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.08)", opacity: creditoRD <= 0 ? 0.4 : 1 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div><p style={{ fontWeight: 800, margin: 0, color: formaPago === "rd_pago" ? "#60a5fa" : "white" }}>RD Pago</p><p style={{ color: "#94a3b8", fontSize: 12, margin: "2px 0 0" }}>Crédito plataforma</p></div>
-              <span style={{ color: creditoRD > 0 ? "#4ade80" : "#f87171", fontWeight: 900, fontSize: 16 }}>{creditoRD.toFixed(2)}€</span>
-            </div>
-          </button>
-          <button onClick={() => setFormaPago("tarjeta")} style={{ padding: "14px 16px", borderRadius: 12, textAlign: "left", cursor: "pointer", background: formaPago === "tarjeta" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "tarjeta" ? "2px solid rgba(139,92,246,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ fontWeight: 800, margin: 0, color: formaPago === "tarjeta" ? "#a78bfa" : "white" }}>Tarjeta bancaria</p>
-            <p style={{ color: "#94a3b8", fontSize: 12, margin: "2px 0 0" }}>Pago seguro con tarjeta</p>
-          </button>
-        </div>
+        <FormaPagoBlock />
       </div>
 
       {/* DATOS ENTREGA */}
@@ -330,11 +383,11 @@ export default function CheckoutPage() {
           <button onClick={() => { if (!editandoDatos) { setEmpresaEdit(empresa); setTelefonoEdit(telefono); setDireccionEdit(direccion); setCiudadEdit(ciudad); setCifEdit(cif); } setEditandoDatos(!editandoDatos); }} style={{ background: "rgba(37,99,235,0.15)", border: "none", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{editandoDatos ? "Cancelar" : "Editar"}</button>
         </div>
         {editandoDatos ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
             {[{ label: "Empresa", val: empresaEdit, set: setEmpresaEdit }, { label: "CIF", val: cifEdit, set: setCifEdit }, { label: "Dirección", val: direccionEdit, set: setDireccionEdit }, { label: "Ciudad", val: ciudadEdit, set: setCiudadEdit }, { label: "Teléfono", val: telefonoEdit, set: setTelefonoEdit }].map(({ label, val, set }) => (
               <div key={label}>
                 <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>{label}</p>
-                <input value={val} onChange={e => set(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                <input value={val} onChange={e => set(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
               </div>
             ))}
             <button onClick={() => { setEmpresa(empresaEdit); setTelefono(telefonoEdit); setDireccion(direccionEdit); setCiudad(ciudadEdit); setCif(cifEdit); setEditandoDatos(false); }} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "12px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Aplicar</button>
@@ -371,6 +424,7 @@ export default function CheckoutPage() {
   /* ── DESKTOP ── */
   return (
     <main style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1.2fr 420px", gap: 40, padding: 50, background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
+      {mostrarModalRD && <ModalRDPago />}
       <section>
         <h1 style={{ fontSize: 72, fontWeight: 900, lineHeight: 1, marginBottom: 24 }}>FINALIZAR PEDIDO</h1>
         <p style={{ color: "#94a3b8", fontSize: 22, lineHeight: 1.7, marginBottom: 40 }}>Tus datos profesionales se cargan automáticamente desde tu cuenta.</p>
@@ -384,13 +438,13 @@ export default function CheckoutPage() {
           {editandoDatos ? (
             <div style={{ display: "grid", gap: 16 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Empresa</p><input value={empresaEdit} onChange={e => setEmpresaEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" }} /></div>
-                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>CIF / NIF</p><input value={cifEdit} onChange={e => setCifEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" }} /></div>
+                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Empresa</p><input value={empresaEdit} onChange={e => setEmpresaEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" as const }} /></div>
+                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>CIF / NIF</p><input value={cifEdit} onChange={e => setCifEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" as const }} /></div>
               </div>
-              <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Dirección de entrega</p><input value={direccionEdit} onChange={e => setDireccionEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" }} /></div>
+              <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Dirección de entrega</p><input value={direccionEdit} onChange={e => setDireccionEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" as const }} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p><input value={ciudadEdit} onChange={e => setCiudadEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" }} /></div>
-                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Teléfono</p><input value={telefonoEdit} onChange={e => setTelefonoEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" }} /></div>
+                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p><input value={ciudadEdit} onChange={e => setCiudadEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" as const }} /></div>
+                <div><p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Teléfono</p><input value={telefonoEdit} onChange={e => setTelefonoEdit(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 16px", fontSize: 15, outline: "none", boxSizing: "border-box" as const }} /></div>
               </div>
               <button onClick={() => { setEmpresa(empresaEdit); setTelefono(telefonoEdit); setDireccion(direccionEdit); setCiudad(ciudadEdit); setCif(cifEdit); setEditandoDatos(false); }} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: 14, borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 15 }}>Aplicar datos de entrega</button>
             </div>
@@ -407,7 +461,7 @@ export default function CheckoutPage() {
           {!transporte && <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "12px 18px", borderRadius: 12, marginBottom: 20, fontSize: 14 }}>Selecciona una opción de transporte para continuar</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
             {opciones.map(({ key, color, textColor, label, precio }) => (
-              <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 20, padding: 22, color: "white", fontWeight: 800, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: transporte === key ? "rgba(37,99,235,0.1)" : "#0f172a", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.06)" }}>
+              <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 20, padding: 22, color: "white", fontWeight: 800, cursor: "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 10, background: transporte === key ? "rgba(37,99,235,0.1)" : "#0f172a", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.06)" }}>
                 <div style={{ background: color, borderRadius: 8, padding: "6px 14px" }}><span style={{ color: textColor || "white", fontWeight: 900, fontSize: 16 }}>{label}</span></div>
                 <div style={{ fontSize: 13, color: "#94a3b8" }}>{precio}</div>
               </button>
@@ -462,18 +516,9 @@ export default function CheckoutPage() {
             <span>TOTAL</span>
             <h2 style={{ fontSize: 48, fontWeight: 900, color: "#22c55e", marginTop: 10 }}>{total.toFixed(2)}€</h2>
           </div>
-          {/* FORMA DE PAGO */}
           <div style={{ marginBottom: 24 }}>
             <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: "#94a3b8" }}>FORMA DE PAGO</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => setFormaPago("rd_pago")} disabled={creditoRD <= 0} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left", cursor: creditoRD > 0 ? "pointer" : "not-allowed", background: formaPago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "rd_pago" ? "2px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.08)", opacity: creditoRD <= 0 ? 0.4 : 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><p style={{ fontWeight: 800, color: formaPago === "rd_pago" ? "#60a5fa" : "white", margin: 0 }}>RD Pago</p><p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Crédito disponible</p></div><span style={{ color: creditoRD > 0 ? "#4ade80" : "#f87171", fontWeight: 900, fontSize: 16 }}>{creditoRD.toFixed(2)}€</span></div>
-              </button>
-              <button onClick={() => setFormaPago("tarjeta")} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left", cursor: "pointer", background: formaPago === "tarjeta" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "tarjeta" ? "2px solid rgba(139,92,246,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
-                <p style={{ fontWeight: 800, color: formaPago === "tarjeta" ? "#a78bfa" : "white", margin: 0 }}>Tarjeta bancaria</p>
-                <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Pago seguro con tarjeta</p>
-              </button>
-            </div>
+            <FormaPagoBlock />
           </div>
           <button onClick={finalizarCompra} disabled={!puedeConfirmar} style={{ width: "100%", background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", padding: 22, borderRadius: 20, color: "white", fontWeight: 900, fontSize: 18, boxShadow: "0 12px 30px rgba(22,163,74,0.35)", opacity: puedeConfirmar ? 1 : 0.4, cursor: puedeConfirmar ? "pointer" : "not-allowed" }}>
             {cargando ? "PROCESANDO..." : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
