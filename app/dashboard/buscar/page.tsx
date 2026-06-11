@@ -111,13 +111,16 @@ function BuscarPageInner() {
     if (!user) { alert("Inicia sesión para añadir a la cesta"); return; }
     if (oferta.proveedor_id === user.id) { alert("No puedes añadir tus propias piezas"); return; }
     const descripcion = oferta.descripcion || oferta.nombre || oferta.referencia;
-    const { data: piezaBD } = await supabase.from("piezas_publicadas").select("proveedor_id, proveedor_nombre").eq("id", oferta.id).single();
     const { error } = await supabase.from("cesta").insert({
-      user_id: user.id, referencia: oferta.referencia, descripcion,
-      precio: oferta.precio, impuesto: oferta.impuesto || 0, cantidad: 1,
+      user_id: user.id,
+      referencia: oferta.referencia,
+      descripcion,
+      precio: oferta.precio,
+      impuesto: oferta.impuesto || 0,
+      cantidad: 1,
       stock: oferta.stock || 99,
-      proveedor_id: piezaBD?.proveedor_id || oferta.proveedor_id,
-      proveedor_nombre: piezaBD?.proveedor_nombre || oferta.proveedor_nombre,
+      proveedor_id: oferta.proveedor_id,
+      proveedor_nombre: oferta.proveedor_nombre,
     });
     if (error) { alert("Error al añadir a la cesta"); return; }
     setCestaMensaje(oferta.id);
