@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const {
       pedidoCodigo, pedidoId, pedidoTotal, pedidoFecha,
       clienteEmail, clienteNombre, clienteCif, clienteTelefono, clienteDireccion,
-      proveedorNombre, emailProveedor, productos,
+      proveedorNombre, emailProveedor, productos, emailFacturasCliente,
     } = body;
 
     const fechaFormateada = pedidoFecha
@@ -72,7 +72,11 @@ export async function POST(request: Request) {
             </div>
             <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin-bottom:20px;">
               <p style="margin:0;color:#92400e;font-size:13px;">
-                ⚠️ <strong>Acción requerida:</strong> Puedes subir la factura PDF en el panel de pedidos para que el cliente la descargue desde la plataforma, o bien enviársela directamente por email a <strong><a href="mailto:${clienteEmail}" style="color:#92400e;">${clienteEmail}</a></strong>.
+                ⚠️ <strong>Acción requerida:</strong> Puedes subir la factura PDF en el panel de pedidos para que el cliente la descargue desde la plataforma, o bien enviársela directamente por email a:
+              </p>
+              <p style="margin:8px 0 0;color:#92400e;font-size:14px;font-weight:700;">
+                📧 <a href="mailto:${emailFacturasCliente || clienteEmail}" style="color:#92400e;">${emailFacturasCliente || clienteEmail}</a>
+                ${emailFacturasCliente && emailFacturasCliente !== clienteEmail ? `<span style="font-size:11px;font-weight:400;"> (email de facturación)</span>` : ""}
               </p>
             </div>
             <div style="text-align:center;margin:20px 0;">
