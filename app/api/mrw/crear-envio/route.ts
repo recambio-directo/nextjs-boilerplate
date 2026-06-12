@@ -217,7 +217,61 @@ export async function POST(request: Request) {
         estado_envio: "preparando",
         notas_internas: `MRW OK — Envio: ${numeroEnvio.trim()} — Solicitud: ${numeroSolicitud || ""}`,
       }).eq("id", pedidoId);
-      return Response.json({ ok: true, numeroEnvio: numeroEnvio.trim(), numeroSolicitud, urlResultado });
+
+      // Obtener etiqueta oficial MRW (PDF con Code128)
+      let etiquetaMrwUrl: string | null = null;
+      try {
+        const etiquetaXml = `<?xml version="1.0" encoding="utf-8"?>
+<Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
+  <Header>
+    <AuthInfo xmlns="http://www.mrw.es/">
+      <CodigoFranquicia>${franquicia}</CodigoFranquicia>
+      <CodigoAbonado>${abonado}</CodigoAbonado>
+      <CodigoDepartamento>${departamento}</CodigoDepartamento>
+      <UserName>${username}</UserName>
+      <Password>${password}</Password>
+    </AuthInfo>
+  </Header>
+  <Body>
+    <GetEtiquetaEnvio xmlns="http://www.mrw.es/">
+      <request>
+        <NumeroEnvio>${numeroEnvio.trim()}</NumeroEnvio>
+        <TipoEtiquetaEnvio>0</TipoEtiquetaEnvio>
+      </request>
+    </GetEtiquetaEnvio>
+  </Body>
+</Envelope>`;
+
+        const etiquetaRes = await fetch(proxyUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/soap+xml; charset=utf-8",
+            "x-proxy-secret": "rd-mrw-proxy-2026",
+            "x-target-url": targetUrl,
+          },
+          body: etiquetaXml,
+        });
+
+        const etiquetaXmlText = await etiquetaRes.text();
+        const etiquetaBase64 = etiquetaXmlText.match(/<EtiquetaFile>([\s\S]*?)<\/EtiquetaFile>/)?.[1]?.trim() || null;
+
+        if (etiquetaBase64) {
+          // Convertir base64 a buffer y subir a Supabase Storage
+          const pdfBuffer = Buffer.from(etiquetaBase64, "base64");
+          const etiquetaPath = `documentos/${pedidoCodigo}/etiqueta-mrw-${pedidoCodigo}.pdf`;
+          await supabaseAdmin.storage.from("FACTURAS").upload(etiquetaPath, pdfBuffer, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+          const { data: urlData } = supabaseAdmin.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
+          etiquetaMrwUrl = urlData.publicUrl;
+          await supabaseAdmin.from("pedidos").update({ etiqueta_envio_url: etiquetaMrwUrl }).eq("id", pedidoId);
+        }
+      } catch (etiquetaErr) {
+        console.error("Error obteniendo etiqueta MRW:", etiquetaErr);
+      }
+
+      return Response.json({ ok: true, numeroEnvio: numeroEnvio.trim(), numeroSolicitud, urlResultado, etiquetaMrwUrl });
     } else {
       return Response.json({
         ok: false,
