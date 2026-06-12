@@ -52,6 +52,15 @@ export default function CheckoutPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW", "GLS", "Correos Express", "Mis Medios"]);
+
+  function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
+    const esIsla = (cp: string) => cp.startsWith("35") || cp.startsWith("38") || cp.startsWith("51") || cp.startsWith("52");
+    const agencias: string[] = ["Mis Medios", "MRW", "Correos Express"];
+    if (!esIsla(cpOrigen) && !esIsla(cpDestino)) agencias.push("GLS");
+    return agencias;
+  }
+
   useEffect(() => { cargarDatos(); }, []);
 
   async function cargarDatos() {
@@ -69,14 +78,6 @@ export default function CheckoutPage() {
       setDireccionEdit(perfil.direccion || ""); setCiudadEdit(perfil.ciudad || "");
       setCifEdit(perfil.cif || "");
     }
-    // Contar pedidos previos pagados con tarjeta
-    const { count } = await supabase.from("pedidos")
-      .select("*", { count: "exact", head: true })
-      .eq("cliente_id", user.id)
-      .eq("forma_pago", "tarjeta")
-      .eq("anulado", false);
-    setPedidosConTarjeta(count || 0);
-
     const { data: cesta } = await supabase.from("cesta").select("*").eq("user_id", user.id).order("id", { ascending: true });
     if (cesta) {
       const vistos = new Set<string>();
@@ -85,6 +86,19 @@ export default function CheckoutPage() {
       const initCantidades: Record<string, number> = {};
       sinDuplicados.forEach((p: Producto) => { initCantidades[p.referencia] = 1; });
       setCantidades(initCantidades);
+
+      // Calcular agencias disponibles según CPs
+      const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
+      let agenciasValidas = ["MRW", "GLS", "Correos Express", "Mis Medios"];
+      for (const provId of proveedorIds) {
+        const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
+        const cpOrigen = prov?.codigo_postal || "";
+        const cpDestino = perfil?.codigo_postal || "";
+        const disponibles = getAgenciasDisponibles(cpOrigen, cpDestino);
+        agenciasValidas = agenciasValidas.filter(a => disponibles.includes(a));
+      }
+      setAgenciasDisponibles(agenciasValidas);
+      if (transporte && !agenciasValidas.includes(transporte)) setTransporte(null);
     }
   }
 
@@ -324,12 +338,13 @@ export default function CheckoutPage() {
     </div>
   );
 
-  const opciones = [
+  const todasOpciones = [
     { key: "MRW", color: "#E30613", label: "MRW 24H", precio: "7.95€" },
     { key: "GLS", color: "#F5A800", label: "GLS", precio: "6.50€" },
     { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: "5.00€" },
     { key: "Mis Medios", color: "rgba(139,92,246,0.5)", label: "Mis Medios", precio: "Gratis" },
   ];
+  const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
 
   /* ── MÓVIL ── */
   if (isMobile) return (
