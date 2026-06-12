@@ -17,8 +17,66 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Recambio Directo",
-  description: "Marketplace B2B de recambios de automoción",
+  metadataBase: new URL("https://www.recambio-directo.com"),
+  title: {
+    default: "Recambio Directo — Marketplace B2B de Recambios de Automoción",
+    template: "%s | Recambio Directo",
+  },
+  description: "Marketplace B2B especializado en recambios de automoción. Conectamos talleres y proveedores en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h.",
+  keywords: [
+    "recambios automoción B2B",
+    "marketplace recambios",
+    "piezas de coche",
+    "recambios taller",
+    "recambios OEM",
+    "recambios IAM",
+    "distribuidor recambios España",
+    "comprar recambios online",
+    "recambios para talleres",
+    "proveedor recambios",
+    "piezas automóvil",
+    "recambios mecánicos",
+  ],
+  authors: [{ name: "Recambio Directo", url: "https://www.recambio-directo.com" }],
+  creator: "Recambio Directo",
+  publisher: "Recambio Directo",
+  category: "Automoción",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    url: "https://www.recambio-directo.com",
+    siteName: "Recambio Directo",
+    title: "Recambio Directo — Marketplace B2B de Recambios de Automoción",
+    description: "Conectamos talleres y proveedores de recambios en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Recambio Directo — Marketplace B2B de Recambios",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Recambio Directo — Marketplace B2B de Recambios",
+    description: "Conectamos talleres y proveedores de recambios en toda España. Busca piezas OEM e IAM y recibe en 24h.",
+    images: ["/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://www.recambio-directo.com",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -38,6 +96,49 @@ export const metadata: Metadata = {
   },
 };
 
+// Datos estructurados JSON-LD para Google
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://www.recambio-directo.com/#website",
+      "url": "https://www.recambio-directo.com",
+      "name": "Recambio Directo",
+      "description": "Marketplace B2B de recambios de automoción en España",
+      "inLanguage": "es-ES",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.recambio-directo.com/dashboard/buscar?q={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.recambio-directo.com/#organization",
+      "name": "Recambio Directo",
+      "url": "https://www.recambio-directo.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.recambio-directo.com/icons/manifest-icon-512.maskable.png",
+        "width": 512,
+        "height": 512,
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "info@recambio-directo.com",
+        "contactType": "customer service",
+        "availableLanguage": "Spanish",
+      },
+      "areaServed": "ES",
+      "description": "Marketplace B2B especializado en recambios de automoción. Conectamos talleres y proveedores en toda España.",
+    },
+  ],
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
@@ -49,11 +150,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Recambio Directo" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+        <meta name="geo.region" content="ES" />
+        <meta name="geo.placename" content="España" />
+        <meta name="language" content="Spanish" />
+        <meta name="revisit-after" content="7 days" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1290-2796.jpg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1179-2556.jpg" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1170-2532.jpg" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-828-1792.jpg" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-750-1334.jpg" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <style>{`
           * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
           body { margin: 0; overflow-x: hidden; }
