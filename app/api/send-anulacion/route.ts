@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       pedidoCodigo, pedidoId, pedidoTotal, pedidoFecha,
-      anuladorTipo, anuladorNombre,
+      anuladorNombre,
       clienteEmail, clienteNombre,
       proveedorEmail, proveedorNombre,
       productos, motivoAnulacion,
@@ -23,9 +23,31 @@ export async function POST(request: Request) {
       ? new Date(pedidoFecha).toLocaleDateString("es-ES")
       : new Date().toLocaleDateString("es-ES");
 
+    // Nombre de quien anula — si no se pasa usamos "Recambio Directo"
+    const anuladorLabel = anuladorNombre || "Recambio Directo";
+
+    // Productos con referencia Y descripción
     const productosHtml = (productos || []).map((p: any) =>
-      `<li style="font-size:14px;margin-bottom:4px;">${p.descripcion || p.referencia} — <strong>${Number(p.precio).toFixed(2)}€</strong></li>`
+      `<tr>
+        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#0b1736;border-bottom:1px solid #f3f4f6;">${p.referencia || "-"}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${p.descripcion || p.producto || "-"}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#16a34a;border-bottom:1px solid #f3f4f6;text-align:right;">${Number(p.precio).toFixed(2)}€</td>
+      </tr>`
     ).join("");
+
+    const productosTabla = productosHtml ? `
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="padding:8px 12px;font-size:12px;color:#6b7280;text-align:left;font-weight:700;">REFERENCIA</th>
+              <th style="padding:8px 12px;font-size:12px;color:#6b7280;text-align:left;font-weight:700;">DESCRIPCIÓN</th>
+              <th style="padding:8px 12px;font-size:12px;color:#6b7280;text-align:right;font-weight:700;">PRECIO</th>
+            </tr>
+          </thead>
+          <tbody>${productosHtml}</tbody>
+        </table>
+      </div>` : "";
 
     const motivoHtml = motivoAnulacion ? `
       <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin-bottom:20px;">
@@ -44,7 +66,7 @@ export async function POST(request: Request) {
             <div style="background:white;padding:32px;border-radius:12px;max-width:600px;margin:auto;">
               <h1 style="color:#dc2626;margin-bottom:8px;font-size:24px;">❌ Pedido anulado</h1>
               <p style="color:#6b7280;font-size:14px;margin-bottom:24px;">
-                El pedido <strong>${pedidoCodigo}</strong> ha sido anulado por el <strong>${anuladorTipo === "taller" ? "taller" : "proveedor"}</strong>.
+                El pedido <strong>${pedidoCodigo}</strong> ha sido anulado por <strong>${anuladorLabel}</strong>.
               </p>
               <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin-bottom:20px;">
                 <p style="margin:0 0 8px;font-size:14px;"><strong>Código:</strong> ${pedidoCodigo}</p>
@@ -53,13 +75,10 @@ export async function POST(request: Request) {
                 <p style="margin:0;font-size:14px;"><strong>Total:</strong> ${Number(pedidoTotal).toFixed(2)} €</p>
               </div>
               ${motivoHtml}
-              ${productosHtml ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;">
-                <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#111827;">Productos del pedido:</p>
-                <ul style="margin:0;padding-left:20px;">${productosHtml}</ul>
-              </div>` : ""}
+              ${productosTabla}
               <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin-bottom:20px;">
                 <p style="margin:0;color:#92400e;font-size:13px;">
-                  ⚠️ <strong>No prepares ni envíes este pedido.</strong> Ha sido anulado y el envío debe cancelarse con ${(body.agencia || "la agencia de transporte").toUpperCase()}.
+                  ⚠️ <strong>No prepares ni envíes este pedido.</strong> Ha sido anulado.
                 </p>
               </div>
               <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
@@ -80,7 +99,7 @@ export async function POST(request: Request) {
             <div style="background:white;padding:32px;border-radius:12px;max-width:600px;margin:auto;">
               <h1 style="color:#dc2626;margin-bottom:8px;font-size:24px;">❌ Pedido anulado</h1>
               <p style="color:#374151;font-size:15px;line-height:1.7;margin-bottom:20px;">
-                El pedido <strong>${pedidoCodigo}</strong> ha sido anulado por el <strong>${anuladorTipo === "proveedor" ? "proveedor" : "taller"}</strong>.
+                El pedido <strong>${pedidoCodigo}</strong> ha sido anulado por <strong>${anuladorLabel}</strong>.
               </p>
               <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin-bottom:20px;">
                 <p style="margin:0 0 8px;font-size:14px;"><strong>Código:</strong> ${pedidoCodigo}</p>
@@ -89,10 +108,7 @@ export async function POST(request: Request) {
                 <p style="margin:0;font-size:14px;"><strong>Total:</strong> ${Number(pedidoTotal).toFixed(2)} €</p>
               </div>
               ${motivoHtml}
-              ${productosHtml ? `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;">
-                <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#111827;">Productos anulados:</p>
-                <ul style="margin:0;padding-left:20px;">${productosHtml}</ul>
-              </div>` : ""}
+              ${productosTabla}
               <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:14px 18px;margin-bottom:24px;">
                 <p style="margin:0;color:#1e40af;font-size:13px;">
                   ℹ️ Si tienes dudas contacta con el proveedor por el chat de la plataforma o escríbenos a
@@ -115,50 +131,27 @@ export async function POST(request: Request) {
     // ── 3. NOTIFICACIÓN CAMPANITA AL PROVEEDOR ──
     if (pedidoId && clienteEmail && proveedorEmail) {
       try {
-        const { data: clienteUser } = await supabase
-          .from("usuarios").select("id").eq("email", clienteEmail).single();
-        const { data: proveedorUser } = await supabase
-          .from("usuarios").select("id").eq("email", proveedorEmail).single();
-
+        const { data: clienteUser } = await supabase.from("usuarios").select("id").eq("email", clienteEmail).single();
+        const { data: proveedorUser } = await supabase.from("usuarios").select("id").eq("email", proveedorEmail).single();
         if (clienteUser?.id && proveedorUser?.id) {
           let convId: number | null = null;
-          const { data: convExistente } = await supabase
-            .from("conversaciones").select("id").eq("pedido_id", pedidoId).maybeSingle();
-
+          const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedidoId).maybeSingle();
           if (convExistente?.id) {
             convId = convExistente.id;
           } else {
-            const { data: nuevaConv } = await supabase
-              .from("conversaciones")
-              .insert({
-                user1_id: clienteUser.id,
-                user2_id: proveedorUser.id,
-                pedido_id: pedidoId,
-                referencia: `Pedido ${pedidoCodigo}`,
-                ultimo_mensaje: "",
-                updated_at: new Date().toISOString(),
-              })
-              .select("id").single();
+            const { data: nuevaConv } = await supabase.from("conversaciones").insert({
+              user1_id: clienteUser.id, user2_id: proveedorUser.id, pedido_id: pedidoId,
+              referencia: `Pedido ${pedidoCodigo}`, ultimo_mensaje: "", updated_at: new Date().toISOString(),
+            }).select("id").single();
             if (nuevaConv?.id) convId = nuevaConv.id;
           }
-
           if (convId) {
             const textoNotif = `❌ Pedido ${pedidoCodigo} anulado — ${motivoAnulacion || "Sin motivo especificado"}`;
-            await supabase.from("mensajes").insert({
-              conversacion_id: convId,
-              user_id: clienteUser.id,
-              mensaje: textoNotif,
-              emisor: "sistema",
-              leido: false,
-            });
-            await supabase.from("conversaciones")
-              .update({ ultimo_mensaje: textoNotif, updated_at: new Date().toISOString() })
-              .eq("id", convId);
+            await supabase.from("mensajes").insert({ conversacion_id: convId, user_id: clienteUser.id, mensaje: textoNotif, emisor: "sistema", leido: false });
+            await supabase.from("conversaciones").update({ ultimo_mensaje: textoNotif, updated_at: new Date().toISOString() }).eq("id", convId);
           }
         }
-      } catch (notifError) {
-        console.error("Error campanita anulación:", notifError);
-      }
+      } catch (notifError) { console.error("Error campanita anulación:", notifError); }
     }
 
     return Response.json({ ok: true });
