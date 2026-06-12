@@ -61,12 +61,13 @@ export async function POST(request: Request) {
     // Obtener URLs de los PDFs guardados en Supabase Storage
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url")
+      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url")
       .eq("id", pedidoId)
       .single();
 
     const albaranUrl = pedidoData?.albaran_url || null;
-    const etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
+    // Usar etiqueta MRW oficial si existe, sino la nuestra
+    const etiquetaUrl = pedidoData?.etiqueta_mrw_url || pedidoData?.etiqueta_envio_url || null;
 
     // Descargar PDFs como base64 para adjuntar
     async function urlToBase64(url: string): Promise<string | null> {

@@ -265,7 +265,10 @@ export async function POST(request: Request) {
           });
           const { data: urlData } = supabaseAdmin.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
           etiquetaMrwUrl = urlData.publicUrl;
-          await supabaseAdmin.from("pedidos").update({ etiqueta_envio_url: etiquetaMrwUrl }).eq("id", pedidoId);
+          await supabaseAdmin.from("pedidos").update({ 
+            etiqueta_mrw_url: etiquetaMrwUrl,
+            etiqueta_envio_url: etiquetaMrwUrl  // compatibilidad con panel proveedor
+          }).eq("id", pedidoId);
         }
       } catch (etiquetaErr) {
         console.error("Error obteniendo etiqueta MRW:", etiquetaErr);
