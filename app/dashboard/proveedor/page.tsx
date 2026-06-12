@@ -120,6 +120,9 @@ export default function ProveedorPage() {
   const [tabExclusiones, setTabExclusiones] = useState<"cp" | "cliente">("cp");
   const [clientes, setClientes] = useState<any[]>([]);
   const [emailPerfil, setEmailPerfil] = useState("");
+  const [emailFacturas, setEmailFacturas] = useState("");
+  const [guardandoEmailFacturas, setGuardandoEmailFacturas] = useState(false);
+  const [emailFacturasGuardado, setEmailFacturasGuardado] = useState(false);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
   const [passwordActual, setPasswordActual] = useState("");
   const [passwordNueva, setPasswordNueva] = useState("");
@@ -237,12 +240,13 @@ export default function ProveedorPage() {
     const currentUserId = user.id;
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura").eq("id", currentUserId).single();
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
     if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
     if (perfil?.horario_cierre) setHorarioCierre(perfil.horario_cierre);
     if (perfil?.dias_apertura?.length) setDiasApertura(perfil.dias_apertura);
+    if (perfil?.email_facturas) setEmailFacturas(perfil.email_facturas);
     const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
     setTotalPiezas(count || 0);
     await cargarPiezasPaginadas(currentUserId, 1, "");
@@ -886,6 +890,33 @@ export default function ProveedorPage() {
               <h1 style={titleStyle}>MI CUENTA</h1>
               <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>
               <div style={{ maxWidth: 600 }}>
+                {/* EMAIL FACTURAS */}
+                <div style={{ ...formCard, border: "1px solid rgba(37,99,235,0.3)", marginBottom: 20 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📧 Email para facturas</h2>
+                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí. Aparecerá al solicitarte una factura.</p>
+                  <input
+                    type="email"
+                    placeholder="contabilidad@tuempresa.com"
+                    value={emailFacturas}
+                    onChange={e => setEmailFacturas(e.target.value)}
+                    style={{ ...formInput, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.1)" }}
+                  />
+                  {emailFacturas && <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 6 }}>✓ Las solicitudes de factura indicarán este email</p>}
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+                      setGuardandoEmailFacturas(true);
+                      await supabase.from("usuarios").update({ email_facturas: emailFacturas.trim().toLowerCase() || null }).eq("id", userId);
+                      setGuardandoEmailFacturas(false);
+                      setEmailFacturasGuardado(true);
+                      setTimeout(() => setEmailFacturasGuardado(false), 3000);
+                    }}
+                    disabled={guardandoEmailFacturas}
+                    style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", opacity: guardandoEmailFacturas ? 0.7 : 1 }}
+                  >
+                    {guardandoEmailFacturas ? "Guardando..." : emailFacturasGuardado ? "✓ Guardado" : "Guardar email"}
+                  </button>
+                </div>
                 <div style={{ ...formCard, border: "1px solid rgba(139,92,246,0.3)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 28 : 0 }}>
                     <div><h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>🔑 Cambiar contraseña</h2>{!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}</div>

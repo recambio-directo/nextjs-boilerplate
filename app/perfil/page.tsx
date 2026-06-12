@@ -12,6 +12,7 @@ export default function PerfilPage() {
   const [provincia, setProvincia] = useState("");
   const [codigoPostal, setCodigoPostal] = useState("");
   const [email, setEmail] = useState("");
+  const [emailFacturas, setEmailFacturas] = useState("");
   const [tipo, setTipo] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -63,6 +64,7 @@ export default function PerfilPage() {
       setBanco(data.banco || "");
       setCreditoRD(Number(data.credito_rd) || 0);
       setSuscripcion(data.suscripcion || "gratuito");
+      setEmailFacturas(data.email_facturas || "");
     }
     const { count } = await supabase.from("pedidos").select("*", { count: "exact", head: true }).eq("cliente_id", user.id);
     setTotalPedidos(count || 0);
@@ -75,7 +77,13 @@ export default function PerfilPage() {
     setGuardando(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setGuardando(false); return; }
-    const campos = { nombre_empresa: empresa, telefono, direccion, ciudad, provincia, codigo_postal: codigoPostal, email: user.email, tipo: user.user_metadata?.tipo || tipo, iban: iban.trim().toUpperCase(), titular_cuenta: titularCuenta, banco };
+    const campos = {
+      nombre_empresa: empresa, telefono, direccion, ciudad, provincia,
+      codigo_postal: codigoPostal, email: user.email,
+      tipo: user.user_metadata?.tipo || tipo,
+      iban: iban.trim().toUpperCase(), titular_cuenta: titularCuenta, banco,
+      email_facturas: emailFacturas.trim().toLowerCase() || null,
+    };
     const { data: existe } = await supabase.from("usuarios").select("id").eq("id", user.id).single();
     let error;
     if (existe) { const { error: e } = await supabase.from("usuarios").update(campos).eq("id", user.id); error = e; }
@@ -121,12 +129,10 @@ export default function PerfilPage() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: m ? "12px 12px 80px" : "clamp(16px,4vw,40px)" }}>
 
-      {/* HEADER */}
       <div style={{ marginBottom: m ? 16 : 24 }}>
         <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>CONFIGURACION</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ fontSize: m ? 28 : "clamp(28px,5vw,48px)", fontWeight: 900, lineHeight: 1 }}>MI CUENTA</h1>
-          {/* AVATAR + nombre en header */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: m ? 40 : 48, height: m ? 40 : 48, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: m ? 18 : 22, fontWeight: 900 }}>
               {empresa?.charAt(0)?.toUpperCase() || "R"}
@@ -143,7 +149,6 @@ export default function PerfilPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 320px", gap: m ? 0 : 24, alignItems: "start" }}>
 
-        {/* COLUMNA IZQUIERDA */}
         <div>
 
           {/* DATOS EMPRESA */}
@@ -171,10 +176,24 @@ export default function PerfilPage() {
                 <input placeholder="600 000 000" value={telefono} onChange={e => setTelefono(e.target.value)} style={input} />
               </div>
               <div>
-                <p style={label}>Email</p>
+                <p style={label}>Email de acceso</p>
                 <input value={email} disabled style={{ ...input, opacity: 0.5, cursor: "not-allowed" }} />
                 <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 4 }}>🔒 No modificable</p>
               </div>
+            </div>
+            {/* EMAIL FACTURAS */}
+            <div style={{ marginTop: 14 }}>
+              <p style={label}>📧 Email para recibir facturas <span style={{ color: "#64748b", fontSize: 11 }}>(opcional — si es distinto al de acceso)</span></p>
+              <input
+                placeholder="contabilidad@tuempresa.com"
+                value={emailFacturas}
+                onChange={e => setEmailFacturas(e.target.value)}
+                style={{ ...input, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.08)" }}
+                type="email"
+              />
+              {emailFacturas && (
+                <p style={{ color: "#60a5fa", fontSize: 11, marginTop: 4 }}>✓ Las facturas se enviarán también a este email</p>
+              )}
             </div>
           </div>
 
@@ -258,7 +277,6 @@ export default function PerfilPage() {
             )}
           </div>
 
-          {/* GUARDAR — visible en móvil aquí abajo */}
           {m && (
             <button onClick={guardarPerfil} disabled={guardando} style={{ width: "100%", border: "none", padding: "16px", borderRadius: 14, color: "white", fontWeight: 900, fontSize: 16, cursor: guardando ? "not-allowed" : "pointer", opacity: guardando ? 0.7 : 1, background: guardado ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#16a34a,#15803d)" }}>
               {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
@@ -266,11 +284,8 @@ export default function PerfilPage() {
           )}
         </div>
 
-        {/* COLUMNA DERECHA — solo desktop */}
         {!m && (
           <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* PERFIL CARD */}
             <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
               <div style={{ width: 72, height: 72, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 30, fontWeight: 900 }}>
                 {empresa?.charAt(0)?.toUpperCase() || "R"}
@@ -278,9 +293,14 @@ export default function PerfilPage() {
               <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>{empresa || "Tu Empresa"}</h2>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 10 }}>{tipo || "cliente"}</p>
               <span style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: `${subInfo.color}22`, color: subInfo.color }}>{subInfo.label}</span>
+              {emailFacturas && (
+                <div style={{ marginTop: 14, background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "8px 12px" }}>
+                  <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, margin: "0 0 4px" }}>EMAIL FACTURAS</p>
+                  <p style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, margin: 0 }}>{emailFacturas}</p>
+                </div>
+              )}
             </div>
 
-            {/* CRÉDITO RD */}
             <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: creditoRD > 0 ? "1px solid rgba(37,99,235,0.3)" : "1px solid rgba(255,255,255,0.06)" }}>
               <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>CRÉDITO RD PAGO</p>
               <h2 style={{ fontSize: 34, fontWeight: 900, color: creditoRD > 0 ? "#4ade80" : "#f87171", margin: "0 0 8px" }}>{creditoRD.toFixed(2)}€</h2>
@@ -298,7 +318,6 @@ export default function PerfilPage() {
               )}
             </div>
 
-            {/* STATS */}
             <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 24, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between" }}>
               <div>
                 <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>PEDIDOS</p>
@@ -310,11 +329,9 @@ export default function PerfilPage() {
               </div>
             </div>
 
-            {/* GUARDAR desktop */}
             <button onClick={guardarPerfil} disabled={guardando} style={{ width: "100%", border: "none", padding: "18px", borderRadius: 16, color: "white", fontWeight: 900, fontSize: 16, cursor: guardando ? "not-allowed" : "pointer", opacity: guardando ? 0.7 : 1, background: guardado ? "linear-gradient(135deg,#0891b2,#0e7490)" : "linear-gradient(135deg,#16a34a,#15803d)", boxShadow: "0 8px 24px rgba(22,163,74,0.3)" }}>
               {guardando ? "GUARDANDO..." : guardado ? "✓ GUARDADO" : "GUARDAR CAMBIOS"}
             </button>
-
           </aside>
         )}
       </div>
