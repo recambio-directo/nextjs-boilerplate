@@ -5,6 +5,35 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+function getTrackingUrl(agencia: string, tracking: string): string {
+  const ag = (agencia || "").toLowerCase();
+  if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
+  if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
+  if (ag.includes("correos")) return `https://www.correosexpress.com/web/correosexpress/busqueda-de-envios?referencia=${tracking}`;
+  return `https://www.google.com/search?q=tracking+${encodeURIComponent(agencia)}+${tracking}`;
+}
+
+function TrackingBadge({ tracking, agencia }: { tracking: string; agencia: string }) {
+  if (!tracking) return null;
+  return (
+    <a
+      href={getTrackingUrl(agencia, tracking)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+        color: "white", padding: "8px 14px", borderRadius: 10,
+        fontWeight: 700, fontSize: 12, textDecoration: "none",
+        border: "none", cursor: "pointer",
+      }}
+    >
+      🔍 {tracking} →
+    </a>
+  );
+}
+
 export default function Pedidos() {
   const router = useRouter();
   const [pedidosRealizados, setPedidosRealizados] = useState<any[]>([]);
@@ -43,22 +72,10 @@ export default function Pedidos() {
     if (!user) return;
     setUserId(user.id);
     setUserEmail(user.email || null);
-
-    // REALIZADOS: pedidos donde el taller es el comprador
-    const { data: realizados } = await supabase
-      .from("pedidos").select("*")
-      .eq("cliente_id", user.id)
-      .order("id", { ascending: false });
+    const { data: realizados } = await supabase.from("pedidos").select("*").eq("cliente_id", user.id).order("id", { ascending: false });
     setPedidosRealizados(realizados || []);
-
-    // RECIBIDOS: pedidos donde el taller es el vendedor (sus piezas están en productos)
-    const { data: todos } = await supabase
-      .from("pedidos").select("*")
-      .order("id", { ascending: false });
-    const recibidos = (todos || []).filter(p =>
-      (p.productos || []).some((prod: any) => prod.proveedor_id === user.id)
-    );
-    // Excluir los que ya están en realizados
+    const { data: todos } = await supabase.from("pedidos").select("*").order("id", { ascending: false });
+    const recibidos = (todos || []).filter(p => (p.productos || []).some((prod: any) => prod.proveedor_id === user.id));
     const realizadosIds = new Set((realizados || []).map((p: any) => p.id));
     setPedidosRecibidos(recibidos.filter(p => !realizadosIds.has(p.id)));
   }
@@ -140,10 +157,7 @@ export default function Pedidos() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const proveedor = getProveedorPedido(pedido);
-    // En recibidos el "otro" es el comprador, en realizados es el proveedor
-    const otroId = pestañaActiva === "recibidos"
-      ? pedido.cliente_id
-      : proveedor.id;
+    const otroId = pestañaActiva === "recibidos" ? pedido.cliente_id : proveedor.id;
     if (!otroId) { alert("No se puede identificar el interlocutor"); return; }
     const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
     if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
@@ -161,7 +175,7 @@ export default function Pedidos() {
       const proveedor = getProveedorPedido(p);
       const comprador = getCompradorPedido(p);
       const productos = (p.productos || []).map((pr: any) => `${pr.referencia} ${pr.descripcion}`).join(" ").toLowerCase();
-      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || comprador.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q))) return false;
+      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || comprador.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q) || (p.tracking || "").toLowerCase().includes(q))) return false;
     }
     if (filtroEstado !== "todos") {
       if (filtroEstado === "anulado") return p.anulado;
@@ -194,15 +208,26 @@ export default function Pedidos() {
     entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌",
   };
 
-  // Acciones según pestaña
   const esVendedor = pestañaActiva === "recibidos";
 
-  // Render fila expandida — compartido móvil y desktop
   function AccionesExpandidas({ pedido }: { pedido: any }) {
     const anulado = pedido.anulado || false;
     const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
+    const agencia = pedido.agencia || pedido.transporte || "";
     return (
       <>
+        {/* TRACKING */}
+        {pedido.tracking && !anulado && (
+          <div style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
+            <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🚚 SEGUIMIENTO DEL ENVÍO</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: "monospace" }}>{pedido.tracking}</span>
+              <TrackingBadge tracking={pedido.tracking} agencia={agencia} />
+            </div>
+            <p style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>Clic en el número para rastrear tu envío en {agencia.toUpperCase() || "la agencia"}</p>
+          </div>
+        )}
+
         {/* Documentos */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán PDF</a>}
@@ -210,12 +235,11 @@ export default function Pedidos() {
           {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura PDF</a>}
         </div>
 
-        {/* Factura — diferente según rol */}
+        {/* Factura */}
         {!anulado && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, margin: 0, marginRight: 4 }}>📄 FACTURA:</p>
             {esVendedor ? (
-              // RECIBIDOS → el taller es vendedor → sube la factura
               pedido.factura_url ? (
                 <>
                   <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Subida</span>
@@ -229,7 +253,6 @@ export default function Pedidos() {
                 </label>
               )
             ) : (
-              // REALIZADOS → el taller es comprador → solicita la factura
               pedido.factura_url
                 ? <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Disponible</span>
                 : <button onClick={() => solicitarFactura(pedido)} disabled={solicitandoFactura === pedido.id} style={{ ...btnFacturaStyle, cursor: "pointer", opacity: solicitandoFactura === pedido.id ? 0.7 : 1 }}>{solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}</button>
@@ -237,7 +260,7 @@ export default function Pedidos() {
           </div>
         )}
 
-        {/* Botones acción */}
+        {/* Botones */}
         {!anulado && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
             <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
@@ -257,8 +280,6 @@ export default function Pedidos() {
 
   return (
     <main style={{ padding: isMobile ? "12px" : "clamp(16px,4vw,40px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
-
-      {/* HEADER */}
       <div style={{ marginBottom: isMobile ? 16 : 24 }}>
         <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>PANEL TALLER</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -278,32 +299,19 @@ export default function Pedidos() {
 
       {/* PESTAÑAS */}
       <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
-        <button
-          onClick={() => { setPestañaActiva("realizados"); setPedidoExpandido(null); setFiltroEstado("todos"); }}
-          style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "realizados" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "transparent", color: pestañaActiva === "realizados" ? "white" : "#94a3b8" }}
-        >
-          📤 Realizados ({pedidosRealizados.length})
-        </button>
-        <button
-          onClick={() => { setPestañaActiva("recibidos"); setPedidoExpandido(null); setFiltroEstado("todos"); }}
-          style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "recibidos" ? "linear-gradient(135deg,#16a34a,#15803d)" : "transparent", color: pestañaActiva === "recibidos" ? "white" : "#94a3b8" }}
-        >
-          📥 Recibidos ({pedidosRecibidos.length})
-        </button>
+        <button onClick={() => { setPestañaActiva("realizados"); setPedidoExpandido(null); setFiltroEstado("todos"); }} style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "realizados" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "transparent", color: pestañaActiva === "realizados" ? "white" : "#94a3b8" }}>📤 Realizados ({pedidosRealizados.length})</button>
+        <button onClick={() => { setPestañaActiva("recibidos"); setPedidoExpandido(null); setFiltroEstado("todos"); }} style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "recibidos" ? "linear-gradient(135deg,#16a34a,#15803d)" : "transparent", color: pestañaActiva === "recibidos" ? "white" : "#94a3b8" }}>📥 Recibidos ({pedidosRecibidos.length})</button>
       </div>
 
-      {/* INFO CONTEXTUAL */}
       <div style={{ background: pestañaActiva === "realizados" ? "rgba(37,99,235,0.08)" : "rgba(22,163,74,0.08)", border: `1px solid ${pestañaActiva === "realizados" ? "rgba(37,99,235,0.2)" : "rgba(22,163,74,0.2)"}`, borderRadius: 12, padding: "10px 16px", marginBottom: 16, fontSize: 13, color: pestañaActiva === "realizados" ? "#60a5fa" : "#4ade80" }}>
-        {pestañaActiva === "realizados"
-          ? "🛒 Pedidos que has realizado como comprador en la plataforma"
-          : "🏭 Pedidos recibidos de tus piezas publicadas — actúas como vendedor"}
+        {pestañaActiva === "realizados" ? "🛒 Pedidos que has realizado como comprador en la plataforma" : "🏭 Pedidos recibidos de tus piezas publicadas — actúas como vendedor"}
       </div>
 
       {/* FILTROS */}
       <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 14 : 20, padding: isMobile ? "14px" : "20px 24px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0 12px", height: 42 }}>
           <span style={{ marginRight: 8 }}>🔍</span>
-          <input placeholder="Buscar pedido..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
+          <input placeholder="Buscar pedido, referencia o tracking..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
           {busqueda && <button onClick={() => setBusqueda("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>✕</button>}
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -325,19 +333,11 @@ export default function Pedidos() {
         </div>
       </div>
 
-      {/* VACÍO */}
       {pedidos.length === 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", padding: "60px 20px", borderRadius: 20, textAlign: "center" }}>
           <p style={{ fontSize: 48, marginBottom: 16 }}>{pestañaActiva === "realizados" ? "🛒" : "📦"}</p>
-          <h2 style={{ fontSize: 22, fontWeight: 900 }}>
-            {pestañaActiva === "realizados" ? "No has realizado pedidos todavía" : "No has recibido pedidos todavía"}
-          </h2>
-          {pestañaActiva === "realizados" && (
-            <button onClick={() => router.push("/dashboard")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>BUSCAR RECAMBIOS</button>
-          )}
-          {pestañaActiva === "recibidos" && (
-            <button onClick={() => router.push("/dashboard/mis-piezas")} style={{ marginTop: 20, background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>PUBLICAR PIEZAS</button>
-          )}
+          <h2 style={{ fontSize: 22, fontWeight: 900 }}>{pestañaActiva === "realizados" ? "No has realizado pedidos todavía" : "No has recibido pedidos todavía"}</h2>
+          {pestañaActiva === "realizados" && <button onClick={() => router.push("/dashboard")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>BUSCAR RECAMBIOS</button>}
         </div>
       )}
 
@@ -345,7 +345,7 @@ export default function Pedidos() {
         <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>Sin resultados para los filtros seleccionados</div>
       )}
 
-      {/* ── MÓVIL: tarjetas ── */}
+      {/* MÓVIL */}
       {isMobile && pedidosFiltrados.length > 0 && (
         <div style={{ display: "grid", gap: 10 }}>
           {pedidosFiltrados.map(pedido => {
@@ -354,7 +354,7 @@ export default function Pedidos() {
             const estado = anulado ? "anulado" : (pedido.estado_envio || "pendiente");
             const productos = pedido.productos || [];
             const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
-
+            const agencia = pedido.agencia || pedido.transporte || "";
             return (
               <div key={pedido.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", opacity: anulado ? 0.75 : 1 }}>
                 <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
@@ -370,7 +370,10 @@ export default function Pedidos() {
                   </div>
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
                     <span style={{ color: "#94a3b8" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
-                    {(pedido.agencia || pedido.transporte) && <span style={{ color: "#94a3b8" }}>🚚 {pedido.agencia || pedido.transporte}</span>}
+                    {agencia && <span style={{ color: "#94a3b8" }}>🚚 {agencia}</span>}
+                    {pedido.tracking && (
+                      <a href={getTrackingUrl(agencia, pedido.tracking)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {pedido.tracking}</a>
+                    )}
                     <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
                   </div>
                   <div style={{ marginTop: 6, textAlign: "right", color: "#64748b", fontSize: 11 }}>{expandido ? "▲ Cerrar" : "▼ Ver detalle"}</div>
@@ -384,9 +387,7 @@ export default function Pedidos() {
                         <span style={{ color: "#22c55e", fontWeight: 700 }}>{fmt(p.precio)}€</span>
                       </div>
                     ))}
-                    <div style={{ marginTop: 12 }}>
-                      <AccionesExpandidas pedido={pedido} />
-                    </div>
+                    <div style={{ marginTop: 12 }}><AccionesExpandidas pedido={pedido} /></div>
                   </div>
                 )}
               </div>
@@ -395,11 +396,11 @@ export default function Pedidos() {
         </div>
       )}
 
-      {/* ── DESKTOP: tabla ── */}
+      {/* DESKTOP */}
       {!isMobile && pedidosFiltrados.length > 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
-            {["CÓDIGO", "REFERENCIAS", esVendedor ? "COMPRADOR" : "PROVEEDOR", "TOTAL", "TRANSPORTE", "ESTADO", "ACCIONES"].map(h => <div key={h}>{h}</div>)}
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1.2fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
+            {["CÓDIGO", "REFERENCIAS", esVendedor ? "COMPRADOR" : "PROVEEDOR", "TOTAL", "TRACKING", "ESTADO", "ACCIONES"].map(h => <div key={h}>{h}</div>)}
           </div>
           {pedidosFiltrados.map(pedido => {
             const anulado = pedido.anulado || false;
@@ -407,9 +408,10 @@ export default function Pedidos() {
             const estado = anulado ? "anulado" : (pedido.estado_envio || "pendiente");
             const productos = pedido.productos || [];
             const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
+            const agencia = pedido.agencia || pedido.transporte || "";
             return (
               <React.Fragment key={pedido.id}>
-                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
+                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1.2fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
                   <div>
                     <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div>
                     <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</div>
@@ -418,14 +420,22 @@ export default function Pedidos() {
                     {productos.slice(0, 2).map((p: any, i: number) => (
                       <div key={i} style={{ fontSize: 13, marginBottom: 2 }}>
                         <strong style={{ color: "#60a5fa" }}>{p.referencia}</strong>
-                        <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 12 }}>{(p.descripcion || "").substring(0, 25)}{(p.descripcion || "").length > 25 ? "..." : ""}</span>
+                        <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 12 }}>{(p.descripcion || "").substring(0, 20)}{(p.descripcion || "").length > 20 ? "..." : ""}</span>
                       </div>
                     ))}
                     {productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
-                  <div style={{ fontSize: 13, color: "#cbd5e1" }}>{pedido.agencia || pedido.transporte || "-"}</div>
+                  <div onClick={e => e.stopPropagation()}>
+                    {pedido.tracking ? (
+                      <a href={getTrackingUrl(agencia, pedido.tracking)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "none", background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", padding: "5px 10px", borderRadius: 8 }}>
+                        🔍 {pedido.tracking}
+                      </a>
+                    ) : (
+                      <span style={{ color: "#475569", fontSize: 12 }}>{agencia || "—"}</span>
+                    )}
+                  </div>
                   <div><span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 12, background: `${estadoColor[estado]}22`, padding: "4px 10px", borderRadius: 999 }}>{estado.toUpperCase()}</span></div>
                   <div><button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{expandido ? "▲ Cerrar" : "▼ Ver"}</button></div>
                 </div>
@@ -444,11 +454,10 @@ export default function Pedidos() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                           <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TOTAL</p><p style={{ color: "#22c55e", fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(pedido.total)}€</p></div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p><p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{pedido.agencia || pedido.transporte || "-"}</p></div>
+                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p><p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{agencia || "-"}</p></div>
                           <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>PAGO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{pedido.estado_pago || "pendiente"}</p></div>
                           <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ESTADO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0, color: estadoColor[estado] }}>{estado}</p></div>
                         </div>
-                        {pedido.tracking && !anulado && <div style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, opacity: 0.8 }}>TRACKING</p><p style={{ fontWeight: 900, fontSize: 15, margin: 0 }}>{pedido.tracking}</p></div>}
                       </div>
                     </div>
                     <AccionesExpandidas pedido={pedido} />
