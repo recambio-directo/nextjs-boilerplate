@@ -328,7 +328,17 @@ export type EtiquetaEnvioProps = {
   subtotal: number;
   iva: number;
   total: number;
+  // MRW tracking
+  numeroEnvio?: string;
+  numeroSolicitud?: string;
 };
+
+// Genera un código de barras Code128 simple como string visual (barras |)
+// Para producción real usar una librería de barcodes
+function generarBarcode(texto: string): string {
+  // Representación visual simplificada — barras alternando ancho
+  return texto;
+}
 
 export function EtiquetaEnvioPDF({
   codigo, fecha,
@@ -337,16 +347,20 @@ export function EtiquetaEnvioPDF({
   cliente, clienteEmail, telefono,
   direccion, ciudad, codigoPostal, provincia,
   agencia, productos, total,
+  numeroEnvio, numeroSolicitud,
 }: EtiquetaEnvioProps) {
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
     : new Date().toLocaleDateString("es-ES");
 
   const refResumen = productos.slice(0, 2).map(p => p.referencia).join(", ") + (productos.length > 2 ? ` (+${productos.length - 2})` : "");
+  const codigoBarras = numeroSolicitud || numeroEnvio || codigo;
 
   return (
     <Document>
-      <Page size="A5" style={etiquetaStyles.page}>
+      <Page size="A4" style={{ ...etiquetaStyles.page, padding: 0 }}>
+
+        {/* CABECERA */}
         <View style={etiquetaStyles.headerGestor}>
           <View>
             <Text style={etiquetaStyles.headerGestorText}>RECAMBIO DIRECTO</Text>
@@ -358,7 +372,30 @@ export function EtiquetaEnvioPDF({
             <Text style={{ color: "#94a3af", fontSize: 8, marginTop: 1 }}>{fechaFormateada}</Text>
           </View>
         </View>
-        <View style={etiquetaStyles.bloquesRow}>
+
+        {/* CÓDIGO DE BARRAS */}
+        <View style={{ backgroundColor: "#ffffff", padding: "16 20", borderBottomWidth: 2, borderBottomColor: "#0b1736", alignItems: "center" }}>
+          {/* Barras simuladas con rectángulos */}
+          <View style={{ flexDirection: "row", height: 60, marginBottom: 6, alignItems: "center" }}>
+            {codigoBarras.split("").map((char, i) => {
+              const code = char.charCodeAt(0);
+              const ancho = (code % 3) + 1;
+              const esNegro = i % 2 === 0;
+              return (
+                <View key={i} style={{
+                  width: ancho,
+                  height: 50,
+                  backgroundColor: esNegro ? "#000000" : "#ffffff",
+                  marginRight: 0.5,
+                }} />
+              );
+            })}
+          </View>
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", letterSpacing: 2, color: "#0b1736" }}>{codigoBarras}</Text>
+        </View>
+
+        {/* REMITENTE Y DESTINATARIO */}
+        <View style={{ ...etiquetaStyles.bloquesRow, minHeight: 140 }}>
           <View style={etiquetaStyles.bloque}>
             <Text style={etiquetaStyles.bloqueLabel}>REMITENTE</Text>
             <Text style={etiquetaStyles.bloqueNombre}>{proveedorNombre}</Text>
@@ -366,39 +403,58 @@ export function EtiquetaEnvioPDF({
             {(!!proveedorCodigoPostal || !!proveedorCiudad) && (
               <Text style={etiquetaStyles.bloqueInfo}>{[proveedorCodigoPostal, proveedorCiudad].filter(Boolean).join(" ")}</Text>
             )}
-            {!!proveedorProvincia && <Text style={etiquetaStyles.bloqueInfo}>{proveedorProvincia}</Text>}
+            {!!proveedorProvincia && <Text style={etiquetaStyles.bloqueInfo}>{proveedorProvincia.toUpperCase()}</Text>}
             {!!proveedorEmail && <Text style={etiquetaStyles.bloqueInfo}>{proveedorEmail}</Text>}
             {!!proveedorTelefono && <Text style={etiquetaStyles.bloqueTelefono}>Tlf: {proveedorTelefono}</Text>}
           </View>
           <View style={{ ...etiquetaStyles.bloque, borderRightWidth: 0 }}>
             <Text style={etiquetaStyles.bloqueLabel}>DESTINATARIO</Text>
-            <Text style={etiquetaStyles.bloqueNombre}>{cliente}</Text>
+            <Text style={{ ...etiquetaStyles.bloqueNombre, fontSize: 16 }}>{cliente}</Text>
             {!!direccion && <Text style={etiquetaStyles.bloqueInfo}>{direccion}</Text>}
             {(!!codigoPostal || !!ciudad) && (
-              <Text style={etiquetaStyles.bloqueInfo}>{[codigoPostal, ciudad].filter(Boolean).join(" ")}</Text>
+              <Text style={{ ...etiquetaStyles.bloqueInfo, fontFamily: "Helvetica-Bold", fontSize: 11 }}>{[codigoPostal, ciudad].filter(Boolean).join(" ")}</Text>
             )}
-            {!!provincia && <Text style={etiquetaStyles.bloqueInfo}>{provincia}</Text>}
+            {!!provincia && <Text style={{ ...etiquetaStyles.bloqueInfo, fontFamily: "Helvetica-Bold" }}>{provincia.toUpperCase()}</Text>}
             {!!clienteEmail && <Text style={etiquetaStyles.bloqueInfo}>{clienteEmail}</Text>}
             {!!telefono && <Text style={etiquetaStyles.bloqueTelefono}>Tlf: {telefono}</Text>}
           </View>
         </View>
+
+        {/* DATOS ENVÍO */}
         <View style={etiquetaStyles.datosEnvio}>
-          <View style={etiquetaStyles.datoBox}><Text style={etiquetaStyles.datoLabel}>BULTOS</Text><Text style={etiquetaStyles.datoVal}>1</Text></View>
-          <View style={etiquetaStyles.datoBox}><Text style={etiquetaStyles.datoLabel}>FECHA RECOGIDA</Text><Text style={etiquetaStyles.datoValSmall}>{fechaFormateada}</Text></View>
-          <View style={{ ...etiquetaStyles.datoBox, borderRightWidth: 0 }}><Text style={etiquetaStyles.datoLabel}>PORTES</Text><Text style={etiquetaStyles.datoValSmall}>Pagados por RD</Text></View>
+          <View style={etiquetaStyles.datoBox}>
+            <Text style={etiquetaStyles.datoLabel}>BULTOS</Text>
+            <Text style={etiquetaStyles.datoVal}>1</Text>
+          </View>
+          <View style={etiquetaStyles.datoBox}>
+            <Text style={etiquetaStyles.datoLabel}>FECHA RECOGIDA</Text>
+            <Text style={etiquetaStyles.datoValSmall}>{fechaFormateada}</Text>
+          </View>
+          <View style={{ ...etiquetaStyles.datoBox, borderRightWidth: 0 }}>
+            <Text style={etiquetaStyles.datoLabel}>PORTES</Text>
+            <Text style={etiquetaStyles.datoValSmall}>Pagados por RD</Text>
+          </View>
         </View>
-        <View style={etiquetaStyles.agenciaBox}>
+
+        {/* AGENCIA + NÚMEROS */}
+        <View style={{ ...etiquetaStyles.agenciaBox, padding: "14 20" }}>
           <View>
             <Text style={etiquetaStyles.agenciaLabel}>COMPANIA DE TRANSPORTE</Text>
-            <Text style={etiquetaStyles.agenciaNombre}>{agencia.toUpperCase()}</Text>
+            <Text style={{ ...etiquetaStyles.agenciaNombre, fontSize: 28 }}>{agencia.toUpperCase()}</Text>
           </View>
           <View style={etiquetaStyles.agenciaRight}>
-            <Text style={{ color: "#94a3af", fontSize: 7 }}>N Recogida</Text>
-            <Text style={{ color: "#ffffff", fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>________________</Text>
-            <Text style={{ color: "#94a3af", fontSize: 7, marginTop: 4 }}>N Envio</Text>
-            <Text style={{ color: "#ffffff", fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>________________</Text>
+            <Text style={{ color: "#94a3af", fontSize: 8 }}>N Recogida</Text>
+            <Text style={{ color: "#ffffff", fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 }}>
+              {numeroSolicitud ? numeroSolicitud.substring(0, 10) : "________________"}
+            </Text>
+            <Text style={{ color: "#94a3af", fontSize: 8, marginTop: 6 }}>N Envio</Text>
+            <Text style={{ color: "#ffffff", fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 }}>
+              {numeroEnvio || "________________"}
+            </Text>
           </View>
         </View>
+
+        {/* PEDIDO */}
         <View style={etiquetaStyles.pedidoBox}>
           <Text style={etiquetaStyles.pedidoCodigo}>{codigo}</Text>
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Pedido:</Text><Text style={etiquetaStyles.pedidoVal}>{codigo}</Text></View>
@@ -406,6 +462,8 @@ export function EtiquetaEnvioPDF({
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Importe:</Text><Text style={etiquetaStyles.pedidoVal}>{Number(total).toFixed(2)} EUR (IVA incl.)</Text></View>
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Gestionado por:</Text><Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambio-directo.com</Text></View>
         </View>
+
+        {/* REFERENCIAS */}
         <View style={etiquetaStyles.refsBox}>
           <Text style={etiquetaStyles.refsTitle}>REFERENCIAS A ENVIAR</Text>
           {productos.map((p, i) => (
@@ -416,16 +474,25 @@ export function EtiquetaEnvioPDF({
             </View>
           ))}
         </View>
-        <View style={etiquetaStyles.separador}><Text style={etiquetaStyles.separadorText}>--- COPIA PARA EL REMITENTE ---</Text></View>
+
+        {/* SEPARADOR COPIA */}
+        <View style={etiquetaStyles.separador}>
+          <Text style={etiquetaStyles.separadorText}>--- COPIA PARA EL REMITENTE ---</Text>
+        </View>
+
+        {/* CONDUCTOR */}
         <View style={etiquetaStyles.conductorBox}>
           <View style={etiquetaStyles.conductorField}><Text style={etiquetaStyles.conductorLabel}>Hora de recogida</Text><View style={etiquetaStyles.conductorLinea} /></View>
           <View style={etiquetaStyles.conductorField}><Text style={etiquetaStyles.conductorLabel}>Nombre del conductor</Text><View style={etiquetaStyles.conductorLinea} /></View>
           <View style={{ ...etiquetaStyles.conductorField, marginRight: 0 }}><Text style={etiquetaStyles.conductorLabel}>Firma</Text><View style={etiquetaStyles.conductorLinea} /></View>
         </View>
+
+        {/* PORTES */}
         <View style={etiquetaStyles.portesBox}>
           <Text style={etiquetaStyles.portesLabel}>Portes a cargo de: Recambio Directo</Text>
           <Text style={etiquetaStyles.portesVal}>Referencia: {codigo}</Text>
         </View>
+
       </Page>
     </Document>
   );

@@ -128,7 +128,7 @@ export default function CheckoutPage() {
   const numProveedores = new Set(productos.map(p => p.proveedor_id)).size;
   const grupos = getGruposPorProveedor();
 
-  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string) {
+  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string, numeroEnvio?: string, numeroSolicitud?: string) {
     try {
       const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
       const props = {
@@ -139,6 +139,7 @@ export default function CheckoutPage() {
         direccion, ciudad, codigoPostal, provincia,
         agencia: transporte || "", formaPago, productos: productosGrupo,
         subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion,
+        numeroEnvio, numeroSolicitud,
       };
       const albaranBlob = await pdf(React.createElement(AlbaranPDF, props) as any).toBlob();
       const etiquetaBlob = await pdf(React.createElement(EtiquetaEnvioPDF, props) as any).toBlob();
@@ -215,7 +216,14 @@ export default function CheckoutPage() {
           });
           const mrwData = await mrwRes.json();
           if (mrwData.ok && mrwData.numeroEnvio) {
-            await supabase.from("pedidos").update({ tracking: mrwData.numeroEnvio, estado_envio: "preparando" }).eq("id", pedidoInsertado.id);
+            // Regenerar PDFs con el número de envío MRW
+            await generarYGuardarPDFs(
+              pedidoInsertado.id, codigo,
+              nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
+              proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+              grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha,
+              mrwData.numeroEnvio, mrwData.numeroSolicitud
+            );
           } else {
             console.error("MRW error:", mrwData.error);
           }

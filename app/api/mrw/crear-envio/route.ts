@@ -207,11 +207,17 @@ export async function POST(request: Request) {
       .eq("id", pedidoId);
 
     // Respuesta SOAP 1.1: <NumeroEnvio> directamente en TransmEnvioResult
-    const numeroEnvio = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1] || null;
-    const urlResultado = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1] || "";
+    const numeroEnvio     = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1]         || null;
+    const numeroSolicitud = xmlText.match(/<NumeroSolicitud>(.*?)<\/NumeroSolicitud>/)?.[1]   || null;
+    const urlResultado    = xmlText.match(/<Url>(.*?)<\/Url>/)?.[1]                           || "";
 
     if (numeroEnvio && numeroEnvio.trim() !== "") {
-      return Response.json({ ok: true, numeroEnvio: numeroEnvio.trim(), urlResultado });
+      await supabaseAdmin.from("pedidos").update({
+        tracking: numeroEnvio.trim(),
+        estado_envio: "preparando",
+        notas_internas: `MRW OK — Envio: ${numeroEnvio.trim()} — Solicitud: ${numeroSolicitud || ""}`,
+      }).eq("id", pedidoId);
+      return Response.json({ ok: true, numeroEnvio: numeroEnvio.trim(), numeroSolicitud, urlResultado });
     } else {
       return Response.json({
         ok: false,
