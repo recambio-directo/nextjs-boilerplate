@@ -180,10 +180,16 @@ export async function POST(request: Request) {
   </Body>
 </Envelope>`;
 
-    const response = await fetch(entorno, {
+    // Usar proxy VPS con IP fija para evitar bloqueo de SAGEC
+    const proxyUrl = "http://168.231.83.226:3000";
+    const targetUrl = entorno;
+
+    const response = await fetch(proxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
+        "x-proxy-secret": "rd-mrw-proxy-2026",
+        "x-target-url": targetUrl,
       },
       body: soapBody,
     });
