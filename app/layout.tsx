@@ -17,6 +17,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  verification: {
+    google: "1cHMgv9pHITkaU0phv__RhsEN2_BvdsHNNLqCEi3aHE",
+  },
   metadataBase: new URL("https://www.recambio-directo.com"),
   title: {
     default: "Recambio Directo — Marketplace B2B de Recambios de Automoción",
