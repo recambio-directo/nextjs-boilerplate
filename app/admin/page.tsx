@@ -97,16 +97,26 @@ export default function AdminPage() {
   const [ftpCreando, setFtpCreando] = useState(false);
   const [ftpResultado, setFtpResultado] = useState<{ usuario: string; password: string; empresa: string } | null>(null);
 
+  const [verificando, setVerificando] = useState(true);
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa").eq("id", user.id).single();
+      if (!user) { router.push("/"); return; }
+      const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo").eq("id", user.id).single();
+      if (!perfil || perfil.tipo !== "admin") { router.push("/"); return; }
       setAdminNombre(perfil?.nombre_empresa || user.email || "Admin");
+      setVerificando(false);
       cargarDatos();
     }
     init();
   }, []);
+
+  if (verificando) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#020b2d)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <p style={{ color: "#94a3b8", fontSize: 16 }}>Verificando acceso...</p>
+    </div>
+  );
 
   async function cargarDatos() {
     setCargando(true);
