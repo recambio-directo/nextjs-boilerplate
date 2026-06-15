@@ -155,7 +155,9 @@ export default function ProveedorPage() {
 
   async function iniciarPagina() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { router.push("/"); return; }
+    const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
+    if (!perfil || perfil.tipo !== "proveedor") { router.push("/"); return; }
     setUserId(user.id);
     await cargarDatos();
     await cargarNotificaciones(user.id);

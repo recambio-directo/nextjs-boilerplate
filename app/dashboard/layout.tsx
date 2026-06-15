@@ -48,7 +48,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function iniciar() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { window.location.href = "/"; return; }
     setUserId(user.id);
     userIdRef.current = user.id;
     cargarCesta(user.id);

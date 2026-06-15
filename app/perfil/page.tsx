@@ -46,7 +46,7 @@ export default function PerfilPage() {
 
   async function cargarPerfil() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { window.location.href = "/"; return; }
     setUserId(user.id);
     setEmail(user.email || "");
     setTipo(user.user_metadata?.tipo || "cliente");
