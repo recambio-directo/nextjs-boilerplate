@@ -19,6 +19,7 @@ type Usuario = {
   suscripcion: string;
   notas_admin?: string;
   ftp_activo?: boolean;
+  ftp_usuario?: string;
   ftp_api_key?: string;
   credito_rd?: number;
   iban?: string;
@@ -63,7 +64,7 @@ const SUSCRIPCION_LABELS: Record<string, { label: string; color: string; bg: str
 
 export default function AdminPage() {
   const router = useRouter();
-  const [seccion, setSeccion] = useState<"dashboard" | "usuarios" | "pedidos" | "cobros" | "financiero" | "facturacion">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard" | "usuarios" | "pedidos" | "cobros" | "financiero" | "facturacion" | "ftp">("dashboard");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -90,6 +91,12 @@ export default function AdminPage() {
   const [paginaPedidos, setPaginaPedidos] = useState(1);
   const PEDIDOS_POR_PAGINA = 20;
 
+  // FTP estados
+  const [ftpProveedorId, setFtpProveedorId] = useState("");
+  const [ftpPassword, setFtpPassword] = useState("");
+  const [ftpCreando, setFtpCreando] = useState(false);
+  const [ftpResultado, setFtpResultado] = useState<{ usuario: string; password: string; empresa: string } | null>(null);
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,6 +117,79 @@ export default function AdminPage() {
     const { data: pagosData } = await supabase.from("pagos_proveedores").select("*").order("created_at", { ascending: false });
     setPagosProveedores(pagosData || []);
     setCargando(false);
+  }
+
+  async function crearUsuarioFTP() {
+    if (!ftpProveedorId || !ftpPassword) { alert("Selecciona un proveedor y pon una contraseña"); return; }
+    setFtpCreando(true);
+    setFtpResultado(null);
+    const proveedor = usuarios.find(u => u.id === ftpProveedorId);
+    if (!proveedor) { setFtpCreando(false); return; }
+
+    // Generar nombre de usuario limpio
+    const nombreUsuario = ("ftp_" + (proveedor.nombre_empresa || proveedor.email)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "_")
+      .replace(/_+/g, "_")
+      .substring(0, 20)
+    ).replace(/_$/, "");
+
+    try {
+      const res = await fetch("/api/ftp/crear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proveedorId: ftpProveedorId, nombreUsuario, password: ftpPassword }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setFtpResultado({ usuario: nombreUsuario, password: ftpPassword, empresa: proveedor.nombre_empresa || proveedor.email });
+        setFtpPassword("");
+        setFtpProveedorId("");
+        cargarDatos();
+      } else {
+        alert("Error: " + data.error);
+      }
+    } catch (e) {
+      alert("Error de conexión con el servidor");
+    }
+    setFtpCreando(false);
+  }
+
+  function descargarCredencialesFTP(usuario: string, password: string, empresa: string) {
+    const contenido = `CREDENCIALES FTP — RECAMBIO DIRECTO
+=====================================
+Empresa: ${empresa}
+Fecha: ${new Date().toLocaleDateString("es-ES")}
+
+DATOS DE CONEXIÓN FTP:
+Host:     168.231.83.226
+Puerto:   21
+Usuario:  ${usuario}
+Password: ${password}
+Carpeta:  /catalogo
+
+CÓMO CONECTARSE (FileZilla):
+1. Descarga FileZilla gratis: https://filezilla-project.org
+2. Abre FileZilla
+3. Rellena los datos de arriba en la barra superior
+4. Haz clic en "Conexión rápida"
+5. Sube tu archivo CSV o Excel a la carpeta /catalogo
+
+FORMATO DEL ARCHIVO:
+- Nombre: catalogo.csv o catalogo.xlsx
+- Columnas requeridas: referencia, descripcion, precio, marca, stock
+- Columna opcional: importe_casco
+- Se procesa automáticamente cada noche a las 3:00 AM
+
+SOPORTE:
+info@recambio-directo.com
+=====================================`;
+
+    const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `credenciales-ftp-${empresa.replace(/\s+/g, "-").toLowerCase()}.txt`;
+    a.click();
   }
 
   async function guardarCredito(id: string) {
@@ -214,7 +294,6 @@ export default function AdminPage() {
     }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 30 }, { wch: 12 }, { wch: 30 }, { wch: 20 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, "Ingresos");
     XLSX.writeFile(wb, `ingresos_recambiodirecto_${new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" })}.xlsx`);
   }
@@ -228,7 +307,6 @@ export default function AdminPage() {
     XLSX.writeFile(wb, `cobros_recambiodirecto_${mes}.xlsx`);
   }
 
-  // ── FACTURACIÓN ──
   function calcularFacturacionUsuario(u: Usuario) {
     const [anio, mesNum] = mesFacturacion.split("-").map(Number);
     const suscripcion = (u.suscripcion !== "gratuito" && u.suscripcion !== "cancelado") ? 25 : 0;
@@ -252,7 +330,6 @@ export default function AdminPage() {
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = Array(11).fill({ wch: 22 });
     XLSX.utils.book_append_sheet(wb, ws, "Facturación");
     XLSX.writeFile(wb, `facturacion_recambiodirecto_${mesFacturacion}.xlsx`);
   }
@@ -285,7 +362,6 @@ export default function AdminPage() {
   const totalFtpMes = usuariosConFactura.reduce((acc, u) => acc + calcularFacturacionUsuario(u).ftp, 0);
   const totalPortesMes = usuariosConFactura.reduce((acc, u) => acc + calcularFacturacionUsuario(u).portes, 0);
 
-  // Pedidos filtrados y paginados
   const pedidosFiltrados = pedidos.filter(p => {
     if (filtroPedidoEstado !== "todos" && p.estado_envio !== filtroPedidoEstado) return false;
     if (filtroPedidoPago !== "todos" && p.forma_pago !== filtroPedidoPago) return false;
@@ -293,15 +369,15 @@ export default function AdminPage() {
     if (filtroPedidoAnulado === "anulados" && !p.anulado) return false;
     if (busquedaPedidos) {
       const q = busquedaPedidos.toLowerCase();
-      return (p.codigo || "").toLowerCase().includes(q) ||
-             (p.cliente_nombre || "").toLowerCase().includes(q) ||
-             (p.cliente_email || "").toLowerCase().includes(q) ||
-             String(p.id).includes(q);
+      return (p.codigo || "").toLowerCase().includes(q) || (p.cliente_nombre || "").toLowerCase().includes(q) || (p.cliente_email || "").toLowerCase().includes(q) || String(p.id).includes(q);
     }
     return true;
   });
   const totalPaginasPedidos = Math.ceil(pedidosFiltrados.length / PEDIDOS_POR_PAGINA);
   const pedidosPagina = pedidosFiltrados.slice((paginaPedidos - 1) * PEDIDOS_POR_PAGINA, paginaPedidos * PEDIDOS_POR_PAGINA);
+
+  const proveedoresFTP = usuarios.filter(u => u.tipo === "proveedor");
+  const ftpActivos = usuarios.filter(u => u.ftp_activo);
 
   return (
     <main style={mainStyle}>
@@ -320,6 +396,7 @@ export default function AdminPage() {
             { key: "facturacion", label: "🧾 Facturación" },
             { key: "financiero",  label: "🏦 Financiero" },
             { key: "pedidos",     label: "📦 Pedidos" },
+            { key: "ftp",         label: "🔄 FTP Sync" },
           ].map(({ key, label }) => (
             <div key={key} onClick={() => setSeccion(key as any)} style={seccion === key ? menuActivo : menuItem}>{label}</div>
           ))}
@@ -414,64 +491,14 @@ export default function AdminPage() {
                         </select>
                       </td>
                       <td style={tdStyle}>
-                        <button onClick={async () => {
-                          const nuevoEstado = !u.ftp_activo;
-                          const updates: any = { ftp_activo: nuevoEstado };
-                          if (nuevoEstado && !u.ftp_api_key) {
-                            updates.ftp_api_key = `rd-ftp-${u.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 10)}`;
-                          }
-                          await supabase.from("usuarios").update(updates).eq("id", u.id);
-                          setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, ...updates } : x));
-                          if (nuevoEstado) {
-                            const apiKey = updates.ftp_api_key || u.ftp_api_key;
-                            const url = `https://recambio-directo.com/api/ftp/upload?api_key=${apiKey}`;
-                            const contenido = `CREDENCIALES FTP SYNC — RECAMBIO DIRECTO
-==========================================
-Empresa: ${u.nombre_empresa || u.email}
-Fecha activación: ${new Date().toLocaleDateString("es-ES")}
-
-API KEY: ${apiKey}
-
-URL UPLOAD:
-${url}
-
-INSTRUCCIONES:
-- Método: POST (multipart/form-data)
-- Campo: file
-- Formatos aceptados: CSV, XLSX, XLS
-- Columnas requeridas: referencia, descripcion, precio, marca, stock
-- Columna opcional: importe casco
-- Procesamiento automático: cada noche a las 5:00 AM
-
-FORMATO DE COLUMNAS:
-referencia   → Código de la pieza (OEM o IAM)
-descripcion  → Descripción del artículo
-precio       → Precio de venta sin IVA (si precio=0 se trata como casco)
-marca        → Fabricante o marca
-stock        → Unidades disponibles
-importe casco → Precio del casco (solo si aplica)
-
-NOTA CASCOS:
-Si una referencia lleva casco, incluir una fila adicional con
-precio=0 e importe casco=precio del casco. El sistema la
-asociará automáticamente a la referencia anterior.
-
-EJEMPLO CSV:
-referencia;descripcion;precio;marca;stock;importe casco
-W79;FILTRO ACEITE MANN W79;4.50;MANN;25;0
-W79;CASCO FILTRO W79;0;MANN;25;2.50
-
-Soporte: info@recambio-directo.com
-==========================================`;
-                            const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
-                            const a = document.createElement("a");
-                            a.href = URL.createObjectURL(blob);
-                            a.download = `credenciales-ftp-${(u.nombre_empresa || u.email).replace(/\s+/g, "-").toLowerCase()}.txt`;
-                            a.click();
-                          }
-                        }} style={{ background: u.ftp_activo ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.05)", border: "none", color: u.ftp_activo ? "#a78bfa" : "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
-                          {u.ftp_activo ? "🔄 Activo" : "—"}
-                        </button>
+                        {u.ftp_activo ? (
+                          <div>
+                            <span style={{ background: "rgba(139,92,246,0.2)", color: "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>🔄 Activo</span>
+                            {u.ftp_usuario && <div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>{u.ftp_usuario}</div>}
+                          </div>
+                        ) : (
+                          <button onClick={() => { setSeccion("ftp"); setFtpProveedorId(u.id); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>+ Activar</button>
+                        )}
                       </td>
                       <td style={tdStyle}>
                         <button onClick={() => toggleActivo(u)} style={{ background: u.activo ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: "none", color: u.activo ? "#4ade80" : "#f87171", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{u.activo ? "✅ Activo" : "❌ Inactivo"}</button>
@@ -487,6 +514,165 @@ Soporte: info@recambio-directo.com
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* FTP SYNC */}
+        {seccion === "ftp" && (
+          <div>
+            <h1 style={titleStyle}>FTP SYNC</h1>
+            <p style={descStyle}>Crea accesos FTP para que los proveedores suban su catálogo automáticamente.</p>
+
+            {/* KPIs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, marginBottom: 32 }}>
+              <div style={kpiCard}><p style={kpiLabel}>PROVEEDORES TOTALES</p><h2 style={{ ...kpiNum, color: "#60a5fa" }}>{proveedoresFTP.length}</h2></div>
+              <div style={kpiCard}><p style={kpiLabel}>CON FTP ACTIVO</p><h2 style={{ ...kpiNum, color: "#4ade80" }}>{ftpActivos.length}</h2></div>
+              <div style={kpiCard}><p style={kpiLabel}>SIN FTP</p><h2 style={{ ...kpiNum, color: "#f59e0b" }}>{proveedoresFTP.length - ftpActivos.length}</h2></div>
+            </div>
+
+            {/* FORMULARIO CREAR FTP */}
+            <div style={{ ...seccionCard, border: "1px solid rgba(139,92,246,0.3)", marginBottom: 28 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>➕ Crear acceso FTP</h2>
+              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Selecciona el proveedor y asigna una contraseña. El usuario FTP se genera automáticamente.</p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+                <div>
+                  <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Proveedor</p>
+                  <select
+                    value={ftpProveedorId}
+                    onChange={e => setFtpProveedorId(e.target.value)}
+                    style={{ width: "100%", background: "#0f172a", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none" }}
+                  >
+                    <option value="">— Selecciona proveedor —</option>
+                    {proveedoresFTP.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.nombre_empresa || u.email} {u.ftp_activo ? "✓ (ya tiene FTP)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Contraseña FTP</p>
+                  <input
+                    type="text"
+                    placeholder="Mínimo 8 caracteres"
+                    value={ftpPassword}
+                    onChange={e => setFtpPassword(e.target.value)}
+                    style={{ width: "100%", background: "#0f172a", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }}
+                  />
+                </div>
+              </div>
+
+              {ftpProveedorId && (
+                <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 16 }}>
+                  <p style={{ color: "#60a5fa", fontSize: 13, margin: 0 }}>
+                    Usuario que se creará: <strong>ftp_{(usuarios.find(u => u.id === ftpProveedorId)?.nombre_empresa || "").toLowerCase().replace(/[^a-z0-9]/g, "_").substring(0, 20)}</strong>
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={crearUsuarioFTP}
+                disabled={ftpCreando || !ftpProveedorId || ftpPassword.length < 8}
+                style={{ background: (!ftpProveedorId || ftpPassword.length < 8) ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: (!ftpProveedorId || ftpPassword.length < 8) ? "#64748b" : "white", padding: "16px 32px", borderRadius: 14, fontWeight: 900, cursor: ftpCreando || !ftpProveedorId || ftpPassword.length < 8 ? "not-allowed" : "pointer", fontSize: 15, opacity: ftpCreando ? 0.7 : 1 }}
+              >
+                {ftpCreando ? "⏳ Creando usuario en servidor..." : "🔄 Crear acceso FTP"}
+              </button>
+            </div>
+
+            {/* RESULTADO */}
+            {ftpResultado && (
+              <div style={{ background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.3)", borderRadius: 20, padding: 28, marginBottom: 28 }}>
+                <h3 style={{ color: "#4ade80", fontWeight: 900, fontSize: 18, marginBottom: 16 }}>✅ Acceso FTP creado para {ftpResultado.empresa}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
+                  {[
+                    { label: "HOST", value: "168.231.83.226" },
+                    { label: "PUERTO", value: "21" },
+                    { label: "USUARIO", value: ftpResultado.usuario },
+                    { label: "CONTRASEÑA", value: ftpResultado.password },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ background: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 16 }}>
+                      <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{label}</p>
+                      <p style={{ color: "white", fontWeight: 800, fontSize: 14, fontFamily: "monospace", margin: 0 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    onClick={() => descargarCredencialesFTP(ftpResultado.usuario, ftpResultado.password, ftpResultado.empresa)}
+                    style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "12px 24px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    ⬇️ Descargar credenciales TXT
+                  </button>
+                  <button
+                    onClick={() => {
+                      const texto = `Host: 168.231.83.226 | Puerto: 21 | Usuario: ${ftpResultado.usuario} | Password: ${ftpResultado.password} | Carpeta: /catalogo`;
+                      navigator.clipboard.writeText(texto);
+                      alert("Copiado al portapapeles");
+                    }}
+                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "white", padding: "12px 24px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+                  >
+                    📋 Copiar al portapapeles
+                  </button>
+                  <button onClick={() => setFtpResultado(null)} style={{ background: "transparent", border: "none", color: "#94a3b8", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>✕ Cerrar</button>
+                </div>
+              </div>
+            )}
+
+            {/* LISTA PROVEEDORES CON FTP */}
+            <div style={seccionCard}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 20 }}>📋 Proveedores con FTP activo ({ftpActivos.length})</h2>
+              {ftpActivos.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
+                  <p style={{ fontSize: 40, marginBottom: 12 }}>🔄</p>
+                  <p>Ningún proveedor tiene FTP activo todavía</p>
+                </div>
+              ) : (
+                <div style={tableContainer}>
+                  <table style={tableStyle}>
+                    <thead><tr>{["EMPRESA", "EMAIL", "USUARIO FTP", "CARPETA", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {ftpActivos.map(u => (
+                        <tr key={u.id} style={trStyle}>
+                          <td style={tdStyle}><strong>{u.nombre_empresa || "-"}</strong></td>
+                          <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
+                          <td style={tdStyle}><span style={{ fontFamily: "monospace", color: "#a78bfa", fontWeight: 700 }}>{u.ftp_usuario || "-"}</span></td>
+                          <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13, fontFamily: "monospace" }}>/catalogo</td>
+                          <td style={tdStyle}>
+                            <button
+                              onClick={() => { setFtpProveedorId(u.id); window.scrollTo(0, 0); }}
+                              style={{ ...btnAccion, fontSize: 12 }}
+                            >
+                              🔑 Regenerar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* PROVEEDORES SIN FTP */}
+            {proveedoresFTP.filter(u => !u.ftp_activo).length > 0 && (
+              <div style={{ ...seccionCard, marginTop: 20, border: "1px solid rgba(245,158,11,0.2)" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 16, color: "#fbbf24" }}>⚠️ Proveedores sin FTP ({proveedoresFTP.filter(u => !u.ftp_activo).length})</h2>
+                <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 10 }}>
+                  {proveedoresFTP.filter(u => !u.ftp_activo).map(u => (
+                    <div key={u.id} style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{u.nombre_empresa || u.email}</span>
+                      <button
+                        onClick={() => { setFtpProveedorId(u.id); window.scrollTo(0, 0); }}
+                        style={{ background: "rgba(245,158,11,0.2)", border: "none", color: "#fbbf24", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+                      >
+                        + Activar FTP
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -544,14 +730,12 @@ Soporte: info@recambio-directo.com
         {seccion === "facturacion" && (
           <div>
             <h1 style={titleStyle}>FACTURACIÓN</h1>
-            <p style={descStyle}>Resumen mensual para emitir facturas en Holded. Incluye suscripciones, FTP y portes RD Pago.</p>
-
+            <p style={descStyle}>Resumen mensual para emitir facturas en Holded.</p>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
               <label style={{ color: "#94a3b8", fontWeight: 700 }}>Mes a facturar:</label>
               <input type="month" value={mesFacturacion} onChange={e => setMesFacturacion(e.target.value)} style={{ background: "#0f172a", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 16px", fontSize: 15, outline: "none" }} />
               <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 16 }}>{nombreMesFact}</span>
             </div>
-
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 28 }}>
               {[
                 { label: "TOTAL A FACTURAR", value: `${(totalFactMes * 1.21).toFixed(2)}€`, color: "#22c55e", desc: "IVA incluido" },
@@ -562,30 +746,15 @@ Soporte: info@recambio-directo.com
                 <div key={label} style={kpiCard}><p style={kpiLabel}>{label}</p><h2 style={{ ...kpiNum, color }}>{value}</h2><p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{desc}</p></div>
               ))}
             </div>
-
-            <div style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
-              <span style={{ fontSize: 20 }}>ℹ️</span>
-              <p style={{ color: "#a78bfa", fontSize: 14, margin: 0 }}>Los pedidos pagados con <strong>tarjeta (Stripe)</strong> ya incluyen el porte en el cargo al cliente — no aparecen aquí. Solo se muestran portes de pedidos con <strong>RD Pago</strong>.</p>
-            </div>
-
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
               <button onClick={exportarParaHolded} disabled={usuariosConFactura.length === 0} style={{ ...btnExportar, opacity: usuariosConFactura.length === 0 ? 0.5 : 1 }}>⬇️ Exportar para Holded ({nombreMesFact})</button>
             </div>
-
             {usuariosConFactura.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
-                <p style={{ fontSize: 48, marginBottom: 16 }}>🧾</p>
-                <p style={{ fontSize: 18, fontWeight: 700 }}>No hay nada que facturar este mes</p>
-                <p style={{ fontSize: 14, marginTop: 8 }}>Todos los usuarios están en periodo gratuito o cancelados</p>
-              </div>
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}><p style={{ fontSize: 48, marginBottom: 16 }}>🧾</p><p style={{ fontSize: 18, fontWeight: 700 }}>No hay nada que facturar este mes</p></div>
             ) : (
               <div style={tableContainer}>
                 <table style={tableStyle}>
-                  <thead>
-                    <tr style={{ background: "rgba(0,0,0,0.2)" }}>
-                      {["EMPRESA", "CIF", "TIPO", "SUSCRIPCIÓN", "FTP +10€", "PORTES RD", "BASE IMP.", "IVA 21%", "TOTAL"].map(h => <th key={h} style={thStyle}>{h}</th>)}
-                    </tr>
-                  </thead>
+                  <thead><tr>{["EMPRESA", "CIF", "TIPO", "SUSCRIPCIÓN", "FTP +10€", "PORTES RD", "BASE IMP.", "IVA 21%", "TOTAL"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                   <tbody>
                     {usuariosConFactura.map(u => {
                       const f = calcularFacturacionUsuario(u);
@@ -596,7 +765,7 @@ Soporte: info@recambio-directo.com
                           <td style={tdStyle}><span style={tipoBadge(u.tipo)}>{u.tipo}</span></td>
                           <td style={tdStyle}>{f.suscripcion > 0 ? <span style={{ color: "#4ade80", fontWeight: 700 }}>25,00€</span> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
                           <td style={tdStyle}>{f.ftp > 0 ? <span style={{ color: "#a78bfa", fontWeight: 700 }}>10,00€</span> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
-                          <td style={tdStyle}>{f.portes > 0 ? <div><span style={{ color: "#fbbf24", fontWeight: 700 }}>{f.portes.toFixed(2)}€</span><div style={{ color: "#94a3b8", fontSize: 11 }}>{f.numPedidosPortes} pedido{f.numPedidosPortes !== 1 ? "s" : ""}</div></div> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                          <td style={tdStyle}>{f.portes > 0 ? <div><span style={{ color: "#fbbf24", fontWeight: 700 }}>{f.portes.toFixed(2)}€</span><div style={{ color: "#94a3b8", fontSize: 11 }}>{f.numPedidosPortes} pedidos</div></div> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
                           <td style={{ ...tdStyle, fontWeight: 700 }}>{f.total.toFixed(2)}€</td>
                           <td style={{ ...tdStyle, color: "#94a3b8" }}>{(f.total * 0.21).toFixed(2)}€</td>
                           <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{(f.total * 1.21).toFixed(2)}€</span></td>
@@ -613,13 +782,6 @@ Soporte: info@recambio-directo.com
                 </table>
               </div>
             )}
-
-            <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: 24, marginTop: 24 }}>
-              <p style={{ fontWeight: 800, fontSize: 16, marginBottom: 12 }}>📋 Cómo usar con Holded</p>
-              {["1. Descarga el Excel con el botón de arriba", "2. Abre Holded → Ventas → Facturas → Nueva factura", "3. Para cada fila del Excel crea una factura con los conceptos desglosados", "4. Concepto 1: 'Suscripción plataforma Recambio Directo' — 25€", "5. Concepto 2 (si aplica): 'Servicio FTP Sync automático' — 10€", "6. Concepto 3 (si aplica): 'Gastos de transporte RD Pago' — importe exacto", "7. IVA 21% en todos los conceptos"].map((paso, i) => (
-                <p key={i} style={{ color: i === 0 ? "#94a3b8" : "#cbd5e1", fontSize: 14, margin: "0 0 6px", paddingLeft: i > 0 ? 8 : 0 }}>{paso}</p>
-              ))}
-            </div>
           </div>
         )}
 
@@ -628,53 +790,25 @@ Soporte: info@recambio-directo.com
           <div>
             <h1 style={titleStyle}>PEDIDOS</h1>
             <p style={descStyle}>Todos los pedidos de la plataforma.</p>
-
-            {/* FILTROS */}
             <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" }}>
-              <input
-                placeholder="Buscar código, cliente, email..."
-                value={busquedaPedidos}
-                onChange={e => { setBusquedaPedidos(e.target.value); setPaginaPedidos(1); }}
-                style={{ ...searchInput, minWidth: 260 }}
-              />
+              <input placeholder="Buscar código, cliente, email..." value={busquedaPedidos} onChange={e => { setBusquedaPedidos(e.target.value); setPaginaPedidos(1); }} style={{ ...searchInput, minWidth: 260 }} />
               <div style={{ display: "flex", gap: 6 }}>
-                {[
-                  { key: "todos", label: "Todos" },
-                  { key: "pendiente", label: "⏳ Pendiente" },
-                  { key: "preparando", label: "🔧 Preparando" },
-                  { key: "enviado", label: "🚚 Enviado" },
-                  { key: "entregado", label: "✅ Entregado" },
-                ].map(({ key, label }) => (
+                {[{ key: "todos", label: "Todos" }, { key: "pendiente", label: "⏳ Pendiente" }, { key: "preparando", label: "🔧 Preparando" }, { key: "enviado", label: "🚚 Enviado" }, { key: "entregado", label: "✅ Entregado" }].map(({ key, label }) => (
                   <button key={key} onClick={() => { setFiltroPedidoEstado(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoEstado === key ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: filtroPedidoEstado === key ? "#60a5fa" : "#94a3b8", border: filtroPedidoEstado === key ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                {[
-                  { key: "todos", label: "Todos" },
-                  { key: "tarjeta", label: "💳 Tarjeta" },
-                  { key: "rd_pago", label: "🔵 RD Pago" },
-                ].map(({ key, label }) => (
+                {[{ key: "todos", label: "Todos" }, { key: "tarjeta", label: "💳 Tarjeta" }, { key: "rd_pago", label: "🔵 RD Pago" }].map(({ key, label }) => (
                   <button key={key} onClick={() => { setFiltroPedidoPago(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoPago === key ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", color: filtroPedidoPago === key ? "#a78bfa" : "#94a3b8", border: filtroPedidoPago === key ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                {[
-                  { key: "todos", label: "Todos" },
-                  { key: "activos", label: "✅ Activos" },
-                  { key: "anulados", label: "❌ Anulados" },
-                ].map(({ key, label }) => (
+                {[{ key: "todos", label: "Todos" }, { key: "activos", label: "✅ Activos" }, { key: "anulados", label: "❌ Anulados" }].map(({ key, label }) => (
                   <button key={key} onClick={() => { setFiltroPedidoAnulado(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoAnulado === key ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", color: filtroPedidoAnulado === key ? "#f87171" : "#94a3b8", border: filtroPedidoAnulado === key ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>
                 ))}
               </div>
-              <span style={{ color: "#94a3b8", fontSize: 13, marginLeft: 4 }}>
-                {pedidosFiltrados.length} pedido{pedidosFiltrados.length !== 1 ? "s" : ""}
-                {pedidosFiltrados.length !== pedidos.length && <span style={{ color: "#60a5fa" }}> (de {pedidos.length})</span>}
-              </span>
-              {(busquedaPedidos || filtroPedidoEstado !== "todos" || filtroPedidoPago !== "todos" || filtroPedidoAnulado !== "todos") && (
-                <button onClick={() => { setBusquedaPedidos(""); setFiltroPedidoEstado("todos"); setFiltroPedidoPago("todos"); setFiltroPedidoAnulado("todos"); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}>✕ Limpiar</button>
-              )}
+              <span style={{ color: "#94a3b8", fontSize: 13 }}>{pedidosFiltrados.length} pedido{pedidosFiltrados.length !== 1 ? "s" : ""}</span>
             </div>
-
             <div style={tableContainer}>
               <table style={tableStyle}>
                 <thead><tr>{["CÓDIGO", "CLIENTE", "TOTAL", "PAGO", "ESTADO", "FECHA", "ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
@@ -683,41 +817,18 @@ Soporte: info@recambio-directo.com
                     <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
                   ) : pedidosPagina.map(p => (
                     <tr key={p.id} style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
-                      <td style={tdStyle}>
-                        <span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>
-                        {p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ fontWeight: 600 }}>{p.cliente_nombre || "-"}</div>
-                        <div style={{ color: "#94a3b8", fontSize: 12 }}>{p.cliente_email}</div>
-                      </td>
+                      <td style={tdStyle}><span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>{p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}</td>
+                      <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.cliente_nombre || "-"}</div><div style={{ color: "#94a3b8", fontSize: 12 }}>{p.cliente_email}</div></td>
                       <td style={{ ...tdStyle, color: "#22c55e", fontWeight: 700 }}>{Number(p.total || 0).toFixed(2)}€</td>
-                      <td style={tdStyle}>
-                        <span style={{ background: p.forma_pago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago === "rd_pago" ? "#60a5fa" : "#a78bfa", padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                          {p.forma_pago === "rd_pago" ? "RD Pago" : "Tarjeta"}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ color: p.estado_envio === "entregado" ? "#4ade80" : p.estado_envio === "enviado" ? "#a78bfa" : p.estado_envio === "preparando" ? "#60a5fa" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>
-                          {p.estado_envio === "entregado" ? "✅ Entregado" : p.estado_envio === "enviado" ? "🚚 Enviado" : p.estado_envio === "preparando" ? "🔧 Preparando" : "⏳ Pendiente"}
-                        </span>
-                      </td>
-                      <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>
-                        {p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}
-                      </td>
-                      <td style={tdStyle}>
-                        {!p.anulado && p.estado_envio !== "entregado" && (
-                          <button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>
-                        )}
-                        {p.estado_envio === "entregado" && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅</span>}
-                      </td>
+                      <td style={tdStyle}><span style={{ background: p.forma_pago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago === "rd_pago" ? "#60a5fa" : "#a78bfa", padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{p.forma_pago === "rd_pago" ? "RD Pago" : "Tarjeta"}</span></td>
+                      <td style={tdStyle}><span style={{ color: p.estado_envio === "entregado" ? "#4ade80" : p.estado_envio === "enviado" ? "#a78bfa" : p.estado_envio === "preparando" ? "#60a5fa" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>{p.estado_envio === "entregado" ? "✅ Entregado" : p.estado_envio === "enviado" ? "🚚 Enviado" : p.estado_envio === "preparando" ? "🔧 Preparando" : "⏳ Pendiente"}</span></td>
+                      <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
+                      <td style={tdStyle}>{!p.anulado && p.estado_envio !== "entregado" && (<button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>)}{p.estado_envio === "entregado" && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅</span>}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {/* PAGINACIÓN */}
             {totalPaginasPedidos > 1 && (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 20 }}>
                 <button onClick={() => setPaginaPedidos(1)} disabled={paginaPedidos === 1} style={{ ...btnPagina, opacity: paginaPedidos === 1 ? 0.3 : 1 }}>««</button>
@@ -729,9 +840,7 @@ Soporte: info@recambio-directo.com
                     else if (paginaPedidos <= 3) page = i + 1;
                     else if (paginaPedidos >= totalPaginasPedidos - 2) page = totalPaginasPedidos - 4 + i;
                     else page = paginaPedidos - 2 + i;
-                    return (
-                      <button key={page} onClick={() => setPaginaPedidos(page)} style={{ width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14, background: paginaPedidos === page ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.06)", color: paginaPedidos === page ? "white" : "#94a3b8" }}>{page}</button>
-                    );
+                    return <button key={page} onClick={() => setPaginaPedidos(page)} style={{ width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14, background: paginaPedidos === page ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.06)", color: paginaPedidos === page ? "white" : "#94a3b8" }}>{page}</button>;
                   })}
                 </div>
                 <button onClick={() => setPaginaPedidos(p => Math.min(totalPaginasPedidos, p + 1))} disabled={paginaPedidos === totalPaginasPedidos} style={{ ...btnPagina, opacity: paginaPedidos === totalPaginasPedidos ? 0.3 : 1 }}>Siguiente →</button>
@@ -815,7 +924,7 @@ Soporte: info@recambio-directo.com
                 <button onClick={generarRemesaPagos} style={btnExportar}>⬇️ Remesa SEPA Excel</button>
               </div>
               {pagosProveedores.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 8 }}>🏦</p><p>No hay pagos registrados aún</p><p style={{ fontSize: 13, marginTop: 8 }}>Aparecerán aquí cuando los pedidos sean marcados como entregados</p></div>
+                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 8 }}>🏦</p><p>No hay pagos registrados aún</p></div>
               ) : (
                 <div style={tableContainer}>
                   <table style={tableStyle}>
