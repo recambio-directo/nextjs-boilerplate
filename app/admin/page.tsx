@@ -138,7 +138,7 @@ export default function AdminPage() {
       const res = await fetch("/api/ftp/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proveedorId: ftpProveedorId, nombreUsuario, password: ftpPassword }),
+        body: JSON.stringify({ proveedorId: ftpProveedorId, nombreUsuario, password: ftpPassword, proveedorNombre: proveedor.nombre_empresa || proveedor.email }),
       });
       const data = await res.json();
       if (data.ok) {

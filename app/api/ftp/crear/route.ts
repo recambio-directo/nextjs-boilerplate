@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const dataFtp = await resFtp.json();
 
     // 2. Añadir proveedor al cron script
-    await fetch("http://168.231.83.226:3000/ftp/añadir-cron", {
+    await fetch("http://168.231.83.226:3000/ftp/anadir-cron", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         usuario: nombreUsuario,
         proveedorId,
-        proveedorNombre,
+        proveedorNombre: proveedorNombre || nombreUsuario,
       }),
     });
 
