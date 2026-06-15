@@ -96,7 +96,7 @@ function ChatPageInner() {
 
   async function iniciar() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { window.location.href = "/"; return; }
     setUserId(user.id);
     userIdRef.current = user.id;
     await cargarConversaciones(user.id);

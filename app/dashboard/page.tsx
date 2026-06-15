@@ -22,9 +22,9 @@ export default function Dashboard() {
 
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa").eq("id", user.id).single();
+    if (!user) { window.location.href = "/"; return; }
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo").eq("id", user.id).single();
+    if (!perfil || perfil.tipo !== "taller") { window.location.href = "/"; return; }
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
 
     const { data } = await supabase.from("pedidos").select("*").eq("cliente_email", user.email).order("created_at", { ascending: false });
