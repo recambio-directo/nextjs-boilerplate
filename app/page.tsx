@@ -80,14 +80,14 @@ export default function Home() {
               RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
             </h1>
             <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
-              La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, sin comisiones por venta.
+              La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
             </p>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" as const }}>
               {[
                 { num: "B2B", label: "Solo profesionales" },
                 { num: "24h", label: "Entrega express" },
                 { num: "100%", label: "Digital y seguro" },
-                { num: "0%", label: "Comisión por venta" },
+                { num: "25€", label: "Precio fijo al mes" },
               ].map(({ num, label }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
                   <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
@@ -192,7 +192,7 @@ export default function Home() {
             <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
             <h3 style={{ fontSize: m ? 20 : 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
-              Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales, sin llamadas y sin pagar comisión por cada venta.
+              Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.
             </p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
               {[
@@ -200,7 +200,7 @@ export default function Home() {
                 "Albarán y etiqueta de envío generados automáticamente",
                 "Control total sobre quién ve tus precios",
                 "Panel de pedidos, facturación y estadísticas",
-                "Sin comisión por venta — solo 25€/mes",
+                "Precio fijo mensual — sin sorpresas",
               ].map(item => (
                 <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
@@ -267,21 +267,16 @@ export default function Home() {
 
       {/* ── AGENCIAS ── */}
       <section style={{ padding: m ? "32px 20px" : "60px 80px", maxWidth: 1300, margin: "0 auto", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 24 }}>AGENCIAS DE TRANSPORTE INTEGRADAS</p>
-        <div style={{ display: "flex", justifyContent: "center", gap: m ? 16 : 32, flexWrap: "wrap" as const, alignItems: "center" }}>
-          {[
-            { nombre: "MRW", color: "#E30613", desc: "24h" },
-            { nombre: "GLS", color: "#F5A800", desc: "24h" },
-            { nombre: "CORREOS EXPRESS", color: "#FFCC00", textColor: "#333", desc: "24-48h" },
-            { nombre: "MIS MEDIOS", color: "#7c3aed", desc: "Flexible" },
-          ].map(({ nombre, color, textColor, desc }) => (
-            <div key={nombre} style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6 }}>
-              <div style={{ background: color, borderRadius: 8, padding: "8px 16px" }}>
-                <span style={{ color: textColor || "white", fontWeight: 900, fontSize: 14 }}>{nombre}</span>
-              </div>
-              <span style={{ color: "#64748b", fontSize: 11 }}>{desc}</span>
-            </div>
-          ))}
+        <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, padding: m ? "24px 20px" : "32px 48px", display: "flex", flexDirection: m ? "column" : "row" as const, alignItems: "center", gap: m ? 16 : 32 }}>
+          <div style={{ fontSize: 36, flexShrink: 0 }}>🚚</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: m ? 16 : 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con las principales agencias de transporte</h3>
+            <p style={{ color: "#94a3b8", fontSize: m ? 13 : 15, margin: 0, lineHeight: 1.6 }}>Trabajamos con múltiples agencias para garantizar la mejor cobertura y precio en cada envío. Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España.</p>
+          </div>
+          <div style={{ flexShrink: 0, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 20px", textAlign: "center" as const }}>
+            <p style={{ color: "#60a5fa", fontWeight: 900, fontSize: 22, margin: 0 }}>24-48h</p>
+            <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Entrega en España</p>
+          </div>
         </div>
       </section>
 
@@ -293,7 +288,7 @@ export default function Home() {
             1 mes gratis.<br />Sin compromiso.
           </h2>
           <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17, marginBottom: 32, lineHeight: 1.7 }}>
-            Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes sin comisión por venta.
+            Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes. Sin permanencia ni sorpresas.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
             <button onClick={() => router.push("/registro")} style={{ ...loginButton, width: "auto", padding: "18px 48px", fontSize: 17, marginBottom: 0 }}>
@@ -304,7 +299,7 @@ export default function Home() {
             </a>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: m ? 16 : 32, marginTop: 32, flexWrap: "wrap" as const }}>
-            {["Sin permanencia", "Sin comisión por venta", "Soporte incluido", "Alta en 24h"].map(g => (
+            {["Sin permanencia", "Precio fijo mensual", "Soporte incluido", "Alta en 24h"].map(g => (
               <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>{g}</span>
@@ -319,7 +314,7 @@ export default function Home() {
         <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "2fr 1fr 1fr 1fr", gap: m ? 28 : 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
-            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España sin comisiones por venta.</p>
+            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores de recambios en toda España.</p>
           </div>
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
