@@ -284,8 +284,25 @@ export default function ProveedorPage() {
     if (tipo === "iam") query = query.neq("tipo", "OEM");
     const { data, count } = await query;
     setPiezas(data || []);
-    if (count !== null) setTotalPiezas(count);
+    // Solo actualizar totalPiezas si no hay filtro de tipo activo
+    // para no machacar los contadores de las pestañas
+    if (!tipo) {
+      if (count !== null) setTotalPiezas(count);
+    } else {
+      // Cuando filtramos por tipo, el count es el del tipo filtrado
+      // lo mostramos en la paginación pero no tocamos totalPiezas global
+      if (count !== null) setTotalPiezas(count);
+    }
     setPaginaActual(pagina);
+  }
+
+  async function recargarContadores(uid: string) {
+    const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid);
+    setTotalPiezas(count || 0);
+    const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid).eq("tipo", "OEM");
+    setTotalOEM(countOEM || 0);
+    const { count: countIAM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid).neq("tipo", "OEM");
+    setTotalIAM(countIAM || 0);
   }
 
   async function solicitarFacturaProveedor(pedido: Pedido) {
@@ -578,7 +595,10 @@ export default function ProveedorPage() {
                   <button key={key} onClick={async () => {
                     setPestañaAlmacen(key as any);
                     const { data: { user } } = await supabase.auth.getUser();
-                    if (user) cargarPiezasPaginadas(user.id, 1, busquedaAlmacen, key === "todos" ? undefined : key);
+                    if (user) {
+                      await recargarContadores(user.id);
+                      cargarPiezasPaginadas(user.id, 1, busquedaAlmacen, key === "todos" ? undefined : key);
+                    }
                   }} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
                 ))}
               </div>
@@ -693,7 +713,10 @@ export default function ProveedorPage() {
               <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 28, padding: 40, marginBottom: 30 }}>
                 <ImportarStock proveedorId={userId} proveedorNombre={nombreEmpresa} onImportado={async () => {
                   const { data: { user } } = await supabase.auth.getUser();
-                  if (user) { const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", user.id); setTotalPiezas(count || 0); cargarPiezasPaginadas(user.id, 1, ""); }
+                  if (user) {
+                    await recargarContadores(user.id);
+                    cargarPiezasPaginadas(user.id, 1, "");
+                  }
                   setTimeout(() => setSeccion("almacen"), 3000);
                 }} />
               </div>
