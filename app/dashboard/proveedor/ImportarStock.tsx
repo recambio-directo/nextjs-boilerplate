@@ -109,19 +109,20 @@ export default function ImportarStock({
     let actualizadas = 0;
     let eliminadas = 0;
 
-    // MODO REEMPLAZAR: borrar todo el stock actual primero
+    // MODO REEMPLAZAR: borrar solo el stock del mismo tipo
     if (modoImport === "reemplazar") {
       setProgresoTexto("Eliminando stock anterior...");
       const { error: deleteError } = await supabase
         .from("piezas_publicadas")
         .delete()
-        .eq("proveedor_id", proveedorId);
+        .eq("proveedor_id", proveedorId)
+        .eq("tipo", tipoDefecto);
       if (deleteError) {
         alert("Error al limpiar el stock anterior: " + deleteError.message);
         setFase("preview");
         return;
       }
-      eliminadas = 1; // marcamos que se limpió
+      eliminadas = 1;
     }
 
     // Preparar todas las filas válidas
@@ -550,8 +551,8 @@ export default function ImportarStock({
           {modoImport === "reemplazar" && (
             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
               <p style={{ color: "#f87171", fontSize: 14, fontWeight: 700 }}>
-                ⚠️ ATENCIÓN: Se eliminarán TODAS tus referencias actuales y se sustituirán por las de este fichero.
-                Las refs que no estén en el fichero desaparecerán del marketplace.
+                ⚠️ ATENCIÓN: Se eliminarán todas tus referencias <strong>{tipoDefecto}</strong> actuales y se sustituirán por las de este fichero.
+                Las referencias de otro tipo no se verán afectadas.
               </p>
             </div>
           )}
