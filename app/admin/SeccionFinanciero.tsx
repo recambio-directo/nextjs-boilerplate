@@ -52,6 +52,8 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
   const [ibanTemp, setIbanTemp] = useState("");
   const [renovandoCredito, setRenovandoCredito] = useState<string | null>(null);
   const [marcandoMoroso, setMarcandoMoroso] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState<"empresa" | "credito" | "moroso" | "siniban">("empresa");
 
   async function guardarCredito(id: string) {
     const credito = parseFloat(creditoTemp);
@@ -88,6 +90,27 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
 
   const proximos = usuariosProximosACobrar(usuarios);
 
+  const usuariosFiltrados = usuarios
+    .filter(u => {
+      if (!busqueda.trim()) return true;
+      const q = busqueda.toLowerCase();
+      return (u.nombre_empresa || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (orden === "empresa") return (a.nombre_empresa || "").localeCompare(b.nombre_empresa || "");
+      if (orden === "credito") return Number(b.credito_rd || 0) - Number(a.credito_rd || 0);
+      if (orden === "moroso") return (b.suscripcion === "moroso" ? 1 : 0) - (a.suscripcion === "moroso" ? 1 : 0);
+      if (orden === "siniban") return (!a.iban ? -1 : 1) - (!b.iban ? -1 : 1);
+      return 0;
+    });
+
+  const ordenOpciones: { key: typeof orden; label: string }[] = [
+    { key: "empresa",  label: "A-Z Empresa" },
+    { key: "credito",  label: "Mayor crédito" },
+    { key: "moroso",   label: "Morosos primero" },
+    { key: "siniban",  label: "Sin IBAN primero" },
+  ];
+
   return (
     <div>
       <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>FINANCIERO</h1>
@@ -116,11 +139,28 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
       <div style={{ ...seccionCard, marginBottom: 28 }}>
         <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>💳 Crédito RD e IBAN por usuario</h2>
         <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>Cuando el taller pague la remesa, pulsa <strong style={{ color: "#4ade80" }}>Renovar</strong>. Si no ha pagado, pulsa <strong style={{ color: "#f87171" }}>Moroso</strong>.</p>
+
+        {/* FILTRO Y ORDEN */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center", flexWrap: "wrap" as const }}>
+          <input
+            placeholder="Buscar empresa o email..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px", color: "white", fontSize: 14, outline: "none", minWidth: 240 }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            {ordenOpciones.map(({ key, label }) => (
+              <button key={key} onClick={() => setOrden(key)} style={{ padding: "8px 14px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 13, border: "none", background: orden === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", color: orden === key ? "white" : "#94a3b8" }}>{label}</button>
+            ))}
+          </div>
+          <span style={{ color: "#94a3b8", fontSize: 13 }}>{usuariosFiltrados.length} usuarios</span>
+        </div>
+
         <div style={tableContainer}>
           <table style={tableStyle}>
             <thead><tr>{["EMPRESA", "TIPO", "CRÉDITO ACTUAL", "CRÉDITO MÁX", "IBAN", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
             <tbody>
-              {usuarios.map(u => (
+              {usuariosFiltrados.map(u => (
                 <tr key={u.id} style={{ ...trStyle, background: u.suscripcion === "moroso" ? "rgba(239,68,68,0.04)" : "transparent" }}>
                   <td style={tdStyle}>
                     <strong>{u.nombre_empresa || "-"}</strong>
