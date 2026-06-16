@@ -62,21 +62,16 @@ export default function Home() {
     setResetEnviado(true);
   }
 
-  const features = [
-    { icon: "🔍", title: "Busca en miles de referencias", desc: "OEM, IAM y Universal con filtros avanzados y precios en tiempo real" },
-    { icon: "📦", title: "Gestión de pedidos completa", desc: "Seguimiento, facturas, chat con proveedor y historial completo" },
-    { icon: "🚚", title: "Logística integrada", desc: "MRW, GLS, Correos Express — etiquetas automáticas y tracking en tiempo real" },
-    { icon: "📊", title: "Panel profesional", desc: "Gestiona tu stock, pedidos recibidos y catálogo desde un panel intuitivo" },
-  ];
-
   const m = isMobile;
 
   return (
     <main style={{ minHeight: "100vh", background: "#020617", color: "white", position: "relative", overflow: "hidden" }}>
+      {/* Fondo */}
       <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(37,99,235,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.07) 1px, transparent 1px)", backgroundSize: "60px 60px", pointerEvents: "none", zIndex: 1 }} />
       <div style={{ width: "600px", height: "600px", borderRadius: "999px", background: "rgba(37,99,235,0.22)", filter: "blur(160px)", position: "absolute", top: "-200px", left: "-200px", pointerEvents: "none", zIndex: 1 }} />
       <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.12)", filter: "blur(140px)", position: "absolute", bottom: "0", right: "-100px", pointerEvents: "none", zIndex: 1 }} />
 
+      {/* ── HERO ── */}
       <section style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 460px", gap: m ? 32 : 60, padding: m ? "40px 20px 32px" : "80px 80px 60px", maxWidth: 1300, margin: "0 auto", alignItems: "center", position: "relative", zIndex: 10 }}>
         {!m && (
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -84,18 +79,26 @@ export default function Home() {
             <h1 style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
               RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
             </h1>
-            <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>La plataforma profesional que conecta talleres y proveedores de recambios.</p>
-            <div style={{ display: "flex", gap: 24 }}>
-              {[{ num: "B2B", label: "Solo profesionales" }, { num: "24h", label: "Entrega express" }, { num: "100%", label: "Digital y seguro" }].map(({ num, label }) => (
-                <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "16px 24px" }}>
-                  <span style={{ fontSize: 28, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
-                  <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{label}</span>
+            <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
+              La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, sin comisiones por venta.
+            </p>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" as const }}>
+              {[
+                { num: "B2B", label: "Solo profesionales" },
+                { num: "24h", label: "Entrega express" },
+                { num: "100%", label: "Digital y seguro" },
+                { num: "0%", label: "Comisión por venta" },
+              ].map(({ num, label }) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
+                  <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, textAlign: "center" as const }}>{label}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
+        {/* LOGIN BOX */}
         <div style={{ background: "rgba(30,41,59,0.95)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)", padding: m ? "28px 20px" : "40px", borderRadius: "28px", boxShadow: "0 30px 80px rgba(0,0,0,0.4)" }}>
           {m && (
             <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -114,10 +117,15 @@ export default function Home() {
               <button onClick={() => router.push("/registro")} style={registerButton}>➕ CREAR CUENTA GRATIS</button>
               <button onClick={() => setMostrarReset(true)} style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 13, marginTop: 12, width: "100%", textAlign: "center" as const }}>¿Olvidaste tu contraseña?</button>
               <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap" as const, gap: 4, marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                {["Quiénes somos", "Privacidad", "Términos", "Cookies"].map((t, i) => (
-                  <span key={t} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {[
+                  { label: "Quiénes somos", href: "/quienes-somos" },
+                  { label: "Privacidad", href: "/privacidad" },
+                  { label: "Términos", href: "/terminos" },
+                  { label: "Cookies", href: "/cookies" },
+                ].map(({ label, href }, i) => (
+                  <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>·</span>}
-                    <a href={`/${t.toLowerCase().replace(/\s/g, "-").replace("é", "e").replace("é", "e")}`} style={{ color: "#94a3b8", fontSize: 11, textDecoration: "none", fontWeight: 600 }}>{t}</a>
+                    <a href={href} style={{ color: "#94a3b8", fontSize: 11, textDecoration: "none", fontWeight: 600 }}>{label}</a>
                   </span>
                 ))}
               </div>
@@ -142,33 +150,176 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PARA TALLERES Y PROVEEDORES ── */}
       <section style={{ padding: m ? "40px 20px" : "80px", maxWidth: 1300, margin: "0 auto", position: "relative", zIndex: 10 }}>
-        <div style={{ textAlign: "center", marginBottom: m ? 32 : 60 }}>
-          <h2 style={{ fontSize: m ? 26 : 42, fontWeight: 900, marginBottom: 12 }}>Todo lo que necesitas en una plataforma</h2>
-          <p style={{ color: "#94a3b8", fontSize: m ? 15 : 18 }}>Diseñada específicamente para el sector del recambio de automoción</p>
+        <div style={{ textAlign: "center", marginBottom: m ? 32 : 56 }}>
+          <div style={badgeStyle}>¿QUIÉN SOY?</div>
+          <h2 style={{ fontSize: m ? 28 : 44, fontWeight: 900, marginBottom: 12 }}>Elige tu perfil</h2>
+          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "repeat(2,1fr)", gap: m ? 16 : 24 }}>
-          {features.map(({ icon, title, desc }) => (
-            <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: m ? 20 : 32 }}>
-              <div style={{ fontSize: m ? 28 : 36, marginBottom: 12 }}>{icon}</div>
-              <h3 style={{ fontSize: m ? 16 : 18, fontWeight: 800, marginBottom: 8 }}>{title}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: m ? 16 : 24 }}>
+
+          {/* TALLER */}
+          <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: m ? 24 : 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
+            <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
+            <h3 style={{ fontSize: m ? 20 : 24, fontWeight: 900, marginBottom: 12 }}>Encuentra el recambio que necesitas en segundos</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
+              Sin esperar a que te cojan el teléfono. Sin catálogos desactualizados. Busca por referencia OEM o IAM, ve el precio en tiempo real y pide en 3 clics.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
+              {[
+                "Acceso a referencias OEM, IAM y Universal",
+                "Entrega 24h con MRW, GLS y Correos Express",
+                "Chat directo con el proveedor en cada pedido",
+                "Historial de pedidos y facturas descargables",
+                "RD Pago — compra ahora y paga en 15 días",
+              ].map(item => (
+                <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
+              Registrarme como taller →
+            </button>
+          </div>
+
+          {/* PROVEEDOR */}
+          <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: m ? 24 : 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
+            <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
+            <h3 style={{ fontSize: m ? 20 : 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
+              Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales, sin llamadas y sin pagar comisión por cada venta.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
+              {[
+                "Importación masiva desde Excel, CSV o FTP automático",
+                "Albarán y etiqueta de envío generados automáticamente",
+                "Control total sobre quién ve tus precios",
+                "Panel de pedidos, facturación y estadísticas",
+                "Sin comisión por venta — solo 25€/mes",
+              ].map(item => (
+                <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
+              Registrarme como proveedor →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CÓMO FUNCIONA ── */}
+      <section style={{ padding: m ? "40px 20px" : "80px", maxWidth: 1300, margin: "0 auto", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: m ? 32 : 56 }}>
+          <div style={badgeStyle}>PROCESO</div>
+          <h2 style={{ fontSize: m ? 28 : 44, fontWeight: 900, marginBottom: 12 }}>Empieza en 3 pasos</h2>
+          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17 }}>Sin burocracia, sin esperas, sin complicaciones</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "repeat(3,1fr)", gap: m ? 16 : 24 }}>
+          {[
+            { num: "01", icon: "📝", title: "Crea tu cuenta", desc: "Rellena tus datos profesionales en menos de 3 minutos. Solo necesitas tu CIF y email de empresa.", color: "#2563eb" },
+            { num: "02", icon: "✅", title: "Verificación en 24h", desc: "Nuestro equipo valida tu perfil profesional y activa tu acceso. Recibirás un email de confirmación.", color: "#16a34a" },
+            { num: "03", icon: "🚀", title: "Opera desde el primer día", desc: "Busca piezas, sube tu catálogo o gestiona tus pedidos. Todo desde un panel diseñado para el sector.", color: "#7c3aed" },
+          ].map(({ num, icon, title, desc, color }) => (
+            <div key={num} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: m ? 20 : 32, position: "relative" as const }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, background: `${color}30`, border: `1px solid ${color}60`, marginBottom: 16 }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+              </div>
+              <div style={{ position: "absolute" as const, top: m ? 20 : 32, right: m ? 20 : 32, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.04)" }}>{num}</div>
+              <h3 style={{ fontSize: m ? 16 : 18, fontWeight: 800, marginBottom: 10 }}>{title}</h3>
               <p style={{ color: "#94a3b8", fontSize: m ? 13 : 14, lineHeight: 1.7 }}>{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section style={{ padding: m ? "40px 20px" : "60px 80px", display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <h2 style={{ fontSize: m ? 24 : 36, fontWeight: 900, marginBottom: 12, textAlign: "center" }}>¿Eres proveedor o taller?</h2>
-        <p style={{ color: "#94a3b8", fontSize: m ? 14 : 16, marginBottom: 28, maxWidth: 500, textAlign: "center" }}>Únete gratis durante 2 meses y descubre cómo Recambio Directo puede hacer crecer tu negocio.</p>
-        <button onClick={() => router.push("/registro")} style={{ ...loginButton, width: m ? "100%" : "auto", padding: "18px 48px", fontSize: 18, marginBottom: 0 }}>EMPEZAR GRATIS →</button>
+      {/* ── FEATURES ── */}
+      <section style={{ padding: m ? "40px 20px" : "80px", maxWidth: 1300, margin: "0 auto", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: m ? 32 : 56 }}>
+          <div style={badgeStyle}>PLATAFORMA</div>
+          <h2 style={{ fontSize: m ? 28 : 44, fontWeight: 900, marginBottom: 12 }}>Todo lo que necesitas en un solo lugar</h2>
+          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17 }}>Diseñado específicamente para el sector del recambio de automoción</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "repeat(2,1fr)", gap: m ? 16 : 24 }}>
+          {[
+            { icon: "🔍", title: "Búsqueda instantánea de referencias", desc: "OEM, IAM y Universal. Filtra por tipo, marca o referencia exacta. Precios en tiempo real sin necesidad de llamar.", color: "#2563eb" },
+            { icon: "📦", title: "Gestión de pedidos completa", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
+            { icon: "🚚", title: "Logística integrada", desc: "MRW, GLS y Correos Express integrados. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { icon: "🔒", title: "Control total sobre tu negocio", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
+          ].map(({ icon, title, desc, color }) => (
+            <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: m ? 20 : 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
+              <div>
+                <h3 style={{ fontSize: m ? 15 : 17, fontWeight: 800, marginBottom: 8 }}>{title}</h3>
+                <p style={{ color: "#94a3b8", fontSize: m ? 13 : 14, lineHeight: 1.7, margin: 0 }}>{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
+      {/* ── AGENCIAS ── */}
+      <section style={{ padding: m ? "32px 20px" : "60px 80px", maxWidth: 1300, margin: "0 auto", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <p style={{ textAlign: "center", color: "#64748b", fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 24 }}>AGENCIAS DE TRANSPORTE INTEGRADAS</p>
+        <div style={{ display: "flex", justifyContent: "center", gap: m ? 16 : 32, flexWrap: "wrap" as const, alignItems: "center" }}>
+          {[
+            { nombre: "MRW", color: "#E30613", desc: "24h" },
+            { nombre: "GLS", color: "#F5A800", desc: "24h" },
+            { nombre: "CORREOS EXPRESS", color: "#FFCC00", textColor: "#333", desc: "24-48h" },
+            { nombre: "MIS MEDIOS", color: "#7c3aed", desc: "Flexible" },
+          ].map(({ nombre, color, textColor, desc }) => (
+            <div key={nombre} style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6 }}>
+              <div style={{ background: color, borderRadius: 8, padding: "8px 16px" }}>
+                <span style={{ color: textColor || "white", fontWeight: 900, fontSize: 14 }}>{nombre}</span>
+              </div>
+              <span style={{ color: "#64748b", fontSize: 11 }}>{desc}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA FINAL ── */}
+      <section style={{ padding: m ? "40px 20px" : "80px", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
+          <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
+          <h2 style={{ fontSize: m ? 28 : 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>
+            1 mes gratis.<br />Sin compromiso.
+          </h2>
+          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17, marginBottom: 32, lineHeight: 1.7 }}>
+            Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes sin comisión por venta.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
+            <button onClick={() => router.push("/registro")} style={{ ...loginButton, width: "auto", padding: "18px 48px", fontSize: 17, marginBottom: 0 }}>
+              EMPEZAR GRATIS →
+            </button>
+            <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>
+              Hablar con el equipo
+            </a>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: m ? 16 : 32, marginTop: 32, flexWrap: "wrap" as const }}>
+            {["Sin permanencia", "Sin comisión por venta", "Soporte incluido", "Alta en 24h"].map(g => (
+              <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>
+                <span style={{ color: "#94a3b8", fontSize: 13 }}>{g}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
       <footer style={{ padding: m ? "40px 20px 24px" : "60px 80px 30px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "2fr 1fr 1fr 1fr", gap: m ? 28 : 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
-            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España.</p>
+            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España sin comisiones por venta.</p>
           </div>
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
@@ -186,6 +337,9 @@ export default function Home() {
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>
             <p style={{ color: "#94a3b8", fontSize: 13 }}>info@recambio-directo.com</p>
             <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>España</p>
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+              <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>● Online</span>
+            </div>
           </div>
         </div>
         <div style={{ textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
