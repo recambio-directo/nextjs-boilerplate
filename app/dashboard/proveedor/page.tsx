@@ -149,6 +149,8 @@ export default function ProveedorPage() {
   const [totalPiezas, setTotalPiezas] = useState(0);
   const [busquedaAlmacen, setBusquedaAlmacen] = useState("");
   const [busquedaInput, setBusquedaInput] = useState("");
+  const [totalOEM, setTotalOEM] = useState(0);
+  const [totalIAM, setTotalIAM] = useState(0);
 
   useEffect(() => {
     iniciarPagina();
@@ -247,6 +249,10 @@ export default function ProveedorPage() {
     if (perfil?.email_facturas) setEmailFacturas(perfil.email_facturas);
     const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
     setTotalPiezas(count || 0);
+    const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).eq("tipo", "OEM");
+    setTotalOEM(countOEM || 0);
+    const { count: countIAM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).neq("tipo", "OEM");
+    setTotalIAM(countIAM || 0);
     await cargarPiezasPaginadas(currentUserId, 1, "");
     const { data: recibidosData } = await supabase.from("pedidos").select("*").order("id", { ascending: false });
     const recibidos = (recibidosData || []).filter(p => (p.productos || []).some((prod: any) => prod.proveedor_id === currentUserId));
@@ -269,11 +275,13 @@ export default function ProveedorPage() {
     setCargando(false);
   }
 
-  async function cargarPiezasPaginadas(uid: string, pagina: number, busqueda: string) {
+  async function cargarPiezasPaginadas(uid: string, pagina: number, busqueda: string, tipo?: string) {
     const desde = (pagina - 1) * 100;
     const hasta = desde + 99;
     let query = supabase.from("piezas_publicadas").select("*", { count: "exact" }).eq("proveedor_id", uid).order("referencia", { ascending: true }).range(desde, hasta);
     if (busqueda.trim()) query = query.or(`referencia.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
+    if (tipo === "oem") query = query.eq("tipo", "OEM");
+    if (tipo === "iam") query = query.neq("tipo", "OEM");
     const { data, count } = await query;
     setPiezas(data || []);
     if (count !== null) setTotalPiezas(count);
@@ -434,14 +442,8 @@ export default function ProveedorPage() {
   const excCp = exclusiones.filter(e => e.tipo === "cp");
   const excClientes = exclusiones.filter(e => e.tipo === "cliente");
 
-  // Filtrado almacén por tipo
-  const totalOEM = piezas.filter(p => (p as any).tipo === "OEM").length;
-  const totalIAM = piezas.filter(p => (p as any).tipo === "IAM" || !(p as any).tipo || (p as any).tipo === "UNIVERSAL").length;
-  const piezasFiltradas = piezas.filter(p => {
-    if (pestañaAlmacen === "oem") return (p as any).tipo === "OEM";
-    if (pestañaAlmacen === "iam") return (p as any).tipo === "IAM" || !(p as any).tipo || (p as any).tipo === "UNIVERSAL";
-    return true;
-  });
+  // Filtrado almacén por tipo — se hace en query, no en memoria
+  const piezasFiltradas = piezas;
 
   return (
     <main style={mainStyle}>
@@ -567,14 +569,17 @@ export default function ProveedorPage() {
               </div>
               {piezaGuardada && <div style={successBanner}>✅ Pieza publicada correctamente</div>}
 
-              {/* PESTAÑAS OEM / IAM */}
               <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
                 {[
-                  { key: "todos", label: `📦 Todas (${totalPiezas.toLocaleString()})` },
-                  { key: "oem",   label: `🔵 OEM (${totalOEM.toLocaleString()})`, color: "#60a5fa", bg: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
-                  { key: "iam",   label: `🟣 IAM (${totalIAM.toLocaleString()})`, color: "#a78bfa", bg: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
+                  { key: "todos", label: `📦 Todas (${totalPiezas.toLocaleString()})`, bg: undefined },
+                  { key: "oem",   label: `🔵 OEM (${totalOEM.toLocaleString()})`, bg: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
+                  { key: "iam",   label: `🟣 IAM (${totalIAM.toLocaleString()})`, bg: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
                 ].map(({ key, label, bg }) => (
-                  <button key={key} onClick={() => setPestañaAlmacen(key as any)} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
+                  <button key={key} onClick={async () => {
+                    setPestañaAlmacen(key as any);
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) cargarPiezasPaginadas(user.id, 1, busquedaAlmacen, key === "todos" ? undefined : key);
+                  }} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
                 ))}
               </div>
 
@@ -582,9 +587,9 @@ export default function ProveedorPage() {
                 <button onClick={() => setSeccion("publicar")} style={addButton}>➕ PUBLICAR NUEVA PIEZA</button>
                 <button onClick={() => setSeccion("importar")} style={importButton}>📥 IMPORTAR EXCEL</button>
                 <div style={{ flex: 1, display: "flex", gap: 8, minWidth: 280 }}>
-                  <input placeholder="Buscar por referencia, descripción o marca..." value={busquedaInput} onChange={e => setBusquedaInput(e.target.value)} onKeyDown={async e => { if (e.key === "Enter") { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput); } }} style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
-                  <button onClick={async () => { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput); }} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "12px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>🔍</button>
-                  {busquedaAlmacen && <button onClick={async () => { setBusquedaInput(""); setBusquedaAlmacen(""); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, ""); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>✕ Limpiar</button>}
+                  <input placeholder="Buscar por referencia, descripción o marca..." value={busquedaInput} onChange={e => setBusquedaInput(e.target.value)} onKeyDown={async e => { if (e.key === "Enter") { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); } }} style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
+                  <button onClick={async () => { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "12px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>🔍</button>
+                  {busquedaAlmacen && <button onClick={async () => { setBusquedaInput(""); setBusquedaAlmacen(""); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, "", pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>✕ Limpiar</button>}
                 </div>
               </div>
               {busquedaAlmacen && <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>{piezasFiltradas.length} resultado{piezasFiltradas.length !== 1 ? "s" : ""} para "<strong style={{ color: "white" }}>{busquedaAlmacen}</strong>"</div>}
@@ -621,9 +626,9 @@ export default function ProveedorPage() {
                   </div>
                   {totalPiezas > 100 && (
                     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 20 }}>
-                      <button disabled={paginaActual === 1} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual - 1, busquedaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual === 1 ? 0.3 : 1 }}>← Anterior</button>
+                      <button disabled={paginaActual === 1} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual - 1, busquedaAlmacen, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual === 1 ? 0.3 : 1 }}>← Anterior</button>
                       <span style={{ color: "#94a3b8", fontSize: 14, padding: "0 16px" }}>Página <strong style={{ color: "white" }}>{paginaActual}</strong> de <strong style={{ color: "white" }}>{Math.ceil(totalPiezas / 100)}</strong><span style={{ marginLeft: 12, color: "#60a5fa" }}>({totalPiezas.toLocaleString()} refs)</span></span>
-                      <button disabled={paginaActual >= Math.ceil(totalPiezas / 100)} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual + 1, busquedaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual >= Math.ceil(totalPiezas / 100) ? 0.3 : 1 }}>Siguiente →</button>
+                      <button disabled={paginaActual >= Math.ceil(totalPiezas / 100)} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual + 1, busquedaAlmacen, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual >= Math.ceil(totalPiezas / 100) ? 0.3 : 1 }}>Siguiente →</button>
                     </div>
                   )}
                 </>
