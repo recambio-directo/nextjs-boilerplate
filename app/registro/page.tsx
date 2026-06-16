@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { buscarCP } from "../lib/codigosPostales";
@@ -16,7 +17,8 @@ function validarCIF(cif: string): boolean {
 export default function RegistroPage() {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
-  const [tipo, setTipo] = useState<"taller" | "proveedor">("taller");
+  const searchParams = useSearchParams();
+  const [tipo, setTipo] = useState<"taller" | "proveedor">(searchParams.get("tipo") === "proveedor" ? "proveedor" : "taller");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
