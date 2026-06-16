@@ -16,6 +16,7 @@ type Pieza = {
   provincia?: string;
   proveedor_id?: string;
   proveedor_nombre?: string;
+  tipo?: string;
 };
 
 type Pedido = {
@@ -93,6 +94,7 @@ export default function ProveedorPage() {
   const [totalCesta, setTotalCesta] = useState(0);
   const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "importar" | "horarios" | "exclusiones" | "cuenta">("dashboard");
   const [pestañaPedidos, setPestañaPedidos] = useState<"recibidos" | "realizados">("recibidos");
+  const [pestañaAlmacen, setPestañaAlmacen] = useState<"todos" | "oem" | "iam">("todos");
   const [pedidosRecibidos, setPedidosRecibidos] = useState<Pedido[]>([]);
   const [pedidosRealizados, setPedidosRealizados] = useState<Pedido[]>([]);
   const [piezas, setPiezas] = useState<Pieza[]>([]);
@@ -210,19 +212,13 @@ export default function ProveedorPage() {
     if (ahora - ultimo < 60000) return;
     sessionStorage.setItem(KEY, String(ahora));
     const vistasAntes = new Set<string>(JSON.parse(sessionStorage.getItem(VISTAS_KEY) || "[]"));
-
     const notifsTotales: any[] = [];
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
     const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
     const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
     if (convIds.length > 0) {
       const { data: msgs } = await supabase.from("mensajes").select("id, mensaje, created_at, conversacion_id").in("conversacion_id", convIds).neq("user_id", uid).or("leido.is.null,leido.eq.false").order("created_at", { ascending: false }).limit(10);
-      (msgs || []).forEach(m => notifsTotales.push({
-        id: m.id, tipo: "chat",
-        texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`,
-        leido: vistasAntes.has(String(m.id)),
-        created_at: m.created_at, conv_id: m.conversacion_id
-      }));
+      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`, leido: vistasAntes.has(String(m.id)), created_at: m.created_at, conv_id: m.conversacion_id }));
     }
     const hace7dias = new Date();
     hace7dias.setDate(hace7dias.getDate() - 7);
@@ -289,7 +285,6 @@ export default function ProveedorPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, cif, telefono, direccion, ciudad, codigo_postal").eq("id", user.id).single();
-    // El proveedor que vendió la pieza
     const productos = pedido.productos || [];
     const proveedorId = productos[0]?.proveedor_id || null;
     let emailProveedor = "info@recambio-directo.com";
@@ -300,22 +295,7 @@ export default function ProveedorPage() {
       if (provPerfil?.nombre_empresa) nombreProveedor = provPerfil.nombre_empresa;
     }
     try {
-      await fetch("/api/send-solicitud-factura", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pedidoCodigo: pedido.codigo || `#${pedido.id}`,
-          pedidoId: pedido.id,
-          pedidoTotal: pedido.total,
-          pedidoFecha: pedido.created_at,
-          clienteEmail: user.email,
-          clienteNombre: perfil?.nombre_empresa || user.email,
-          clienteCif: perfil?.cif || "-",
-          clienteTelefono: perfil?.telefono || "-",
-          clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "),
-          proveedorNombre: nombreProveedor,
-          emailProveedor,
-        }),
-      });
+      await fetch("/api/send-solicitud-factura", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, clienteEmail: user.email, clienteNombre: perfil?.nombre_empresa || user.email, clienteCif: perfil?.cif || "-", clienteTelefono: perfil?.telefono || "-", clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "), proveedorNombre: nombreProveedor, emailProveedor }) });
       alert("✅ Solicitud enviada al proveedor.");
     } catch (e) { alert("Error al enviar la solicitud"); }
     setSolicitandoFactura(null);
@@ -454,6 +434,15 @@ export default function ProveedorPage() {
   const excCp = exclusiones.filter(e => e.tipo === "cp");
   const excClientes = exclusiones.filter(e => e.tipo === "cliente");
 
+  // Filtrado almacén por tipo
+  const totalOEM = piezas.filter(p => (p as any).tipo === "OEM").length;
+  const totalIAM = piezas.filter(p => (p as any).tipo === "IAM" || !(p as any).tipo || (p as any).tipo === "UNIVERSAL").length;
+  const piezasFiltradas = piezas.filter(p => {
+    if (pestañaAlmacen === "oem") return (p as any).tipo === "OEM";
+    if (pestañaAlmacen === "iam") return (p as any).tipo === "IAM" || !(p as any).tipo || (p as any).tipo === "UNIVERSAL";
+    return true;
+  });
+
   return (
     <main style={mainStyle}>
       <header style={proveedorHeaderStyle}>
@@ -476,17 +465,12 @@ export default function ProveedorPage() {
             <button onClick={() => {
               setShowNotifs(!showNotifs);
               if (!showNotifs) {
-                // Marcar todas como leídas y guardar IDs vistos
                 const uid = userId;
                 if (uid) {
                   const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
                   sessionStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id))));
-                  // Marcar en Supabase
                   const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
-                  if (convIds.length > 0) {
-                    supabase.from("mensajes").update({ leido: true }).in("conversacion_id", [...new Set(convIds)]).neq("user_id", uid);
-                  }
-                  // Limpiar cooldown para próxima recarga
+                  if (convIds.length > 0) { supabase.from("mensajes").update({ leido: true }).in("conversacion_id", [...new Set(convIds)]).neq("user_id", uid); }
                   sessionStorage.removeItem(`rd_notif_last_prov_${uid}`);
                 }
                 setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
@@ -559,7 +543,7 @@ export default function ProveedorPage() {
               <h1 style={titleStyle}>PANEL PROVEEDOR</h1>
               <p style={descStyle}>Gestiona tu stock, pedidos recibidos y catálogo de piezas.</p>
               <div style={kpiGrid}>
-                <div style={kpiCard}><p style={kpiLabel}>PIEZAS PUBLICADAS</p><h2 style={kpiNumber}>{piezas.length}</h2></div>
+                <div style={kpiCard}><p style={kpiLabel}>PIEZAS PUBLICADAS</p><h2 style={kpiNumber}>{totalPiezas.toLocaleString()}</h2></div>
                 <div style={kpiCard}><p style={kpiLabel}>PEDIDOS RECIBIDOS</p><h2 style={kpiNumber}>{pedidosRecibidos.filter(p => !p.anulado).length}</h2></div>
                 <div style={kpiCard}><p style={kpiLabel}>FACTURACIÓN</p><h2 style={{ ...kpiNumber, color: "#22c55e" }}>{totalFacturado.toFixed(0)}€</h2></div>
                 <div style={kpiCard}><p style={kpiLabel}>EXCLUSIONES</p><h2 style={{ ...kpiNumber, color: "#f87171" }}>{exclusiones.length}</h2></div>
@@ -582,6 +566,18 @@ export default function ProveedorPage() {
                 </div>
               </div>
               {piezaGuardada && <div style={successBanner}>✅ Pieza publicada correctamente</div>}
+
+              {/* PESTAÑAS OEM / IAM */}
+              <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {[
+                  { key: "todos", label: `📦 Todas (${totalPiezas.toLocaleString()})` },
+                  { key: "oem",   label: `🔵 OEM (${totalOEM.toLocaleString()})`, color: "#60a5fa", bg: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
+                  { key: "iam",   label: `🟣 IAM (${totalIAM.toLocaleString()})`, color: "#a78bfa", bg: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
+                ].map(({ key, label, bg }) => (
+                  <button key={key} onClick={() => setPestañaAlmacen(key as any)} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
+                ))}
+              </div>
+
               <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" }}>
                 <button onClick={() => setSeccion("publicar")} style={addButton}>➕ PUBLICAR NUEVA PIEZA</button>
                 <button onClick={() => setSeccion("importar")} style={importButton}>📥 IMPORTAR EXCEL</button>
@@ -591,18 +587,23 @@ export default function ProveedorPage() {
                   {busquedaAlmacen && <button onClick={async () => { setBusquedaInput(""); setBusquedaAlmacen(""); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, ""); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>✕ Limpiar</button>}
                 </div>
               </div>
-              {busquedaAlmacen && <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>{totalPiezas} resultado{totalPiezas !== 1 ? "s" : ""} para "<strong style={{ color: "white" }}>{busquedaAlmacen}</strong>"</div>}
-              {piezas.length === 0 ? (
+              {busquedaAlmacen && <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>{piezasFiltradas.length} resultado{piezasFiltradas.length !== 1 ? "s" : ""} para "<strong style={{ color: "white" }}>{busquedaAlmacen}</strong>"</div>}
+              {piezasFiltradas.length === 0 ? (
                 <div style={emptyState}><p style={{ fontSize: 60 }}>📦</p><p style={{ fontSize: 22, fontWeight: 700, marginTop: 20 }}>{busquedaAlmacen ? `Sin resultados para "${busquedaAlmacen}"` : "No tienes piezas publicadas"}</p></div>
               ) : (
                 <>
                   <div style={tableContainer}>
                     <table style={tableStyle}>
-                      <thead><tr>{["REFERENCIA","DESCRIPCIÓN","MARCA","PRECIO","IMP/CASCO","STOCK","PROVINCIA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["REFERENCIA","TIPO","DESCRIPCIÓN","MARCA","PRECIO","IMP/CASCO","STOCK","PROVINCIA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                       <tbody>
-                        {piezas.map(pieza => (
+                        {piezasFiltradas.map(pieza => (
                           <tr key={pieza.id} style={trStyle}>
                             <td style={tdStyle}><strong>{pieza.referencia}</strong></td>
+                            <td style={tdStyle}>
+                              <span style={{ background: (pieza as any).tipo === "OEM" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: (pieza as any).tipo === "OEM" ? "#60a5fa" : "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+                                {(pieza as any).tipo || "IAM"}
+                              </span>
+                            </td>
                             <td style={tdStyle}>{pieza.descripcion}</td>
                             <td style={tdStyle}>{pieza.marca || "-"}</td>
                             <td style={tdStyle}>{editandoId === pieza.id ? <input value={editPrecio} onChange={e => setEditPrecio(e.target.value)} style={miniInput} type="number" /> : <span style={{ color: "#22c55e", fontWeight: 900 }}>{pieza.precio}€</span>}</td>
@@ -770,7 +771,6 @@ export default function ProveedorPage() {
                                       <div style={{ flex: 1 }}>
                                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
                                         {pestañaPedidos === "recibidos" ? (
-                                          /* RECIBIDOS — el proveedor ES el vendedor, sube la factura */
                                           pedido.factura_url ? (
                                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                               <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
@@ -784,18 +784,13 @@ export default function ProveedorPage() {
                                             </label>
                                           )
                                         ) : (
-                                          /* REALIZADOS — el proveedor ES el comprador, solicita la factura */
                                           pedido.factura_url ? (
                                             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                               <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura disponible</span>
                                               <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Descargar PDF</a>
                                             </div>
                                           ) : (
-                                            <button
-                                              onClick={() => solicitarFacturaProveedor(pedido)}
-                                              disabled={solicitandoFactura === pedido.id}
-                                              style={{ ...btnSubirFactura, opacity: solicitandoFactura === pedido.id ? 0.7 : 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", cursor: "pointer" }}
-                                            >
+                                            <button onClick={() => solicitarFacturaProveedor(pedido)} disabled={solicitandoFactura === pedido.id} style={{ ...btnSubirFactura, opacity: solicitandoFactura === pedido.id ? 0.7 : 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", cursor: "pointer" }}>
                                               {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}
                                             </button>
                                           )
@@ -892,30 +887,12 @@ export default function ProveedorPage() {
               <h1 style={titleStyle}>MI CUENTA</h1>
               <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>
               <div style={{ maxWidth: 600 }}>
-                {/* EMAIL FACTURAS */}
                 <div style={{ ...formCard, border: "1px solid rgba(37,99,235,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📧 Email para facturas</h2>
                   <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí. Aparecerá al solicitarte una factura.</p>
-                  <input
-                    type="email"
-                    placeholder="contabilidad@tuempresa.com"
-                    value={emailFacturas}
-                    onChange={e => setEmailFacturas(e.target.value)}
-                    style={{ ...formInput, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.1)" }}
-                  />
+                  <input type="email" placeholder="contabilidad@tuempresa.com" value={emailFacturas} onChange={e => setEmailFacturas(e.target.value)} style={{ ...formInput, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.1)" }} />
                   {emailFacturas && <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 6 }}>✓ Las solicitudes de factura indicarán este email</p>}
-                  <button
-                    onClick={async () => {
-                      if (!userId) return;
-                      setGuardandoEmailFacturas(true);
-                      await supabase.from("usuarios").update({ email_facturas: emailFacturas.trim().toLowerCase() || null }).eq("id", userId);
-                      setGuardandoEmailFacturas(false);
-                      setEmailFacturasGuardado(true);
-                      setTimeout(() => setEmailFacturasGuardado(false), 3000);
-                    }}
-                    disabled={guardandoEmailFacturas}
-                    style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", opacity: guardandoEmailFacturas ? 0.7 : 1 }}
-                  >
+                  <button onClick={async () => { if (!userId) return; setGuardandoEmailFacturas(true); await supabase.from("usuarios").update({ email_facturas: emailFacturas.trim().toLowerCase() || null }).eq("id", userId); setGuardandoEmailFacturas(false); setEmailFacturasGuardado(true); setTimeout(() => setEmailFacturasGuardado(false), 3000); }} disabled={guardandoEmailFacturas} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", opacity: guardandoEmailFacturas ? 0.7 : 1 }}>
                     {guardandoEmailFacturas ? "Guardando..." : emailFacturasGuardado ? "✓ Guardado" : "Guardar email"}
                   </button>
                 </div>
@@ -929,7 +906,7 @@ export default function ProveedorPage() {
                       <div><p style={formLabel}>Contraseña actual</p><input type="password" placeholder="Tu contraseña actual" value={passwordActual} onChange={e => setPasswordActual(e.target.value)} style={formInput} /></div>
                       <div><p style={formLabel}>Nueva contraseña</p><input type="password" placeholder="Mínimo 6 caracteres" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)} style={{ ...formInput, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva && passwordNueva.length < 6 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>}</div>
                       <div><p style={formLabel}>Repetir nueva contraseña</p><input type="password" placeholder="Repite la nueva contraseña" value={passwordNueva2} onChange={e => setPasswordNueva2(e.target.value)} style={{ ...formInput, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>}{passwordNueva2 && passwordNueva !== passwordNueva2 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>}</div>
-                      {mensajePass && <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>{mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}</div>}
+                      {mensajePass && <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: "1px solid " + (mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"), color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>{mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}</div>}
                       <button onClick={cambiarContrasena} disabled={cambiandoPass} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}>{cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}</button>
                     </div>
                   )}
