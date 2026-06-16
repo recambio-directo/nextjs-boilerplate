@@ -94,6 +94,7 @@ export default function AdminPage() {
   // FTP estados
   const [ftpProveedorId, setFtpProveedorId] = useState("");
   const [ftpPassword, setFtpPassword] = useState("");
+  const [ftpTipoReferencias, setFtpTipoReferencias] = useState<"OEM" | "IAM">("IAM");
   const [ftpCreando, setFtpCreando] = useState(false);
   const [ftpResultado, setFtpResultado] = useState<{ usuario: string; password: string; empresa: string } | null>(null);
 
@@ -148,7 +149,7 @@ export default function AdminPage() {
       const res = await fetch("/api/ftp/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proveedorId: ftpProveedorId, nombreUsuario, password: ftpPassword, proveedorNombre: proveedor.nombre_empresa || proveedor.email }),
+        body: JSON.stringify({ proveedorId: ftpProveedorId, nombreUsuario, password: ftpPassword, proveedorNombre: proveedor.nombre_empresa || proveedor.email, tipoReferencias: ftpTipoReferencias }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -408,7 +409,7 @@ info@recambio-directo.com
             { key: "pedidos",     label: "📦 Pedidos" },
             { key: "ftp",         label: "🔄 FTP Sync" },
           ].map(({ key, label }) => (
-            <div key={key} onClick={() => setSeccion(key as any)} style={seccion === key ? menuActivo : menuItem}>{label}</div>
+            <div key={key} onClick={() => setSeccion(key as any)} style={seccion === (key as any) ? menuActivo : menuItem}>{label}</div>
           ))}
         </nav>
         <div style={{ marginTop: "auto", paddingTop: 24 }}>
@@ -571,6 +572,21 @@ info@recambio-directo.com
                     style={{ width: "100%", background: "#0f172a", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }}
                   />
                 </div>
+              </div>
+
+              {/* SELECTOR TIPO REFERENCIAS */}
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIAS</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {(["IAM", "OEM"] as const).map(t => (
+                    <button key={t} onClick={() => setFtpTipoReferencias(t)} style={{ flex: 1, padding: "12px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: ftpTipoReferencias === t ? (t === "OEM" ? "rgba(37,99,235,0.3)" : "rgba(139,92,246,0.3)") : "rgba(255,255,255,0.05)", color: ftpTipoReferencias === t ? (t === "OEM" ? "#60a5fa" : "#a78bfa") : "#94a3b8", outline: ftpTipoReferencias === t ? ("2px solid " + (t === "OEM" ? "#2563eb" : "#7c3aed")) : "none" }}>
+                      {t === "OEM" ? "🔵 OEM — Servicio oficial / Original" : "🟣 IAM — Distribuidor / Aftermarket"}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ color: "#64748b", fontSize: 12, marginTop: 6 }}>
+                  {ftpTipoReferencias === "OEM" ? "Las referencias se importarán como originales de fabricante" : "Las referencias se importarán como aftermarket / equivalentes"}
+                </p>
               </div>
 
               {ftpProveedorId && (

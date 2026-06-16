@@ -338,8 +338,22 @@ export default function ImportarStock({
             <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 10 }}>* Campos obligatorios — las filas sin estos datos serán omitidas</p>
           </div>
 
+          {/* SELECTOR TIPO */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIAS A IMPORTAR</p>
+            <div style={{ display: "flex", gap: 12 }}>
+              {(["IAM", "OEM"] as const).map(t => (
+                <button key={t} onClick={() => setTipoDefecto(t)} style={{ flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.25)" : "rgba(139,92,246,0.25)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : "#a78bfa") : "#94a3b8", outline: tipoDefecto === t ? ("2px solid " + (t === "OEM" ? "#2563eb" : "#7c3aed")) : "none" }}>
+                  {t === "OEM" ? "🔵 OEM" : "🟣 IAM"}
+                  <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>
+                    {t === "OEM" ? "Servicio oficial — referencias originales de fabricante" : "Distribuidor — aftermarket / equivalentes"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div
-            style={dropZone}
             onClick={() => inputRef.current?.click()}
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) leerArchivo(f); }}
