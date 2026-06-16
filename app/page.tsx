@@ -208,7 +208,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
+            <button onClick={() => router.push("/registro?tipo=proveedor")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
               Registrarme como proveedor →
             </button>
           </div>
