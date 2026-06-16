@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
@@ -14,7 +14,7 @@ function validarCIF(cif: string): boolean {
   return false;
 }
 
-export default function RegistroPage() {
+function RegistroPageInner() {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const searchParams = useSearchParams();
@@ -239,6 +239,14 @@ export default function RegistroPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function RegistroPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#020617" }} />}>
+      <RegistroPageInner />
+    </Suspense>
   );
 }
 
