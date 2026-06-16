@@ -68,7 +68,7 @@ export default function ImportarStock({
       const data = e.target?.result;
       const wb = XLSX.read(data, { type: "binary" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
+      const json = XLSX.utils.sheet_to_json<any>(ws, { defval: "", raw: false });
       if (json.length === 0) { alert("El archivo está vacío"); return; }
 
       const cols = Object.keys(json[0]);
