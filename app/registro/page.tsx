@@ -115,8 +115,6 @@ export default function RegistroPage() {
       <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.15)", filter: "blur(120px)", position: "absolute", bottom: "-100px", right: "-100px", pointerEvents: "none" }} />
 
       <div style={{ maxWidth: 700, margin: "0 auto", position: "relative", zIndex: 10 }}>
-
-        {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <a href="/" style={{ display: "inline-block", color: "#94a3b8", textDecoration: "none", fontSize: 14, marginBottom: 16, fontWeight: 600 }}>← Volver</a>
           <div style={{ display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 14, fontSize: 13 }}>REGISTRO PROFESIONAL</div>
@@ -124,13 +122,12 @@ export default function RegistroPage() {
           <p style={{ color: "#94a3b8", fontSize: m ? 14 : 16 }}>Solo para profesionales del sector de la automoción</p>
         </div>
 
-        {/* BANNER */}
         <div style={{ display: "flex", flexDirection: m ? "column" : "row", justifyContent: "space-between", alignItems: m ? "flex-start" : "center", background: "linear-gradient(135deg,rgba(22,163,74,0.2),rgba(22,163,74,0.1))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: 20, padding: "20px", marginBottom: 20, gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 28 }}>🎁</span>
             <div>
-              <p style={{ fontWeight: 900, fontSize: m ? 14 : 16, marginBottom: 4 }}>2 meses gratis, sin compromiso</p>
-              <p style={{ color: "#86efac", fontSize: m ? 12 : 14 }}>A partir del 3er mes, <strong>25€/mes</strong>. Cancela cuando quieras.</p>
+              <p style={{ fontWeight: 900, fontSize: m ? 14 : 16, marginBottom: 4 }}>1 mes gratis, sin compromiso</p>
+              <p style={{ color: "#86efac", fontSize: m ? 12 : 14 }}>A partir del 2º mes, <strong>25€/mes</strong>. Cancela cuando quieras.</p>
             </div>
           </div>
           {!m && (
@@ -141,10 +138,7 @@ export default function RegistroPage() {
           )}
         </div>
 
-        {/* FORM CARD */}
         <div style={{ background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: m ? "24px 16px" : "40px" }}>
-
-          {/* TIPO */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
             {(["taller", "proveedor"] as const).map(t => (
               <button key={t} onClick={() => setTipo(t)} style={{ padding: m ? "16px 12px" : "20px", borderRadius: 14, cursor: "pointer", textAlign: "center", background: tipo === t ? (t === "taller" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "linear-gradient(135deg,#16a34a,#15803d)") : "rgba(255,255,255,0.04)", border: tipo === t ? "none" : "1px solid rgba(255,255,255,0.1)", color: tipo === t ? "white" : "#94a3b8" }}>
@@ -189,42 +183,20 @@ export default function RegistroPage() {
           <div style={grid2}>
             <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
-              <input
-                placeholder="Se rellena con el CP"
-                value={ciudad}
-                onChange={e => setCiudad(e.target.value)}
-                style={inputStyle}
-              />
+              <input placeholder="Se rellena con el CP" value={ciudad} onChange={e => setCiudad(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal *</p>
-              <input
-                placeholder="41001"
-                value={codigoPostal}
-                onChange={e => {
-                  const cp = e.target.value.replace(/\D/g, "").slice(0, 5);
-                  setCodigoPostal(cp);
-                  if (cp.length === 5) {
-                    const datos = buscarCP(cp);
-                    if (datos) {
-                      setCiudad(datos.poblacion);
-                      setProvincia(datos.provincia);
-                    } else {
-                      setProvincia("");
-                    }
-                  } else {
-                    setProvincia("");
-                  }
-                }}
-                style={inputStyle}
-                maxLength={5}
-              />
-              {codigoPostal.length === 5 && provincia && (
-                <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {ciudad} — {provincia}</p>
-              )}
-              {codigoPostal.length === 5 && !provincia && (
-                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>CP no encontrado — escribe la ciudad manualmente</p>
-              )}
+              <input placeholder="41001" value={codigoPostal} onChange={e => {
+                const cp = e.target.value.replace(/\D/g, "").slice(0, 5);
+                setCodigoPostal(cp);
+                if (cp.length === 5) {
+                  const datos = buscarCP(cp);
+                  if (datos) { setCiudad(datos.poblacion); setProvincia(datos.provincia); } else { setProvincia(""); }
+                } else { setProvincia(""); }
+              }} style={inputStyle} maxLength={5} />
+              {codigoPostal.length === 5 && provincia && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {ciudad} — {provincia}</p>}
+              {codigoPostal.length === 5 && !provincia && <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>CP no encontrado — escribe la ciudad manualmente</p>}
             </div>
           </div>
 
@@ -243,7 +215,7 @@ export default function RegistroPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12, margin: "20px 0", padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)" }}>
             {[
               { checked: esProfesional, onChange: setEsProfesional, text: "Confirmo que soy empresa o autonomo del sector de la automocion" },
-              { checked: aceptaTerminos, onChange: setAceptaTerminos, text: "Acepto los Terminos y Condiciones (2 meses gratis + 25€/mes)" },
+              { checked: aceptaTerminos, onChange: setAceptaTerminos, text: "Acepto los Terminos y Condiciones (1 mes gratis + 25€/mes)" },
               { checked: aceptaPrivacidad, onChange: setAceptaPrivacidad, text: "He leido y acepto la Politica de Privacidad" },
             ].map(({ checked, onChange, text }, i) => (
               <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
@@ -256,7 +228,7 @@ export default function RegistroPage() {
           {error && <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "12px 16px", borderRadius: 12, marginBottom: 16, fontSize: 14 }}>⚠️ {error}</div>}
 
           <button onClick={registrar} disabled={registrando} style={{ width: "100%", background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: m ? 15 : 16, cursor: registrando ? "not-allowed" : "pointer", opacity: registrando ? 0.7 : 1, boxShadow: "0 10px 30px rgba(22,163,74,0.35)" }}>
-            {registrando ? "Creando cuenta..." : "Empezar 2 meses gratis →"}
+            {registrando ? "Creando cuenta..." : "Empezar 1 mes gratis →"}
           </button>
 
           <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, marginTop: 16 }}>

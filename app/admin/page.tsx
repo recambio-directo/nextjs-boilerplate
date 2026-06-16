@@ -261,7 +261,7 @@ info@recambio-directo.com
     return usuarios.filter(u => {
       if (u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
       const dias = Math.floor((ahora.getTime() - new Date(u.fecha_registro).getTime()) / (1000 * 60 * 60 * 24));
-      return dias >= 50 && dias <= 65;
+      return dias >= 20 && dias <= 35;
     });
   }
 
@@ -709,7 +709,7 @@ info@recambio-directo.com
             <p style={descStyle}>Gestión de suscripciones y remesas mensuales.</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 32 }}>
               {[
-                { label: "EN PERIODO GRATUITO", value: enGratuito, color: "#fbbf24", desc: "Primeros 2 meses" },
+                { label: "EN PERIODO GRATUITO", value: enGratuito, color: "#fbbf24", desc: "Primer mes" },
                 { label: "SUSCRITOS ACTIVOS", value: activos, color: "#4ade80", desc: "Pagan 25€/mes" },
                 { label: "PENDIENTES DE COBRO", value: usuarios.filter(u => u.suscripcion === "pendiente").length, color: "#60a5fa", desc: "Sin confirmar pago" },
                 { label: "MOROSOS", value: morosos, color: "#f87171", desc: "Impago > 30 días" },
@@ -884,12 +884,12 @@ info@recambio-directo.com
             <p style={descStyle}>Créditos RD, IBAN proveedores y pagos a 7 días.</p>
             {usuariosProximosACobrar().length > 0 && (
               <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: "16px 20px", marginBottom: 28 }}>
-                <p style={{ fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>⏰ {usuariosProximosACobrar().length} usuario{usuariosProximosACobrar().length > 1 ? "s" : ""} próximos a cumplir 2 meses gratuitos</p>
+                <p style={{ fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>⏰ {usuariosProximosACobrar().length} usuario{usuariosProximosACobrar().length > 1 ? "s" : ""} próximos a cumplir 1 mes gratuito</p>
                 {usuariosProximosACobrar().map(u => {
                   const dias = Math.floor((new Date().getTime() - new Date(u.fecha_registro!).getTime()) / (1000 * 60 * 60 * 24));
                   return (
                     <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: "10px 14px", marginTop: 8 }}>
-                      <div><span style={{ fontWeight: 700 }}>{u.nombre_empresa}</span><span style={{ color: "#94a3b8", fontSize: 13, marginLeft: 10 }}>{u.email}</span><span style={{ color: "#fbbf24", fontSize: 12, marginLeft: 10 }}>Día {dias} de 60</span></div>
+                      <div><span style={{ fontWeight: 700 }}>{u.nombre_empresa}</span><span style={{ color: "#94a3b8", fontSize: 13, marginLeft: 10 }}>{u.email}</span><span style={{ color: "#fbbf24", fontSize: 12, marginLeft: 10 }}>Día {dias} de 30</span></div>
                       <button onClick={() => cambiarSuscripcion(u.id, "pendiente")} style={{ background: "rgba(245,158,11,0.2)", border: "1px solid rgba(245,158,11,0.4)", color: "#fbbf24", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Pasar a Pendiente</button>
                     </div>
                   );
