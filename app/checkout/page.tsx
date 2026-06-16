@@ -87,7 +87,6 @@ export default function CheckoutPage() {
       sinDuplicados.forEach((p: Producto) => { initCantidades[p.referencia] = 1; });
       setCantidades(initCantidades);
 
-      // Calcular agencias disponibles según CPs
       const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
       let agenciasValidas = ["MRW", "GLS", "Correos Express", "Mis Medios"];
       for (const provId of proveedorIds) {
@@ -122,12 +121,8 @@ export default function CheckoutPage() {
   const total = subtotal + precioTransporte + iva;
   const puedeConfirmar = productos.length > 0 && transporte !== null && !cargando;
 
-  // Lógica de visibilidad RD Pago
-  const rdPagoActivo = creditoRD > 0;           // Admin lo activó con saldo
-  const rdPagoVisible = pedidosConTarjeta > 0 || creditoRD > 0;  // Ha hecho 1+ pedidos con tarjeta O tiene crédito asignado por admin
-  // 0 pedidos → no se ve nada
-  // 1+ pedidos, sin crédito → se ve en gris con botón info
-  // crédito > 0 → se ve funcional
+  const rdPagoActivo = creditoRD > 0;
+  const rdPagoVisible = pedidosConTarjeta > 0 || creditoRD > 0;
 
   function getGruposPorProveedor(): Map<string, { nombre: string; productos: Producto[] }> {
     const grupos = new Map<string, { nombre: string; productos: Producto[] }>();
@@ -176,6 +171,26 @@ export default function CheckoutPage() {
     await procesarPedido();
   }
 
+  async function descontarStock(provId: string, productosGrupo: Producto[], cantidadesCompradas: Record<string, number>) {
+    for (const prod of productosGrupo) {
+      if (provId === "sin_proveedor") continue;
+      const cantidad = cantidadesCompradas[prod.referencia] || 1;
+      const { data: pieza } = await supabase
+        .from("piezas_publicadas")
+        .select("id, stock, tipo")
+        .eq("proveedor_id", provId)
+        .eq("referencia", prod.referencia)
+        .maybeSingle();
+      if (!pieza) continue;
+      const nuevoStock = Math.max(0, (pieza.stock || 0) - cantidad);
+      if (nuevoStock === 0) {
+        await supabase.from("piezas_publicadas").delete().eq("id", pieza.id);
+      } else {
+        await supabase.from("piezas_publicadas").update({ stock: nuevoStock }).eq("id", pieza.id);
+      }
+    }
+  }
+
   async function procesarPedido() {
     setCargando(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -205,6 +220,10 @@ export default function CheckoutPage() {
       if (error) { console.error("Error creando pedido:", error); continue; }
       pedidosCreados.push(codigo);
       primerPedido = false;
+
+      // ✅ Descontar stock — si llega a 0 se elimina de la plataforma
+      await descontarStock(provId, grupo.productos, cantidades);
+
       if (pedidoInsertado?.id) await generarYGuardarPDFs(
         pedidoInsertado.id, codigo,
         nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
@@ -230,7 +249,6 @@ export default function CheckoutPage() {
           });
           const mrwData = await mrwRes.json();
           if (mrwData.ok && mrwData.numeroEnvio) {
-            // Regenerar PDFs con el número de envío MRW
             await generarYGuardarPDFs(
               pedidoInsertado.id, codigo,
               nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
@@ -247,8 +265,8 @@ export default function CheckoutPage() {
       if (emailProveedor) {
         try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
       }
-
     }
+
     await supabase.from("cesta").delete().eq("user_id", user.id);
     if (formaPago === "rd_pago") {
       const nuevoCreditoRD = Math.max(0, creditoRD - total);
@@ -261,24 +279,16 @@ export default function CheckoutPage() {
     else window.location.href = "/dashboard/pedidos";
   }
 
-  // MODAL RD PAGO INFO
   const ModalRDPago = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#0f172a", borderRadius: 24, padding: isMobile ? 24 : 36, maxWidth: 480, width: "100%", border: "1px solid rgba(37,99,235,0.3)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>💳</div>
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>¿Qué es RD Pago?</h2>
-          <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>
-            RD Pago es un crédito exclusivo que Recambio Directo concede a clientes con historial de compra verificado, que te permite comprar ahora y pagar en tu factura mensual.
-          </p>
+          <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>RD Pago es un crédito exclusivo que Recambio Directo concede a clientes con historial de compra verificado, que te permite comprar ahora y pagar en tu factura mensual.</p>
         </div>
         <div style={{ display: "flex", flexDirection: "column" as const, gap: 12, marginBottom: 24 }}>
-          {[
-            { icon: "✅", text: "Sin recargos ni intereses" },
-            { icon: "📦", text: "Compra ahora, paga en tu factura mensual" },
-            { icon: "🔒", text: "Solo para clientes verificados con historial de pagos" },
-            { icon: "📞", text: "Activación manual por el equipo de Recambio Directo" },
-          ].map(({ icon, text }) => (
+          {[{ icon: "✅", text: "Sin recargos ni intereses" }, { icon: "📦", text: "Compra ahora, paga en 15 días" }, { icon: "🔒", text: "Solo para clientes verificados con historial de pagos" }, { icon: "📞", text: "Activación manual por el equipo de Recambio Directo" }].map(({ icon, text }) => (
             <div key={text} style={{ display: "flex", gap: 12, alignItems: "center", background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.12)", borderRadius: 10, padding: "10px 14px" }}>
               <span style={{ fontSize: 18 }}>{icon}</span>
               <span style={{ color: "#cbd5e1", fontSize: 14 }}>{text}</span>
@@ -286,51 +296,32 @@ export default function CheckoutPage() {
           ))}
         </div>
         <div style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12, padding: "14px 16px", marginBottom: 20, textAlign: "center" as const }}>
-          <p style={{ color: "#4ade80", fontSize: 13, fontWeight: 700, margin: 0 }}>
-            ¿Te interesa? Escríbenos a{" "}
-            <a href="mailto:info@recambio-directo.com" style={{ color: "#4ade80" }}>info@recambio-directo.com</a>
-            {" "}y lo gestionamos en 24h.
-          </p>
+          <p style={{ color: "#4ade80", fontSize: 13, fontWeight: 700, margin: 0 }}>¿Te interesa? Escríbenos a <a href="mailto:info@recambio-directo.com" style={{ color: "#4ade80" }}>info@recambio-directo.com</a> y lo gestionamos en 24h.</p>
         </div>
-        <button onClick={() => setMostrarModalRD(false)} style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>
-          Entendido
-        </button>
+        <button onClick={() => setMostrarModalRD(false)} style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>Entendido</button>
       </div>
     </div>
   );
 
-  // BLOQUE FORMA DE PAGO (compartido móvil/desktop)
   const FormaPagoBlock = () => (
     <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
-      {/* RD Pago — solo visible si tiene 1+ pedidos con tarjeta */}
       {rdPagoVisible && (
         rdPagoActivo ? (
-          // Funcional — tiene crédito asignado
           <button onClick={() => setFormaPago("rd_pago")} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, cursor: "pointer", background: formaPago === "rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "rd_pago" ? "2px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontWeight: 800, color: formaPago === "rd_pago" ? "#60a5fa" : "white", margin: 0 }}>RD Pago</p>
-                <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Crédito disponible</p>
-              </div>
+              <div><p style={{ fontWeight: 800, color: formaPago === "rd_pago" ? "#60a5fa" : "white", margin: 0 }}>RD Pago — 15 días</p><p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Crédito disponible</p></div>
               <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16 }}>{creditoRD.toFixed(2)}€</span>
             </div>
           </button>
         ) : (
-          // En gris — tiene historial pero no crédito asignado todavía
           <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", opacity: 0.7 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontWeight: 800, color: "#64748b", margin: 0 }}>RD Pago</p>
-                <p style={{ color: "#475569", fontSize: 12, margin: "4px 0 0" }}>Crédito no disponible</p>
-              </div>
-              <button onClick={() => setMostrarModalRD(true)} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
-                ¿Qué es?
-              </button>
+              <div><p style={{ fontWeight: 800, color: "#64748b", margin: 0 }}>RD Pago — 15 días</p><p style={{ color: "#475569", fontSize: 12, margin: "4px 0 0" }}>Crédito no disponible</p></div>
+              <button onClick={() => setMostrarModalRD(true)} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>¿Qué es?</button>
             </div>
           </div>
         )
       )}
-      {/* Tarjeta — siempre visible */}
       <button onClick={() => setFormaPago("tarjeta")} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, cursor: "pointer", background: formaPago === "tarjeta" ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.04)", border: formaPago === "tarjeta" ? "2px solid rgba(139,92,246,0.6)" : "1px solid rgba(255,255,255,0.08)" }}>
         <p style={{ fontWeight: 800, color: formaPago === "tarjeta" ? "#a78bfa" : "white", margin: 0 }}>Tarjeta bancaria</p>
         <p style={{ color: "#94a3b8", fontSize: 12, margin: "4px 0 0" }}>Pago seguro con tarjeta</p>
@@ -353,7 +344,6 @@ export default function CheckoutPage() {
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>FINALIZAR PEDIDO</h1>
       <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 20 }}>Revisa y confirma tu pedido</p>
 
-      {/* ARTÍCULOS */}
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🛒 Artículos</h2>
         {productos.length === 0 ? (
@@ -387,14 +377,13 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      {/* TRANSPORTE */}
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🚚 Transporte</h2>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {opciones.map(({ key, color, textColor, label, precio }) => (
             <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 12, padding: "14px 10px", cursor: "pointer", textAlign: "center", background: transporte === key ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white" }}>
               <div style={{ background: color, borderRadius: 6, padding: "3px 8px", display: "inline-block", marginBottom: 6 }}>
-                <span style={{ color: textColor || "white", fontWeight: 900, fontSize: 12 }}>{label}</span>
+                <span style={{ color: (textColor as string) || "white", fontWeight: 900, fontSize: 12 }}>{label}</span>
               </div>
               <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>{precio}</p>
             </button>
@@ -402,13 +391,11 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* FORMA DE PAGO MÓVIL */}
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>💳 Forma de pago</h2>
         <FormaPagoBlock />
       </div>
 
-      {/* DATOS ENTREGA */}
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ fontSize: 16, fontWeight: 900, margin: 0 }}>📍 Entrega</h2>
@@ -434,7 +421,6 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      {/* RESUMEN FIJO ABAJO */}
       <div style={{ position: "fixed", bottom: 64, left: 0, right: 0, background: "rgba(2,6,23,0.98)", borderTop: "1px solid rgba(255,255,255,0.08)", padding: "12px 16px", zIndex: 998 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: "#94a3b8" }}>
@@ -461,7 +447,6 @@ export default function CheckoutPage() {
         <h1 style={{ fontSize: 72, fontWeight: 900, lineHeight: 1, marginBottom: 24 }}>FINALIZAR PEDIDO</h1>
         <p style={{ color: "#94a3b8", fontSize: 22, lineHeight: 1.7, marginBottom: 40 }}>Tus datos profesionales se cargan automáticamente desde tu cuenta.</p>
 
-        {/* DATOS ENTREGA */}
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 30, padding: 32, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 30 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
             <h2 style={{ fontSize: 32, fontWeight: 900, margin: 0 }}>DATOS ENTREGA</h2>
@@ -487,14 +472,13 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* TRANSPORTE */}
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 30, padding: 32, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 30 }}>
           <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 26 }}>TRANSPORTE</h2>
           {!transporte && <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "12px 18px", borderRadius: 12, marginBottom: 20, fontSize: 14 }}>Selecciona una opción de transporte para continuar</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
             {opciones.map(({ key, color, textColor, label, precio }) => (
               <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 20, padding: 22, color: "white", fontWeight: 800, cursor: "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 10, background: transporte === key ? "rgba(37,99,235,0.1)" : "#0f172a", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ background: color, borderRadius: 8, padding: "6px 14px" }}><span style={{ color: textColor || "white", fontWeight: 900, fontSize: 16 }}>{label}</span></div>
+                <div style={{ background: color, borderRadius: 8, padding: "6px 14px" }}><span style={{ color: (textColor as string) || "white", fontWeight: 900, fontSize: 16 }}>{label}</span></div>
                 <div style={{ fontSize: 13, color: "#94a3b8" }}>{precio}</div>
               </button>
             ))}
@@ -502,7 +486,6 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      {/* RESUMEN DESKTOP */}
       <aside style={{ position: "sticky", top: 40, height: "fit-content" }}>
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 34, border: "1px solid rgba(255,255,255,0.06)" }}>
           <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 26 }}>RESUMEN</h2>
