@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { proveedorId, nombreUsuario, password, proveedorNombre } = await request.json();
+    const { proveedorId, nombreUsuario, password, proveedorNombre, tipoReferencias } = await request.json();
     if (!proveedorId || !nombreUsuario || !password) {
       return Response.json({ ok: false, error: "Faltan datos" }, { status: 400 });
     }
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       ftp_activo: true,
       ftp_usuario: nombreUsuario,
       ftp_api_key: `rd-ftp-${proveedorId.substring(0, 8)}`,
+      tipo_referencias_ftp: tipoReferencias || "IAM",
     }).eq("id", proveedorId);
 
     return Response.json({ ok: true, usuario: dataFtp.usuario });
