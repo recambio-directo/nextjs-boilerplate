@@ -188,6 +188,58 @@ async function buscarEnPiezasPublicadas(
   return data as PiezaPublicada[];
 }
 
+/**
+ * Busca en piezas_publicadas el stock IAM real, exigiendo coincidencia
+ * de REFERENCIA + MARCA a la vez (ambas normalizadas).
+ *
+ * Esto es crítico: las referencias de aftermarket son códigos cortos que
+ * distintos fabricantes reutilizan para piezas completamente distintas.
+ * Por ejemplo "16235" puede ser un filtro de aire de OSSCA o un soporte
+ * de motor de FARE — son piezas distintas que comparten número por
+ * casualidad. Si solo comparamos por referencia, se producen cruces
+ * falsos (mostrar la pieza de FARE cuando el cliente buscaba la de OSSCA).
+ * Por eso aquí exigimos que referencia Y marca coincidan a la vez.
+ */
+async function buscarStockIAM(
+  equivalencias: { articulo_no: string; marca: string }[]
+): Promise<PiezaPublicada[]> {
+  if (equivalencias.length === 0) return [];
+
+  const referenciasNormalizadas = Array.from(
+    new Set(equivalencias.map((e) => normalizar(e.articulo_no)))
+  );
+
+  // Primero filtramos por tipo IAM + cualquier referencia candidata
+  // (más barato a nivel de query), y luego afinamos por marca en memoria.
+  const { data, error } = await supabase
+    .from("piezas_publicadas")
+    .select("*")
+    .in("referencia_normalizada", referenciasNormalizadas)
+    .eq("tipo", "IAM")
+    .order("precio", { ascending: true });
+
+  if (error) {
+    console.error("Error buscando stock IAM:", error);
+    return [];
+  }
+
+  const piezas = (data as PiezaPublicada[]) || [];
+
+  // Filtramos en memoria exigiendo que la marca también coincida.
+  // Si una pieza no tiene marca informada en tu tabla, la descartamos
+  // (mejor no mostrarla que arriesgar un cruce falso).
+  return piezas.filter((pieza) => {
+    const marcaPieza = normalizar(pieza.marca || "");
+    if (!marcaPieza) return false;
+
+    return equivalencias.some((eq) => {
+      const refCoincide = normalizar(eq.articulo_no) === normalizar(pieza.referencia);
+      const marcaCoincide = normalizar(eq.marca) === marcaPieza;
+      return refCoincide && marcaCoincide;
+    });
+  });
+}
+
 // ============================================================
 // HANDLER PRINCIPAL
 // ============================================================
@@ -274,18 +326,23 @@ export async function GET(request: NextRequest) {
     }));
   }
 
-  // Referencias IAM equivalentes (solo los códigos, para buscar en piezas_publicadas)
-  const referenciasIAMEquivalentes = equivalenciasIAM.map((e) => e.articulo_no);
-
   // Buscamos en tu base qué proveedores tienen esas referencias IAM publicadas,
-  // ya ordenado por precio ascendente.
-  const stockIAM = await buscarEnPiezasPublicadas(referenciasIAMEquivalentes, "IAM");
+  // exigiendo coincidencia de referencia + marca (evita falsos cruces entre
+  // fabricantes distintos que comparten el mismo código corto), y ya
+  // ordenado por precio ascendente.
+  const stockIAM = await buscarStockIAM(
+    equivalenciasIAM.map((e) => ({ articulo_no: e.articulo_no, marca: e.marca }))
+  );
 
   // Enriquecemos cada resultado de stockIAM con la marca/descripción de la equivalencia
   // (por si tu tabla piezas_publicadas no guarda ya esos datos)
+  // Comparamos por referencia + marca a la vez, igual que en buscarStockIAM.
   const stockIAMEnriquecido = stockIAM.map((pieza) => {
+    const marcaPieza = normalizar(pieza.marca || "");
     const infoEquivalencia = equivalenciasIAM.find(
-      (e) => normalizar(e.articulo_no) === normalizar(pieza.referencia)
+      (e) =>
+        normalizar(e.articulo_no) === normalizar(pieza.referencia) &&
+        normalizar(e.marca) === marcaPieza
     );
     return {
       ...pieza,
