@@ -2,6 +2,9 @@
 // Procesa archivos de stock subidos por FTP
 // Formato esperado: referencia, descripcion, precio, stock, marca, precio_casco (opcional)
 // Regla casco: si precio = 0 → es casco de la referencia anterior → se asocia y no se inserta
+// Regla tipo: el FTP usa el tipo configurado en usuarios.tipo_referencias_ftp (IAM por defecto)
+//             y SOLO toca piezas de ese mismo tipo. Las piezas subidas manualmente con otro
+//             tipo (ej. OEM) nunca se actualizan ni se borran desde aqui.
 
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
@@ -88,7 +91,7 @@ export async function GET(request: Request) {
 
   try {
     let query = supabase.from("usuarios")
-      .select("id, nombre_empresa, provincia")
+      .select("id, nombre_empresa, provincia, tipo_referencias_ftp")
       .eq("ftp_activo", true)
       .eq("tipo", "proveedor");
 
@@ -104,6 +107,9 @@ export async function GET(request: Request) {
 
     for (const proveedor of proveedores) {
       try {
+        // Tipo de referencias configurado para este proveedor en FTP (IAM por defecto)
+        const tipoFtp: "OEM" | "IAM" = proveedor.tipo_referencias_ftp === "OEM" ? "OEM" : "IAM";
+
         // Buscar archivo en Storage
         let archivoPath: string | null = null;
         for (const ext of ["csv", "xlsx", "xls"]) {
@@ -140,7 +146,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        let insertadas = 0, actualizadas = 0, errores = 0;
+        let insertadas = 0, actualizadas = 0, errores = 0, omitidasOtroTipo = 0;
 
         for (const fila of filas) {
           const referencia = String(fila.referencia || "").toUpperCase().trim();
@@ -152,11 +158,15 @@ export async function GET(request: Request) {
 
           if (!referencia || isNaN(precio) || precio <= 0) { errores++; continue; }
 
+          // IMPORTANTE: solo buscamos coincidencia dentro del MISMO tipo (tipoFtp).
+          // Así, si esa referencia existe pero como OEM subida manualmente, el FTP IAM
+          // no la toca y crea/actualiza su propia fila IAM en paralelo.
           const { data: existente } = await supabase
             .from("piezas_publicadas")
-            .select("id")
+            .select("id, tipo")
             .eq("proveedor_id", proveedor.id)
             .eq("referencia", referencia)
+            .eq("tipo", tipoFtp)
             .maybeSingle();
 
           const campos: any = {
@@ -180,19 +190,19 @@ export async function GET(request: Request) {
               stock: isNaN(stock) ? 0 : stock,
               marca: marca || "",
               provincia: proveedor.provincia || null,
-              tipo: "OEM",
+              tipo: tipoFtp,
               ...(precioCasco !== null && { precio_casco: precioCasco }),
             });
             insertadas++;
           }
         }
 
-        const resultado = `OK ${new Date().toLocaleDateString("es-ES")} — ${insertadas} nuevas, ${actualizadas} actualizadas, ${errores} errores`;
+        const resultado = `OK ${new Date().toLocaleDateString("es-ES")} — ${insertadas} nuevas, ${actualizadas} actualizadas, ${errores} errores (tipo ${tipoFtp})`;
         await supabase.from("usuarios")
           .update({ ftp_ultimo_proceso: new Date().toISOString(), ftp_ultimo_resultado: resultado })
           .eq("id", proveedor.id);
 
-        resultados.push({ proveedor: proveedor.nombre_empresa, estado: "ok", filas: filas.length, insertadas, actualizadas, errores });
+        resultados.push({ proveedor: proveedor.nombre_empresa, tipo: tipoFtp, estado: "ok", filas: filas.length, insertadas, actualizadas, errores });
 
       } catch (provError) {
         console.error(`Error procesando ${proveedor.nombre_empresa}:`, provError);
