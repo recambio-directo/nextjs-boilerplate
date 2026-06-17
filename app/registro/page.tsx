@@ -19,6 +19,10 @@ function RegistroPageInner() {
   const [isMobile, setIsMobile] = useState(false);
   const searchParams = useSearchParams();
   const [tipo, setTipo] = useState<"taller" | "proveedor">(searchParams.get("tipo") === "proveedor" ? "proveedor" : "taller");
+
+  useEffect(() => {
+    setTipo(searchParams.get("tipo") === "proveedor" ? "proveedor" : "taller");
+  }, [searchParams]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
