@@ -170,7 +170,7 @@ export default function Home() {
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
               {[
                 "Acceso a referencias OEM, IAM y Universal",
-                "Entrega 24h con MRW, GLS y Correos Express",
+                "Entrega 24h con las principales agencias de transporte",
                 "Chat directo con el proveedor en cada pedido",
                 "Historial de pedidos y facturas descargables",
                 "RD Pago — compra ahora y paga en 15 días",
@@ -251,7 +251,7 @@ export default function Home() {
           {[
             { icon: "🔍", title: "Búsqueda instantánea de referencias", desc: "OEM, IAM y Universal. Filtra por tipo, marca o referencia exacta. Precios en tiempo real sin necesidad de llamar.", color: "#2563eb" },
             { icon: "📦", title: "Gestión de pedidos completa", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
-            { icon: "🚚", title: "Logística integrada", desc: "MRW, GLS y Correos Express integrados. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { icon: "🚚", title: "Logística integrada", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
             { icon: "🔒", title: "Control total sobre tu negocio", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
           ].map(({ icon, title, desc, color }) => (
             <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: m ? 20 : 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
