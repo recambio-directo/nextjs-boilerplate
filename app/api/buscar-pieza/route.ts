@@ -379,5 +379,6 @@ export async function GET(request: NextRequest) {
       total: stockIAMEnriquecido.length,
       proveedores: stockIAMEnriquecido, // ya ordenado por precio ascendente
     },
+    _debug_equivalencias_iam: equivalenciasIAM, // TEMPORAL: quitar una vez resuelto el diagnóstico
   });
 }
