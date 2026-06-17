@@ -199,8 +199,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Falta el parámetro 'referencia'" }, { status: 400 });
   }
 
-  // Normalizamos lo que escribió el taller: da igual si puso espacios,
-  // guiones, mayúsculas o minúsculas.
+  // Normalizamos lo que escribió el taller para comparar contra TU base de datos
+  // (da igual si puso espacios, guiones, mayúsculas o minúsculas).
+  // OJO: para la llamada a RapidAPI usamos la referencia ORIGINAL (sin normalizar),
+  // porque esa API externa espera el formato real del fabricante, con guiones
+  // incluidos (ej. "28113-2H000"). Si se la mandamos normalizada ("281132H000"),
+  // no la encuentra y devuelve cero resultados.
   const referenciaBuscada = normalizar(referenciaOriginal);
 
   // -----------------------------------------------------------
@@ -229,12 +233,13 @@ export async function GET(request: NextRequest) {
   // -----------------------------------------------------------
   let equivalenciasIAM: { articulo_no: string; marca: string; descripcion: string }[] = [];
 
-  // ¿Tenemos cache válida para este OEM?
-  let cache = await obtenerCache(referenciaBuscada);
+  // ¿Tenemos cache válida para este OEM? Usamos la referencia ORIGINAL
+  // (con guiones) como clave, igual que se la pasamos a RapidAPI.
+  let cache = await obtenerCache(referenciaOriginal);
 
   if (!cache) {
-    // No hay cache (o caducó): consultamos RapidAPI
-    const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaBuscada);
+    // No hay cache (o caducó): consultamos RapidAPI con el formato ORIGINAL
+    const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
 
     if (articleIds.length > 0) {
       // Pedimos detalle (marca + descripción) de cada articleId
@@ -251,7 +256,8 @@ export async function GET(request: NextRequest) {
       );
 
       // Guardamos en caché para no volver a llamar a la API la próxima vez
-      await guardarCache(referenciaBuscada, detallesValidos);
+      // (misma clave ORIGINAL con la que se consulta arriba)
+      await guardarCache(referenciaOriginal, detallesValidos);
 
       equivalenciasIAM = detallesValidos.map((d) => ({
         articulo_no: d.articulo_no,
