@@ -228,13 +228,24 @@ async function buscarStockIAM(
   // Filtramos en memoria exigiendo que la marca también coincida.
   // Si una pieza no tiene marca informada en tu tabla, la descartamos
   // (mejor no mostrarla que arriesgar un cruce falso).
+  //
+  // OJO: la comparación de marca es por "contiene", no exacta, porque
+  // cada fuente nombra al fabricante de forma distinta: tu proveedor
+  // puede tener "MANN" mientras RapidAPI devuelve "MANN-FILTER". Una
+  // vez normalizadas (sin espacios/guiones), "MANN" está contenida en
+  // "MANNFILTER", así que las tratamos como la misma marca.
+  // Exigimos mínimo 3 caracteres para evitar falsos positivos triviales
+  // (ej. una marca de 2 letras que por casualidad esté contenida en otra).
   return piezas.filter((pieza) => {
     const marcaPieza = normalizar(pieza.marca || "");
-    if (!marcaPieza) return false;
+    if (!marcaPieza || marcaPieza.length < 3) return false;
 
     return equivalencias.some((eq) => {
       const refCoincide = normalizar(eq.articulo_no) === normalizar(pieza.referencia);
-      const marcaCoincide = normalizar(eq.marca) === marcaPieza;
+      const marcaEquivalencia = normalizar(eq.marca);
+      if (!marcaEquivalencia || marcaEquivalencia.length < 3) return false;
+      const marcaCoincide =
+        marcaEquivalencia.includes(marcaPieza) || marcaPieza.includes(marcaEquivalencia);
       return refCoincide && marcaCoincide;
     });
   });
@@ -336,14 +347,16 @@ export async function GET(request: NextRequest) {
 
   // Enriquecemos cada resultado de stockIAM con la marca/descripción de la equivalencia
   // (por si tu tabla piezas_publicadas no guarda ya esos datos)
-  // Comparamos por referencia + marca a la vez, igual que en buscarStockIAM.
+  // Comparamos por referencia + marca (coincidencia "contiene"), igual que en buscarStockIAM.
   const stockIAMEnriquecido = stockIAM.map((pieza) => {
     const marcaPieza = normalizar(pieza.marca || "");
-    const infoEquivalencia = equivalenciasIAM.find(
-      (e) =>
-        normalizar(e.articulo_no) === normalizar(pieza.referencia) &&
-        normalizar(e.marca) === marcaPieza
-    );
+    const infoEquivalencia = equivalenciasIAM.find((e) => {
+      const refCoincide = normalizar(e.articulo_no) === normalizar(pieza.referencia);
+      const marcaEquivalencia = normalizar(e.marca);
+      const marcaCoincide =
+        marcaEquivalencia.includes(marcaPieza) || marcaPieza.includes(marcaEquivalencia);
+      return refCoincide && marcaCoincide;
+    });
     return {
       ...pieza,
       marca_iam: infoEquivalencia?.marca || null,
