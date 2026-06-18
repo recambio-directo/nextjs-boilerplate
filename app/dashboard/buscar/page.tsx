@@ -31,6 +31,10 @@ function BuscarPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
+  // Versión sin espacios de lo que escribió el usuario, para cuando busca una
+  // referencia (ej. "28113 2H 000" -> "28113-2H000" -- aquí solo quitamos
+  // espacios; el resto de normalización agresiva ya la hace el endpoint).
+  const qSinEspacios = q.replace(/\s+/g, "");
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [stockOEM, setStockOEM] = useState<Oferta[]>([]);
   const [stockIAM, setStockIAM] = useState<Oferta[]>([]);
@@ -73,13 +77,16 @@ function BuscarPageInner() {
 
   // Búsqueda original por texto libre (descripción / coincidencia parcial de referencia).
   // Se mantiene para cuando el usuario escribe algo ambiguo en vez de una referencia exacta.
+  // OJO: para comparar contra "referencia" quitamos espacios (las referencias no los
+  // llevan realmente), pero para "descripcion" mantenemos el texto tal cual, ya que
+  // ahí el usuario puede escribir una frase con espacios con sentido ("filtro aceite").
   async function cargarOfertas() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("piezas_publicadas")
       .select("*")
-      .or(`referencia.ilike.%${q}%,descripcion.ilike.%${q}%`)
+      .or(`referencia.ilike.%${qSinEspacios}%,descripcion.ilike.%${q}%`)
       .gt("stock", 0)
       .order("precio", { ascending: true });
 
@@ -106,11 +113,13 @@ function BuscarPageInner() {
 
   // Cruce exacto OEM <-> IAM vía nuestro endpoint /api/buscar-pieza.
   // Este es el que rellena los dos paneles separados: Stock OEM y Stock IAM.
+  // Usamos qSinEspacios: si el taller escribe la referencia con espacios
+  // ("28113 2H 000"), aquí ya se los hemos quitado antes de mandarla.
   async function cargarStockOEMeIAM() {
-    if (!q) { setStockOEM([]); setStockIAM([]); setLoadingCruce(false); return; }
+    if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setLoadingCruce(false); return; }
     setLoadingCruce(true);
     try {
-      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}`);
       if (!res.ok) {
         console.error("Error llamando a /api/buscar-pieza:", res.status);
         setStockOEM([]); setStockIAM([]);
