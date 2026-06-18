@@ -46,8 +46,9 @@ function BuscarPageInner() {
   const [isMobile, setIsMobile] = useState(false);
   const [contactoModal, setContactoModal] = useState<{ nombre: string; telefono: string; email: string } | null>(null);
   // Paneles Stock OEM / Stock IAM: plegados por defecto, se expanden al hacer clic en el título.
-  const [panelOEMAbierto, setPanelOEMAbierto] = useState(false);
-  const [panelIAMAbierto, setPanelIAMAbierto] = useState(false);
+  // Pestaña activa entre Stock OEM y Stock IAM (solo una visible a la vez).
+  // Por defecto empieza en IAM.
+  const [pestañaActiva, setPestañaActiva] = useState<"OEM" | "IAM">("IAM");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -58,8 +59,7 @@ function BuscarPageInner() {
 
   useEffect(() => {
     cargarStockOEMeIAM();
-    setPanelOEMAbierto(false);
-    setPanelIAMAbierto(false);
+    setPestañaActiva("IAM");
   }, [q]);
 
   useEffect(() => {
@@ -273,61 +273,79 @@ function BuscarPageInner() {
     );
   }
 
-  // ---- Panel genérico (Stock OEM / Stock IAM), plegable ----
-  function renderPanel(
-    titulo: string,
-    icono: string,
-    lista: Oferta[],
-    abierto: boolean,
-    setAbierto: (v: boolean) => void
-  ) {
-    const totalConocido = !loadingCruce; // mientras carga no sabemos el total todavía
-    return (
-      <div style={{ marginBottom: 14 }}>
-        <button
-          onClick={() => setAbierto(!abierto)}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "rgba(15,23,42,0.85)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 16,
-            padding: "16px 20px",
-            cursor: "pointer",
-            color: "white",
-          }}
-        >
-          <span style={{ fontSize: 18, fontWeight: 900 }}>
-            {icono} {titulo}{" "}
-            <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 14 }}>
-              {loadingCruce ? "(...)" : `(${lista.length})`}
-            </span>
-          </span>
-          <span style={{ fontSize: 16, color: "#94a3b8", transform: abierto ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▼</span>
-        </button>
+  // ---- Pestañas en línea: Stock OEM | Stock IAM (solo una visible a la vez) ----
+  function renderTabs() {
+    const tabs: { key: "OEM" | "IAM"; titulo: string; icono: string; lista: Oferta[]; colorActivo: string }[] = [
+      { key: "OEM", titulo: "Stock OEM", icono: "🔧", lista: stockOEM, colorActivo: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
+      { key: "IAM", titulo: "Stock IAM", icono: "⚙️", lista: stockIAM, colorActivo: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
+    ];
 
-        {abierto && (
-          <div style={{ marginTop: 12 }}>
-            {loadingCruce ? (
-              <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 16 }}>Buscando...</div>
-            ) : lista.length === 0 ? (
-              <div style={{ padding: "24px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 16, fontSize: 14 }}>Sin proveedores disponibles</div>
-            ) : isMobile ? (
+    return (
+      <div style={{ marginBottom: 20 }}>
+        {/* Fila de pestañas, siempre en línea (se encogen en móvil) */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "nowrap" }}>
+          {tabs.map((tab) => {
+            const activa = pestañaActiva === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setPestañaActiva(tab.key)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: isMobile ? "12px 10px" : "16px 20px",
+                  borderRadius: 16,
+                  border: activa ? "none" : "1px solid rgba(255,255,255,0.08)",
+                  background: activa ? tab.colorActivo : "rgba(15,23,42,0.6)",
+                  color: activa ? "white" : "#94a3b8",
+                  fontWeight: 900,
+                  fontSize: isMobile ? 13 : 16,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <span>{tab.icono}</span>
+                <span>{tab.titulo}</span>
+                <span style={{ opacity: 0.85, fontSize: isMobile ? 12 : 14 }}>
+                  {loadingCruce ? "(...)" : `(${tab.lista.length})`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Contenido de la pestaña activa */}
+        {(() => {
+          const tabActiva = tabs.find((t) => t.key === pestañaActiva)!;
+          const lista = tabActiva.lista;
+          if (loadingCruce) {
+            return <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 16 }}>Buscando...</div>;
+          }
+          if (lista.length === 0) {
+            return <div style={{ padding: "24px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 16, fontSize: 14 }}>Sin proveedores disponibles</div>;
+          }
+          if (isMobile) {
+            return (
               <div style={{ display: "grid", gap: 10 }}>
                 {lista.map(renderOfertaMobile)}
               </div>
-            ) : (
-              <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
-                  {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
-                </div>
-                {lista.map(renderOfertaDesktopRow)}
+            );
+          }
+          return (
+            <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
+                {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
               </div>
-            )}
-          </div>
-        )}
+              {lista.map(renderOfertaDesktopRow)}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -390,11 +408,8 @@ function BuscarPageInner() {
           <h1 style={{ fontSize: isMobile ? "28px" : "clamp(32px,8vw,70px)", fontWeight: 900, marginBottom: 6, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
         </div>
 
-        {/* PANEL STOCK OEM */}
-        {renderPanel("Stock OEM", "🔧", stockOEM, panelOEMAbierto, setPanelOEMAbierto)}
-
-        {/* PANEL STOCK IAM */}
-        {renderPanel("Stock IAM", "⚙️", stockIAM, panelIAMAbierto, setPanelIAMAbierto)}
+        {/* PESTAÑAS: Stock OEM | Stock IAM (en línea, IAM activa por defecto) */}
+        {renderTabs()}
 
         {/* Mensaje si no hay resultados en ningún panel, una vez terminada la búsqueda */}
         {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && (
