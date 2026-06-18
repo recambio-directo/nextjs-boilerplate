@@ -25,7 +25,7 @@ type Oferta = {
   descripcion_iam?: string;
 };
 
-const FILTROS_TIPO = ["TODOS", "OEM", "IAM", "UNIVERSAL"];
+// (FILTROS_TIPO eliminado: ya no existe el bloque "Otros resultados por texto")
 
 function BuscarPageInner() {
   const router = useRouter();
@@ -35,15 +35,12 @@ function BuscarPageInner() {
   // referencia (ej. "28113 2H 000" -> "28113-2H000" -- aquí solo quitamos
   // espacios; el resto de normalización agresiva ya la hace el endpoint).
   const qSinEspacios = q.replace(/\s+/g, "");
-  const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [stockOEM, setStockOEM] = useState<Oferta[]>([]);
   const [stockIAM, setStockIAM] = useState<Oferta[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadingCruce, setLoadingCruce] = useState(true);
   const [menuAbierto, setMenuAbierto] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [cestaMensaje, setCestaMensaje] = useState<number | null>(null);
-  const [filtroTipo, setFiltroTipo] = useState("TODOS");
   const [abriendo, setAbriendo] = useState(false);
   const [fotoVisor, setFotoVisor] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -60,7 +57,6 @@ function BuscarPageInner() {
   }, []);
 
   useEffect(() => {
-    cargarOfertas();
     cargarStockOEMeIAM();
     setPanelOEMAbierto(false);
     setPanelIAMAbierto(false);
@@ -83,49 +79,16 @@ function BuscarPageInner() {
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
-  // Búsqueda original por texto libre (descripción / coincidencia parcial de referencia).
-  // Se mantiene para cuando el usuario escribe algo ambiguo en vez de una referencia exacta.
-  // OJO: para comparar contra la referencia usamos la columna "referencia_normalizada"
-  // (sin espacios/guiones, mayúsculas) en vez de "referencia" directa, porque así da
-  // igual cómo esté guardado el dato original o cómo lo escriba el usuario. Para
-  // "descripcion" mantenemos el texto tal cual, ya que ahí el usuario puede escribir
-  // una frase con espacios con sentido ("filtro aceite").
-  async function cargarOfertas() {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const refNormalizadaBuscada = qSinEspacios.toUpperCase();
-    const { data, error } = await supabase
-      .from("piezas_publicadas")
-      .select("*")
-      .or(`referencia_normalizada.ilike.%${refNormalizadaBuscada}%,descripcion.ilike.%${q}%`)
-      .gt("stock", 0)
-      .order("precio", { ascending: true });
-
-    if (error) { console.error(error); setLoading(false); return; }
-    let resultado = (data as Oferta[]) || [];
-
-    if (user) {
-      const { data: perfil } = await supabase.from("usuarios").select("codigo_postal, email").eq("id", user.id).single();
-      const { data: exclusiones } = await supabase.from("exclusiones_proveedor").select("*");
-      if (perfil && exclusiones && exclusiones.length > 0) {
-        resultado = resultado.filter(oferta => {
-          const excluidoPorCp = exclusiones.some(exc => exc.proveedor_id === oferta.proveedor_id && exc.tipo === "cp" && perfil.codigo_postal && exc.valor === perfil.codigo_postal);
-          if (excluidoPorCp) return false;
-          const excluidoPorCliente = exclusiones.some(exc => exc.proveedor_id === oferta.proveedor_id && exc.tipo === "cliente" && exc.valor === perfil.email);
-          if (excluidoPorCliente) return false;
-          return true;
-        });
-      }
-    }
-
-    setOfertas(resultado);
-    setLoading(false);
-  }
+  // (cargarOfertas eliminada: su lógica de exclusiones se trasladó a cargarStockOEMeIAM)
 
   // Cruce exacto OEM <-> IAM vía nuestro endpoint /api/buscar-pieza.
   // Este es el que rellena los dos paneles separados: Stock OEM y Stock IAM.
   // Usamos qSinEspacios: si el taller escribe la referencia con espacios
   // ("28113 2H 000"), aquí ya se los hemos quitado antes de mandarla.
+  // También aplicamos aquí el filtro de exclusiones por proveedor (código
+  // postal / cliente concreto) que antes solo se aplicaba en la búsqueda
+  // de texto libre — ahora es el único punto de entrada, así que debe
+  // aplicarse aquí para no perder esa regla de negocio.
   async function cargarStockOEMeIAM() {
     if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setLoadingCruce(false); return; }
     setLoadingCruce(true);
@@ -138,8 +101,29 @@ function BuscarPageInner() {
         return;
       }
       const data = await res.json();
-      setStockOEM(data?.stock_oem?.proveedores || []);
-      setStockIAM(data?.stock_iam?.proveedores || []);
+      let resultadoOEM: Oferta[] = data?.stock_oem?.proveedores || [];
+      let resultadoIAM: Oferta[] = data?.stock_iam?.proveedores || [];
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: perfil } = await supabase.from("usuarios").select("codigo_postal, email").eq("id", user.id).single();
+        const { data: exclusiones } = await supabase.from("exclusiones_proveedor").select("*");
+        if (perfil && exclusiones && exclusiones.length > 0) {
+          const aplicarExclusiones = (lista: Oferta[]) =>
+            lista.filter(oferta => {
+              const excluidoPorCp = exclusiones.some((exc: any) => exc.proveedor_id === oferta.proveedor_id && exc.tipo === "cp" && perfil.codigo_postal && exc.valor === perfil.codigo_postal);
+              if (excluidoPorCp) return false;
+              const excluidoPorCliente = exclusiones.some((exc: any) => exc.proveedor_id === oferta.proveedor_id && exc.tipo === "cliente" && exc.valor === perfil.email);
+              if (excluidoPorCliente) return false;
+              return true;
+            });
+          resultadoOEM = aplicarExclusiones(resultadoOEM);
+          resultadoIAM = aplicarExclusiones(resultadoIAM);
+        }
+      }
+
+      setStockOEM(resultadoOEM);
+      setStockIAM(resultadoIAM);
     } catch (err) {
       console.error("Error de red llamando a /api/buscar-pieza:", err);
       setStockOEM([]); setStockIAM([]);
@@ -148,14 +132,7 @@ function BuscarPageInner() {
     }
   }
 
-  const ofertasFiltradas = ofertas.filter(o => {
-    if (filtroTipo === "TODOS") return true;
-    if (o.tipo) return o.tipo.toUpperCase() === filtroTipo;
-    const ref = o.referencia.toUpperCase();
-    if (filtroTipo === "OEM") return /^\d/.test(ref) || (ref.includes("-") && ref.length > 8);
-    if (filtroTipo === "IAM") return /^[A-Z]{1,4}\d/.test(ref) || /^[A-Z]{2,6}/.test(ref);
-    return true;
-  });
+  // (ofertasFiltradas eliminada junto con el bloque "Otros resultados por texto")
 
   async function pedirOferta(oferta: Oferta) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -181,7 +158,7 @@ function BuscarPageInner() {
   async function abrirChatConProveedor(ofertaId: number) {
     setMenuAbierto(null);
     setAbriendo(true);
-    const todasLasOfertas = [...ofertas, ...stockOEM, ...stockIAM];
+    const todasLasOfertas = [...stockOEM, ...stockIAM];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) { setAbriendo(false); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -200,7 +177,7 @@ function BuscarPageInner() {
 
   async function verTelefono(ofertaId: number) {
     setMenuAbierto(null);
-    const todasLasOfertas = [...ofertas, ...stockOEM, ...stockIAM];
+    const todasLasOfertas = [...stockOEM, ...stockIAM];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) return;
     const { data } = await supabase.from("usuarios").select("telefono, nombre_empresa, email").eq("id", oferta.proveedor_id).single();
@@ -419,42 +396,10 @@ function BuscarPageInner() {
         {/* PANEL STOCK IAM */}
         {renderPanel("Stock IAM", "⚙️", stockIAM, panelIAMAbierto, setPanelIAMAbierto)}
 
-        {/* RESULTADOS DE TEXTO LIBRE (búsqueda por descripción / coincidencia parcial) */}
-        <div style={{ marginBottom: isMobile ? 16 : 24, marginTop: 12 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>🔍 Otros resultados por texto</h2>
-          <p style={{ color: "#94a3b8", fontSize: isMobile ? 13 : 15 }}>
-            {loading ? "Buscando..." : `${ofertasFiltradas.length} resultado${ofertasFiltradas.length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-
-        {/* FILTROS */}
-        <div style={{ display: "flex", gap: 8, marginBottom: isMobile ? 14 : 20, alignItems: "center", flexWrap: "wrap", overflowX: "auto" }}>
-          {FILTROS_TIPO.map(f => (
-            <button key={f} onClick={() => setFiltroTipo(f)} style={{ padding: isMobile ? "8px 16px" : "10px 22px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: isMobile ? 13 : 14, whiteSpace: "nowrap", background: filtroTipo === f ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroTipo === f ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroTipo === f ? "white" : "#94a3b8" }}>{f}</button>
-          ))}
-        </div>
-
-        {loading && <div style={{ padding: "60px", textAlign: "center", color: "#94a3b8" }}>Buscando...</div>}
-        {!loading && ofertasFiltradas.length === 0 && (
+        {/* Mensaje si no hay resultados en ningún panel, una vez terminada la búsqueda */}
+        {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && (
           <div style={{ padding: "60px", textAlign: "center", color: "#94a3b8", fontSize: 16 }}>
             No hay resultados para <strong style={{ color: "white" }}>"{q}"</strong>
-          </div>
-        )}
-
-        {/* ── MÓVIL: tarjetas ── */}
-        {isMobile && !loading && (
-          <div style={{ display: "grid", gap: 10 }}>
-            {ofertasFiltradas.map(renderOfertaMobile)}
-          </div>
-        )}
-
-        {/* ── DESKTOP: tabla ── */}
-        {!isMobile && !loading && ofertasFiltradas.length > 0 && (
-          <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
-              {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
-            </div>
-            {ofertasFiltradas.map(renderOfertaDesktopRow)}
           </div>
         )}
       </div>
