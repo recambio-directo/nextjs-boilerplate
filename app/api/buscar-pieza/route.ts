@@ -293,14 +293,18 @@ export async function GET(request: NextRequest) {
   // PASO 3: Stock IAM — equivalencias.
   // Si lo que buscó coincide con un OEM (en tu base o no), buscamos
   // sus equivalentes aftermarket vía caché o RapidAPI.
+  // OPTIMIZACIÓN: si ya sabemos que la referencia buscada es directamente
+  // una pieza IAM en tu base (ej. "P85020" de BREMBO), no tiene sentido
+  // preguntarle a RapidAPI por equivalencias de un OEM, porque no lo es.
   // -----------------------------------------------------------
   let equivalenciasIAM: { articulo_no: string; marca: string; descripcion: string }[] = [];
+  const referenciaEsYaIAMDirecta = coincidenciaDirecta?.tipo === "IAM";
 
   // ¿Tenemos cache válida para este OEM? Usamos la referencia ORIGINAL
   // (con guiones) como clave, igual que se la pasamos a RapidAPI.
-  let cache = await obtenerCache(referenciaOriginal);
+  let cache = referenciaEsYaIAMDirecta ? null : await obtenerCache(referenciaOriginal);
 
-  if (!cache) {
+  if (!referenciaEsYaIAMDirecta && !cache) {
     // No hay cache (o caducó): consultamos RapidAPI con el formato ORIGINAL
     const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
 
@@ -328,7 +332,7 @@ export async function GET(request: NextRequest) {
         descripcion: d.descripcion,
       }));
     }
-  } else {
+  } else if (cache) {
     // Usamos lo que ya teníamos en caché
     equivalenciasIAM = cache.map((c) => ({
       articulo_no: c.articulo_no,
@@ -336,18 +340,36 @@ export async function GET(request: NextRequest) {
       descripcion: c.descripcion || "",
     }));
   }
+  // (si referenciaEsYaIAMDirecta es true, no entramos en ninguna de las dos
+  // ramas y equivalenciasIAM se queda como [] — correcto, no hace falta
+  // buscar equivalencias externas para algo que ya es IAM en nuestra base)
 
   // Buscamos en tu base qué proveedores tienen esas referencias IAM publicadas,
   // exigiendo coincidencia de referencia + marca (evita falsos cruces entre
   // fabricantes distintos que comparten el mismo código corto), y ya
   // ordenado por precio ascendente.
-  const stockIAM = await buscarStockIAM(
+  const stockIAMPorEquivalencia = await buscarStockIAM(
     equivalenciasIAM.map((e) => ({ articulo_no: e.articulo_no, marca: e.marca }))
   );
+
+  // Además del cruce vía RapidAPI, si lo que buscó el taller YA es directamente
+  // una referencia IAM publicada en tu base (ej. buscó "P85020" de BREMBO
+  // directamente, sin pasar por ningún OEM), también debe aparecer en este panel.
+  const stockIAMDirecto = await buscarEnPiezasPublicadas([referenciaBuscada], "IAM");
+
+  // Combinamos ambas listas evitando duplicados (por id de pieza), y reordenamos
+  // por precio ascendente al final.
+  const idsYaIncluidos = new Set(stockIAMPorEquivalencia.map((p) => p.id));
+  const stockIAM = [
+    ...stockIAMPorEquivalencia,
+    ...stockIAMDirecto.filter((p) => !idsYaIncluidos.has(p.id)),
+  ].sort((a, b) => a.precio - b.precio);
 
   // Enriquecemos cada resultado de stockIAM con la marca/descripción de la equivalencia
   // (por si tu tabla piezas_publicadas no guarda ya esos datos)
   // Comparamos por referencia + marca (coincidencia "contiene"), igual que en buscarStockIAM.
+  // Si la pieza vino por coincidencia directa (no por equivalencia externa), no hay
+  // "marca_iam"/"descripcion_iam" que añadir: ya tiene sus propios datos en la tabla.
   const stockIAMEnriquecido = stockIAM.map((pieza) => {
     const marcaPieza = normalizar(pieza.marca || "");
     const infoEquivalencia = equivalenciasIAM.find((e) => {
@@ -379,6 +401,5 @@ export async function GET(request: NextRequest) {
       total: stockIAMEnriquecido.length,
       proveedores: stockIAMEnriquecido, // ya ordenado por precio ascendente
     },
-    _debug_equivalencias_iam: equivalenciasIAM, // TEMPORAL: quitar una vez resuelto el diagnóstico
   });
 }
