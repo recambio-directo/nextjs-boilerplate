@@ -48,6 +48,9 @@ function BuscarPageInner() {
   const [fotoVisor, setFotoVisor] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [contactoModal, setContactoModal] = useState<{ nombre: string; telefono: string; email: string } | null>(null);
+  // Paneles Stock OEM / Stock IAM: plegados por defecto, se expanden al hacer clic en el título.
+  const [panelOEMAbierto, setPanelOEMAbierto] = useState(false);
+  const [panelIAMAbierto, setPanelIAMAbierto] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -56,7 +59,12 @@ function BuscarPageInner() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => { cargarOfertas(); cargarStockOEMeIAM(); }, [q]);
+  useEffect(() => {
+    cargarOfertas();
+    cargarStockOEMeIAM();
+    setPanelOEMAbierto(false);
+    setPanelIAMAbierto(false);
+  }, [q]);
 
   useEffect(() => {
     function cerrar(e: MouseEvent) {
@@ -77,16 +85,19 @@ function BuscarPageInner() {
 
   // Búsqueda original por texto libre (descripción / coincidencia parcial de referencia).
   // Se mantiene para cuando el usuario escribe algo ambiguo en vez de una referencia exacta.
-  // OJO: para comparar contra "referencia" quitamos espacios (las referencias no los
-  // llevan realmente), pero para "descripcion" mantenemos el texto tal cual, ya que
-  // ahí el usuario puede escribir una frase con espacios con sentido ("filtro aceite").
+  // OJO: para comparar contra la referencia usamos la columna "referencia_normalizada"
+  // (sin espacios/guiones, mayúsculas) en vez de "referencia" directa, porque así da
+  // igual cómo esté guardado el dato original o cómo lo escriba el usuario. Para
+  // "descripcion" mantenemos el texto tal cual, ya que ahí el usuario puede escribir
+  // una frase con espacios con sentido ("filtro aceite").
   async function cargarOfertas() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
+    const refNormalizadaBuscada = qSinEspacios.toUpperCase();
     const { data, error } = await supabase
       .from("piezas_publicadas")
       .select("*")
-      .or(`referencia.ilike.%${qSinEspacios}%,descripcion.ilike.%${q}%`)
+      .or(`referencia_normalizada.ilike.%${refNormalizadaBuscada}%,descripcion.ilike.%${q}%`)
       .gt("stock", 0)
       .order("precio", { ascending: true });
 
@@ -285,37 +296,59 @@ function BuscarPageInner() {
     );
   }
 
-  // ---- Panel genérico (Stock OEM / Stock IAM) ----
-  function renderPanel(titulo: string, icono: string, lista: Oferta[]) {
-    if (loadingCruce) {
-      return (
-        <div style={{ marginBottom: 28 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 12 }}>{icono} {titulo}</h2>
-          <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 16 }}>Buscando...</div>
-        </div>
-      );
-    }
-    if (lista.length === 0) {
-      return (
-        <div style={{ marginBottom: 28 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 12 }}>{icono} {titulo}</h2>
-          <div style={{ padding: "24px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 16, fontSize: 14 }}>Sin proveedores disponibles</div>
-        </div>
-      );
-    }
+  // ---- Panel genérico (Stock OEM / Stock IAM), plegable ----
+  function renderPanel(
+    titulo: string,
+    icono: string,
+    lista: Oferta[],
+    abierto: boolean,
+    setAbierto: (v: boolean) => void
+  ) {
+    const totalConocido = !loadingCruce; // mientras carga no sabemos el total todavía
     return (
-      <div style={{ marginBottom: 28 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 12 }}>{icono} {titulo} <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 14 }}>({lista.length})</span></h2>
-        {isMobile ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {lista.map(renderOfertaMobile)}
-          </div>
-        ) : (
-          <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
-              {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
-            </div>
-            {lista.map(renderOfertaDesktopRow)}
+      <div style={{ marginBottom: 14 }}>
+        <button
+          onClick={() => setAbierto(!abierto)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "rgba(15,23,42,0.85)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 16,
+            padding: "16px 20px",
+            cursor: "pointer",
+            color: "white",
+          }}
+        >
+          <span style={{ fontSize: 18, fontWeight: 900 }}>
+            {icono} {titulo}{" "}
+            <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 14 }}>
+              {loadingCruce ? "(...)" : `(${lista.length})`}
+            </span>
+          </span>
+          <span style={{ fontSize: 16, color: "#94a3b8", transform: abierto ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▼</span>
+        </button>
+
+        {abierto && (
+          <div style={{ marginTop: 12 }}>
+            {loadingCruce ? (
+              <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 16 }}>Buscando...</div>
+            ) : lista.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 16, fontSize: 14 }}>Sin proveedores disponibles</div>
+            ) : isMobile ? (
+              <div style={{ display: "grid", gap: 10 }}>
+                {lista.map(renderOfertaMobile)}
+              </div>
+            ) : (
+              <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
+                  {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
+                </div>
+                {lista.map(renderOfertaDesktopRow)}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -381,10 +414,10 @@ function BuscarPageInner() {
         </div>
 
         {/* PANEL STOCK OEM */}
-        {renderPanel("Stock OEM", "🔧", stockOEM)}
+        {renderPanel("Stock OEM", "🔧", stockOEM, panelOEMAbierto, setPanelOEMAbierto)}
 
         {/* PANEL STOCK IAM */}
-        {renderPanel("Stock IAM", "⚙️", stockIAM)}
+        {renderPanel("Stock IAM", "⚙️", stockIAM, panelIAMAbierto, setPanelIAMAbierto)}
 
         {/* RESULTADOS DE TEXTO LIBRE (búsqueda por descripción / coincidencia parcial) */}
         <div style={{ marginBottom: isMobile ? 16 : 24, marginTop: 12 }}>
