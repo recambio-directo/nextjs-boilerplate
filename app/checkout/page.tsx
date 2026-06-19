@@ -18,6 +18,127 @@ type Producto = {
   proveedor_nombre?: string;
 };
 
+// ── FESTIVOS NACIONALES ──────────────────────────────────────────────────────
+const FESTIVOS = [
+  "2025-12-25","2026-01-01","2026-01-06",
+  "2026-04-02","2026-04-03","2026-05-01",
+  "2026-08-15","2026-10-12","2026-11-01",
+  "2026-12-06","2026-12-08","2026-12-25",
+];
+
+function esDiaHabil(fecha: Date): boolean {
+  const d = fecha.getDay();
+  if (d === 0 || d === 6) return false;
+  return !FESTIVOS.includes(fecha.toISOString().split("T")[0]);
+}
+
+function sumarDiasHabiles(desde: Date, dias: number): Date {
+  const r = new Date(desde);
+  let s = 0;
+  while (s < dias) { r.setDate(r.getDate() + 1); if (esDiaHabil(r)) s++; }
+  return r;
+}
+
+function calcularFechasEnvio(agencia: string) {
+  const ahora = new Date();
+  const horaEs = new Date(ahora.toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
+  const horaActual = horaEs.getHours() + horaEs.getMinutes() / 60;
+  const ag = agencia.toLowerCase();
+
+  const horaCierre = ag.includes("nacex") ? "17:00"
+    : ag.includes("mrw") ? "16:00"
+    : ag.includes("gls") ? "15:00"
+    : ag.includes("correos") ? "14:00"
+    : "16:00";
+
+  const horaCierreNum = parseInt(horaCierre);
+
+  let recogida = new Date(horaEs);
+  recogida.setHours(0, 0, 0, 0);
+  const recogidaHoy = esDiaHabil(recogida) && horaActual < horaCierreNum;
+  if (!recogidaHoy) recogida = sumarDiasHabiles(recogida, 1);
+
+  const diasTransito = ag.includes("nacex") ? 1
+    : ag.includes("mrw") ? 1
+    : ag.includes("gls") ? 2
+    : ag.includes("correos") ? 2
+    : 1;
+
+  const entrega = sumarDiasHabiles(recogida, diasTransito);
+  return { recogida, entrega, horaCierre, recogidaHoy };
+}
+
+function fmtFecha(fecha: Date): string {
+  return fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+}
+
+// ── COMPONENTE SELECTOR DE TRANSPORTE ───────────────────────────────────────
+function SelectorTransporte({
+  opciones, transporte, setTransporte,
+}: {
+  opciones: any[];
+  transporte: string | null;
+  setTransporte: (v: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+      {opciones.map(({ key, color, textColor, label, precio }) => {
+        const sel = transporte === key;
+        const esMisMedios = key === "Mis Medios";
+        const { recogida, entrega, horaCierre, recogidaHoy } = calcularFechasEnvio(key);
+        return (
+          <button
+            key={key}
+            onClick={() => setTransporte(key)}
+            style={{
+              borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+              textAlign: "left" as const,
+              background: sel ? "rgba(37,99,235,0.12)" : "rgba(255,255,255,0.03)",
+              border: sel ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)",
+              color: "white",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ background: color, borderRadius: 6, padding: "3px 10px" }}>
+                  <span style={{ color: textColor || "white", fontWeight: 900, fontSize: 13 }}>{label}</span>
+                </div>
+                <span style={{ fontWeight: 900, fontSize: 15, color: sel ? "#60a5fa" : "white" }}>
+                  {esMisMedios ? "Gratis" : `${Number(precio).toFixed(2)}€`}
+                </span>
+              </div>
+              {!esMisMedios ? (
+                <div style={{ display: "flex", gap: 14, flexShrink: 0 }}>
+                  <div style={{ textAlign: "center" as const }}>
+                    <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, margin: "0 0 2px" }}>RECOGIDA</p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: recogidaHoy ? "#4ade80" : "#fbbf24" }}>
+                      {recogidaHoy ? "Hoy" : fmtFecha(recogida)}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 10, color: "#475569" }}>antes {horaCierre}</p>
+                  </div>
+                  <div style={{ width: 1, background: "rgba(255,255,255,0.06)" }} />
+                  <div style={{ textAlign: "center" as const }}>
+                    <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, margin: "0 0 2px" }}>ENTREGA EST.</p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>{fmtFecha(entrega)}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: "#475569" }}>día hábil</p>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: "#64748b", fontSize: 12, margin: 0, alignSelf: "center" }}>Gestionas tú el envío</p>
+              )}
+            </div>
+            {!esMisMedios && !recogidaHoy && (
+              <p style={{ margin: "8px 0 0", fontSize: 11, color: "#f59e0b" }}>
+                ⚠️ Pedido fuera de horario — recogida el {fmtFecha(recogida)}
+              </p>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   const [empresa, setEmpresa] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -97,7 +218,7 @@ export default function CheckoutPage() {
         agenciasValidas = agenciasValidas.filter(a => disponibles.includes(a));
       }
 
-      // NACEX: consulta real de cobertura contra su web (no tabla fija de islas)
+      // NACEX: consulta real de cobertura
       let nacexDisponible = true;
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal, ciudad").eq("id", provId).single();
@@ -105,22 +226,15 @@ export default function CheckoutPage() {
         const poblacionOrigen = prov?.ciudad || "";
         const cpDestino = perfil?.codigo_postal || "";
         const poblacionDestino = perfil?.ciudad || "";
-
         if (!cpOrigen || !cpDestino) { nacexDisponible = false; break; }
-
         try {
           const dispRes = await fetch("/api/nacex/disponibilidad", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ cpOrigen, poblacionOrigen, cpDestino, poblacionDestino }),
           });
           const dispData = await dispRes.json();
           if (!dispData.ok || !dispData.disponible) { nacexDisponible = false; break; }
-        } catch (e) {
-          console.error("Error consultando disponibilidad NACEX:", e);
-          nacexDisponible = false;
-          break;
-        }
+        } catch (e) { nacexDisponible = false; break; }
       }
       if (nacexDisponible) agenciasValidas.push("NACEX");
 
@@ -170,11 +284,9 @@ export default function CheckoutPage() {
     try {
       const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
       const props = {
-        codigo, fecha,
-        proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono,
+        codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono,
         proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
-        cliente: empresa, clienteEmail, telefono, cif,
-        direccion, ciudad, codigoPostal, provincia,
+        cliente: empresa, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia,
         agencia: transporte || "", formaPago, productos: productosGrupo,
         subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion,
         numeroEnvio, numeroSolicitud,
@@ -204,19 +316,11 @@ export default function CheckoutPage() {
     for (const prod of productosGrupo) {
       if (provId === "sin_proveedor") continue;
       const cantidad = cantidadesCompradas[prod.referencia] || 1;
-      const { data: pieza } = await supabase
-        .from("piezas_publicadas")
-        .select("id, stock, tipo")
-        .eq("proveedor_id", provId)
-        .eq("referencia", prod.referencia)
-        .maybeSingle();
+      const { data: pieza } = await supabase.from("piezas_publicadas").select("id, stock, tipo").eq("proveedor_id", provId).eq("referencia", prod.referencia).maybeSingle();
       if (!pieza) continue;
       const nuevoStock = Math.max(0, (pieza.stock || 0) - cantidad);
-      if (nuevoStock === 0) {
-        await supabase.from("piezas_publicadas").delete().eq("id", pieza.id);
-      } else {
-        await supabase.from("piezas_publicadas").update({ stock: nuevoStock }).eq("id", pieza.id);
-      }
+      if (nuevoStock === 0) { await supabase.from("piezas_publicadas").delete().eq("id", pieza.id); }
+      else { await supabase.from("piezas_publicadas").update({ stock: nuevoStock }).eq("id", pieza.id); }
     }
   }
 
@@ -241,8 +345,8 @@ export default function CheckoutPage() {
         const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa, cif, telefono, direccion, ciudad, codigo_postal, provincia").eq("id", provId).single();
         emailProveedor = prov?.email || ""; nombreProveedor = prov?.nombre_empresa || grupo.nombre;
         proveedorCif = prov?.cif || ""; proveedorTelefono = prov?.telefono || "";
-        proveedorDireccion = prov?.direccion || "";
-        proveedorCiudad = prov?.ciudad || ""; proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
+        proveedorDireccion = prov?.direccion || ""; proveedorCiudad = prov?.ciudad || "";
+        proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
       }
       const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
@@ -250,13 +354,11 @@ export default function CheckoutPage() {
       pedidosCreados.push(codigo);
       primerPedido = false;
 
-      // ✅ Descontar stock — si llega a 0 se elimina de la plataforma
       await descontarStock(provId, grupo.productos, cantidades);
 
       if (pedidoInsertado?.id) await generarYGuardarPDFs(
-        pedidoInsertado.id, codigo,
-        nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
-        proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+        pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono,
+        proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
         grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha
       );
 
@@ -278,16 +380,8 @@ export default function CheckoutPage() {
           });
           const mrwData = await mrwRes.json();
           if (mrwData.ok && mrwData.numeroEnvio) {
-            await generarYGuardarPDFs(
-              pedidoInsertado.id, codigo,
-              nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
-              proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
-              grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha,
-              mrwData.numeroEnvio, mrwData.numeroSolicitud
-            );
-          } else {
-            console.error("MRW error:", mrwData.error);
-          }
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, mrwData.numeroEnvio, mrwData.numeroSolicitud);
+          } else { console.error("MRW error:", mrwData.error); }
         } catch (mrwErr) { console.error("Error MRW:", mrwErr); }
       }
 
@@ -296,45 +390,15 @@ export default function CheckoutPage() {
           const provDireccionParts = proveedorDireccion.split(",");
           const provCiudad = provDireccionParts[provDireccionParts.length - 1]?.trim() || proveedorCiudad || "";
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
-
           const nacexRes = await fetch("/api/nacex/crear-envio", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedidoId: pedidoInsertado.id,
-              pedidoCodigo: codigo,
-              remitenteNombre: nombreProveedor,
-              remitenteDireccion: provDireccionSolo,
-              remitenteCodigoPostal: proveedorCodigoPostal,
-              remitentePoblacion: provCiudad,
-              remitenteTelefono: proveedorTelefono,
-              destinatarioNombre: empresa || user.email,
-              destinatarioDireccion: direccion,
-              destinatarioCodigoPostal: codigoPostal,
-              destinatarioPoblacion: ciudad,
-              destinatarioTelefono: telefono,
-              destinatarioEmail: user.email,
-              pesoKg: Math.max(1, grupo.productos.length * 2),
-            }),
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }),
           });
           const nacexData = await nacexRes.json();
           if (nacexData.ok && nacexData.localizador) {
-            await supabase.from("pedidos")
-              .update({
-                tracking_nacex: nacexData.localizador,
-                codigo_postal_destino: codigoPostal,
-              })
-              .eq("id", pedidoInsertado.id);
-
-            await generarYGuardarPDFs(
-              pedidoInsertado.id, codigo,
-              nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
-              proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
-              grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha,
-              nacexData.localizador
-            );
-          } else {
-            console.error("NACEX error:", nacexData.error);
-          }
+            await supabase.from("pedidos").update({ tracking_nacex: nacexData.localizador, codigo_postal_destino: codigoPostal }).eq("id", pedidoInsertado.id);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, nacexData.localizador);
+          } else { console.error("NACEX error:", nacexData.error); }
         } catch (nacexErr) { console.error("Error NACEX:", nacexErr); }
       }
 
@@ -354,6 +418,15 @@ export default function CheckoutPage() {
     if (perfilTipo?.tipo === "proveedor") window.location.href = "/dashboard/proveedor";
     else window.location.href = "/dashboard/pedidos";
   }
+
+  const todasOpciones = [
+    { key: "MRW",             color: "#E30613", label: "MRW 24H",           precio: 7.95 },
+    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX", precio: 7.50 },
+    { key: "GLS",             color: "#F5A800", label: "GLS",                precio: 6.50 },
+    { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: 5.00 },
+    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)", label: "Mis Medios", precio: 0 },
+  ];
+  const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
 
   const ModalRDPago = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -405,15 +478,6 @@ export default function CheckoutPage() {
     </div>
   );
 
-  const todasOpciones = [
-    { key: "MRW", color: "#E30613", label: "MRW 24H", precio: "7.95€" },
-    { key: "NACEX", color: "#FFD200", textColor: "#1a1a1a", label: "NACEX", precio: "7.50€" },
-    { key: "GLS", color: "#F5A800", label: "GLS", precio: "6.50€" },
-    { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: "5.00€" },
-    { key: "Mis Medios", color: "rgba(139,92,246,0.5)", label: "Mis Medios", precio: "Gratis" },
-  ];
-  const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
-
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", minHeight: "100vh", padding: "16px 12px 100px" }}>
@@ -427,7 +491,7 @@ export default function CheckoutPage() {
           <p style={{ color: "#94a3b8", textAlign: "center", padding: "20px 0" }}>Cesta vacía</p>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
-            {Array.from(grupos).map(([provId, grupo], gi) => (
+            {Array.from(grupos).map(([provId, grupo]) => (
               <div key={provId}>
                 {Array.from(grupos).length > 1 && <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🏭 {grupo.nombre}</p>}
                 {grupo.productos.map(p => (
@@ -456,16 +520,7 @@ export default function CheckoutPage() {
 
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🚚 Transporte</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          {opciones.map(({ key, color, textColor, label, precio }) => (
-            <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 12, padding: "14px 10px", cursor: "pointer", textAlign: "center", background: transporte === key ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white" }}>
-              <div style={{ background: color, borderRadius: 6, padding: "3px 8px", display: "inline-block", marginBottom: 6 }}>
-                <span style={{ color: (textColor as string) || "white", fontWeight: 900, fontSize: 12 }}>{label}</span>
-              </div>
-              <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>{precio}</p>
-            </button>
-          ))}
-        </div>
+        <SelectorTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
       </div>
 
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -552,14 +607,7 @@ export default function CheckoutPage() {
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 30, padding: 32, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 30 }}>
           <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 26 }}>TRANSPORTE</h2>
           {!transporte && <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "12px 18px", borderRadius: 12, marginBottom: 20, fontSize: 14 }}>Selecciona una opción de transporte para continuar</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
-            {opciones.map(({ key, color, textColor, label, precio }) => (
-              <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 20, padding: 22, color: "white", fontWeight: 800, cursor: "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 10, background: transporte === key ? "rgba(37,99,235,0.1)" : "#0f172a", border: transporte === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ background: color, borderRadius: 8, padding: "6px 14px" }}><span style={{ color: (textColor as string) || "white", fontWeight: 900, fontSize: 16 }}>{label}</span></div>
-                <div style={{ fontSize: 13, color: "#94a3b8" }}>{precio}</div>
-              </button>
-            ))}
-          </div>
+          <SelectorTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
         </div>
       </section>
 
