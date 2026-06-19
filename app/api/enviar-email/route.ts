@@ -1,14 +1,8 @@
 // app/api/enviar-email/route.ts
-// Nuevo flujo de emails al confirmar pedido:
-// Mail 1 → Proveedor: albarán PDF adjunto
-// Mail 2 → Cliente: albarán PDF adjunto
-// Mail 3 → Proveedor: etiqueta PDF + dossier embalaje PDF
-
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -24,12 +18,10 @@ export async function POST(request: Request) {
       codigo, fecha, pedidoId,
     } = body;
 
-    // Obtener datos completos del proveedor y cliente desde Supabase
     let proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "";
     let proveedorCiudad = "", proveedorCodigoPostal = "", proveedorProvincia = "";
     let clienteCiudad = "", clienteCodigoPostal = "", clienteProvincia = "";
 
-    // Buscar proveedor por email
     const { data: provPerfil } = await supabase
       .from("usuarios")
       .select("cif, telefono, direccion, ciudad, codigo_postal, provincia")
@@ -45,7 +37,6 @@ export async function POST(request: Request) {
       proveedorProvincia = provPerfil.provincia || "";
     }
 
-    // Buscar cliente por email
     const { data: clientePerfil } = await supabase
       .from("usuarios")
       .select("ciudad, codigo_postal, provincia")
@@ -58,18 +49,30 @@ export async function POST(request: Request) {
       clienteProvincia = clientePerfil.provincia || "";
     }
 
-    // Obtener URLs de los PDFs guardados en Supabase Storage
+    // Obtener URLs de PDFs — ahora incluye etiqueta_nacex_url
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url")
+      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, agencia, transporte")
       .eq("id", pedidoId)
       .single();
 
     const albaranUrl = pedidoData?.albaran_url || null;
-    // Usar etiqueta MRW oficial si existe, sino la nuestra
-    const etiquetaUrl = pedidoData?.etiqueta_mrw_url || pedidoData?.etiqueta_envio_url || null;
 
-    // Descargar PDFs como base64 para adjuntar
+    // Elegir la etiqueta correcta según la agencia del pedido
+    const agenciaPedido = (pedidoData?.agencia || pedidoData?.transporte || agencia || "").toLowerCase();
+    const esNacex = agenciaPedido.includes("nacex");
+    const esMrw = agenciaPedido.includes("mrw");
+
+    let etiquetaUrl: string | null = null;
+    if (esNacex && pedidoData?.etiqueta_nacex_url) {
+      etiquetaUrl = pedidoData.etiqueta_nacex_url;
+    } else if (esMrw && pedidoData?.etiqueta_mrw_url) {
+      etiquetaUrl = pedidoData.etiqueta_mrw_url;
+    } else {
+      // Fallback: etiqueta interna para otras agencias (GLS, Correos Express, Mis Medios)
+      etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
+    }
+
     async function urlToBase64(url: string): Promise<string | null> {
       try {
         const res = await fetch(url);
@@ -85,10 +88,9 @@ export async function POST(request: Request) {
       ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
       : new Date().toLocaleDateString("es-ES");
 
-    const refsTexto = (productos || []).map((p: any) => `${p.referencia} — ${p.descripcion || ""}`).join("\n");
     const agenciaUpper = (agencia || "").toUpperCase();
 
-    // ── MAIL 1: PROVEEDOR — Nuevo pedido + albarán ────────────────────────────
+    // ── MAIL 1: PROVEEDOR — Nuevo pedido + albarán ──────────────────────────
     const mailProveedor = await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
       to: proveedorEmail,
@@ -105,7 +107,6 @@ export async function POST(request: Request) {
             </div>
             <p style="color:#374151;font-size:15px">Hola <strong>${proveedorNombre}</strong>,</p>
             <p style="color:#374151">Has recibido un nuevo pedido a través de Recambio Directo. Adjunto encontrarás el albarán con todos los detalles.</p>
-
             <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 12px;font-size:14px">📋 RESUMEN DEL PEDIDO</p>
               <table style="width:100%;font-size:13px;color:#374151">
@@ -119,7 +120,6 @@ export async function POST(request: Request) {
                 <tr><td style="padding:4px 0;color:#64748b">Forma de pago:</td><td>${formaPago === "rd_pago" ? "RD Pago" : "Tarjeta bancaria"}</td></tr>
               </table>
             </div>
-
             <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
               ${(productos || []).map((p: any) => `
@@ -132,14 +132,12 @@ export async function POST(request: Request) {
                 <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
               </div>
             </div>
-
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
               <p style="color:#1e40af;font-size:13px;margin:0">
                 📧 Recibirás un segundo email con la <strong>etiqueta de envío</strong> y las <strong>instrucciones de embalaje</strong>.
                 Por favor, prepara el pedido y espera la recogida de <strong>${agenciaUpper}</strong>.
               </p>
             </div>
-
             <p style="color:#64748b;font-size:12px;margin-top:24px">
               Gestiona este pedido desde tu panel: <a href="https://www.recambio-directo.com/dashboard/proveedor" style="color:#2563eb">Panel Proveedor</a>
             </p>
@@ -147,13 +145,10 @@ export async function POST(request: Request) {
           <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
         </div>
       `,
-      attachments: albaranBase64 ? [{
-        filename: `albaran-${codigo}.pdf`,
-        content: albaranBase64,
-      }] : [],
+      attachments: albaranBase64 ? [{ filename: `albaran-${codigo}.pdf`, content: albaranBase64 }] : [],
     });
 
-    // ── MAIL 2: CLIENTE — Confirmación + albarán ──────────────────────────────
+    // ── MAIL 2: CLIENTE — Confirmación + albarán ────────────────────────────
     const mailCliente = await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
       to: clienteEmail,
@@ -170,7 +165,6 @@ export async function POST(request: Request) {
             </div>
             <p style="color:#374151;font-size:15px">Hola <strong>${cliente}</strong>,</p>
             <p style="color:#374151">Tu pedido ha sido confirmado y el proveedor ha sido notificado. Adjunto encontrarás el albarán del pedido.</p>
-
             <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 12px;font-size:14px">📋 TU PEDIDO</p>
               <table style="width:100%;font-size:13px;color:#374151">
@@ -182,7 +176,6 @@ export async function POST(request: Request) {
                 <tr><td style="padding:4px 0;color:#64748b">Forma de pago:</td><td>${formaPago === "rd_pago" ? "RD Pago" : "Tarjeta bancaria"}</td></tr>
               </table>
             </div>
-
             <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
               ${(productos || []).map((p: any) => `
@@ -195,13 +188,11 @@ export async function POST(request: Request) {
                 <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
               </div>
             </div>
-
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
               <p style="color:#1e40af;font-size:13px;margin:0">
                 🚚 Recibirás una notificación cuando tu pedido sea enviado con el número de seguimiento de <strong>${agenciaUpper}</strong>.
               </p>
             </div>
-
             <p style="color:#64748b;font-size:12px;margin-top:24px">
               Sigue tu pedido desde tu panel: <a href="https://www.recambio-directo.com/dashboard/pedidos" style="color:#2563eb">Ver mis pedidos</a>
             </p>
@@ -209,13 +200,16 @@ export async function POST(request: Request) {
           <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
         </div>
       `,
-      attachments: albaranBase64 ? [{
-        filename: `albaran-${codigo}.pdf`,
-        content: albaranBase64,
-      }] : [],
+      attachments: albaranBase64 ? [{ filename: `albaran-${codigo}.pdf`, content: albaranBase64 }] : [],
     });
 
-    // ── MAIL 3: PROVEEDOR — Etiqueta + dossier embalaje ───────────────────────
+    // ── MAIL 3: PROVEEDOR — Etiqueta correcta + dossier embalaje ────────────
+    const nombreEtiqueta = esNacex
+      ? `etiqueta-nacex-${codigo}.pdf`
+      : esMrw
+        ? `etiqueta-mrw-${codigo}.pdf`
+        : `etiqueta-envio-${codigo}.pdf`;
+
     const mailEmbalaje = await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
       to: proveedorEmail,
@@ -231,52 +225,30 @@ export async function POST(request: Request) {
               <p style="color:#92400e;font-weight:700;margin:0;font-size:15px">📦 Instrucciones de embalaje — ${codigo}</p>
             </div>
             <p style="color:#374151;font-size:15px">Hola <strong>${proveedorNombre}</strong>,</p>
-            <p style="color:#374151">Adjunto encontrarás la <strong>etiqueta de envío</strong> y el <strong>dossier de instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>
-
+            <p style="color:#374151">Adjunto encontrarás la <strong>etiqueta de envío de ${agenciaUpper}</strong> y el <strong>dossier de instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>
             <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 14px;font-size:14px">📋 INSTRUCCIONES RÁPIDAS</p>
-
               <div style="display:flex;gap:12px;margin-bottom:12px">
                 <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">1</div>
-                <div>
-                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Prepara el embalaje</p>
-                  <p style="color:#64748b;font-size:12px;margin:0">Usa una caja de cartón resistente. No reutilices cajas dañadas o deterioradas.</p>
-                </div>
+                <div><p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Prepara el embalaje</p><p style="color:#64748b;font-size:12px;margin:0">Usa una caja de cartón resistente. No reutilices cajas dañadas o deterioradas.</p></div>
               </div>
-
               <div style="display:flex;gap:12px;margin-bottom:12px">
                 <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">2</div>
-                <div>
-                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Protege la mercancía</p>
-                  <p style="color:#64748b;font-size:12px;margin:0">Envuelve cada pieza con plástico de burbujas o papel de relleno. Las piezas metálicas deben ir separadas para evitar golpes.</p>
-                </div>
+                <div><p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Protege la mercancía</p><p style="color:#64748b;font-size:12px;margin:0">Envuelve cada pieza con plástico de burbujas o papel de relleno.</p></div>
               </div>
-
               <div style="display:flex;gap:12px;margin-bottom:12px">
                 <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">3</div>
-                <div>
-                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Incluye el albarán dentro</p>
-                  <p style="color:#64748b;font-size:12px;margin:0">Mete una copia del albarán dentro del paquete antes de cerrarlo.</p>
-                </div>
+                <div><p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Incluye el albarán dentro</p><p style="color:#64748b;font-size:12px;margin:0">Mete una copia del albarán dentro del paquete antes de cerrarlo.</p></div>
               </div>
-
               <div style="display:flex;gap:12px;margin-bottom:12px">
                 <div style="width:28px;height:28px;background:#0b1736;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">4</div>
-                <div>
-                  <p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Pega la etiqueta</p>
-                  <p style="color:#64748b;font-size:12px;margin:0">Imprime y pega la etiqueta adjunta en la parte superior de la caja. Debe ser visible y no estar doblada.</p>
-                </div>
+                <div><p style="font-weight:700;color:#0b1736;margin:0 0 4px;font-size:13px">Pega la etiqueta ${agenciaUpper}</p><p style="color:#64748b;font-size:12px;margin:0">Imprime y pega la etiqueta adjunta en la parte superior de la caja. Debe ser visible y no estar doblada.</p></div>
               </div>
-
               <div style="display:flex;gap:12px">
                 <div style="width:28px;height:28px;background:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:13px;flex-shrink:0">5</div>
-                <div>
-                  <p style="font-weight:700;color:#16a34a;margin:0 0 4px;font-size:13px">Espera la recogida de ${agenciaUpper}</p>
-                  <p style="color:#64748b;font-size:12px;margin:0">La agencia pasará a recoger el paquete. Consérva el resguardo de entrega como justificante.</p>
-                </div>
+                <div><p style="font-weight:700;color:#16a34a;margin:0 0 4px;font-size:13px">Espera la recogida de ${agenciaUpper}</p><p style="color:#64748b;font-size:12px;margin:0">La agencia pasará a recoger el paquete. Conserva el resguardo de entrega como justificante.</p></div>
               </div>
             </div>
-
             <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin:16px 0">
               <p style="color:#dc2626;font-size:13px;font-weight:700;margin:0 0 6px">⚠️ IMPORTANTE</p>
               <ul style="color:#7f1d1d;font-size:12px;margin:0;padding-left:18px">
@@ -286,13 +258,11 @@ export async function POST(request: Request) {
                 <li>Cualquier daño por embalaje deficiente puede reclamarse al remitente</li>
               </ul>
             </div>
-
             <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin:16px 0">
               <p style="color:#166534;font-size:13px;margin:0">
-                📎 Adjuntos a este email: <strong>etiqueta de envío (PDF)</strong> y <strong>dossier de instrucciones completo (PDF)</strong>.
+                📎 Adjunto a este email: <strong>etiqueta de envío ${agenciaUpper} (PDF)</strong>.
               </p>
             </div>
-
             <p style="color:#64748b;font-size:12px;margin-top:20px">
               ¿Tienes algún problema con el pedido? Contáctanos en 
               <a href="mailto:info@recambio-directo.com" style="color:#2563eb">info@recambio-directo.com</a>
@@ -302,15 +272,12 @@ export async function POST(request: Request) {
           <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
         </div>
       `,
-      attachments: [
-        ...(etiquetaBase64 ? [{
-          filename: `etiqueta-envio-${codigo}.pdf`,
-          content: etiquetaBase64,
-        }] : []),
-      ],
+      attachments: etiquetaBase64
+        ? [{ filename: nombreEtiqueta, content: etiquetaBase64 }]
+        : [],
     });
 
-    // ── RESTAR STOCK EN SERVIDOR ──────────────────────────────────────────────
+    // ── RESTAR STOCK EN SERVIDOR ─────────────────────────────────────────────
     try {
       for (const prod of (productos || [])) {
         const cant = prod.cantidad || 1;

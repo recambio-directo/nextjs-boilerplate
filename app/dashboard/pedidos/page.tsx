@@ -14,7 +14,6 @@ function getTrackingUrl(agencia: string, tracking: string): string {
   return `https://www.google.com/search?q=tracking+${encodeURIComponent(agencia)}+${tracking}`;
 }
 
-// Devuelve el tracking activo del pedido y la URL de seguimiento
 function getTrackingInfo(pedido: any): { tracking: string; url: string } | null {
   const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
   if (agencia.includes("nacex") && pedido.tracking_nacex) {
@@ -234,6 +233,7 @@ export default function Pedidos() {
     const anulado = pedido.anulado || false;
     const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
     const agencia = pedido.agencia || pedido.transporte || "";
+    const esNacex = agencia.toLowerCase().includes("nacex");
     const trackingInfo = getTrackingInfo(pedido);
 
     return (
@@ -250,11 +250,15 @@ export default function Pedidos() {
           </div>
         )}
 
-        {/* Documentos */}
+        {/* Documentos — solo se muestra la etiqueta de la agencia elegida */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán PDF</a>}
-          {esVendedor && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta envío</a>}
-          {esVendedor && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
+          {esVendedor && esNacex && pedido.etiqueta_nacex_url && (
+            <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>
+          )}
+          {esVendedor && !esNacex && pedido.etiqueta_envio_url && (
+            <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta envío</a>
+          )}
           {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura PDF</a>}
         </div>
 
