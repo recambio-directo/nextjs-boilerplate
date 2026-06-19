@@ -5,12 +5,19 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/nacex/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/ftp/procesar",
       "schedule": "0 5 * * *"
     }
   ],
   "functions": {
     "app/api/mrw/**": {
+      "maxDuration": 30
+    },
+    "app/api/nacex/**": {
       "maxDuration": 30
     }
   },
