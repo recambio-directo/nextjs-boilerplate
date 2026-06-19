@@ -31,6 +31,7 @@ type Pedido = {
   estado_envio?: string;
   agencia?: string;
   tracking?: string;
+  tracking_nacex?: string;
   transporte?: string;
   productos?: any[];
   created_at?: string;
@@ -42,6 +43,7 @@ type Pedido = {
   factura_nombre?: string;
   albaran_url?: string;
   etiqueta_envio_url?: string;
+  etiqueta_nacex_url?: string;
 };
 
 type Mensaje = {
@@ -59,14 +61,27 @@ const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sáb
 function getTrackingUrl(agencia: string, tracking: string): string {
   const ag = (agencia || "").toLowerCase();
   if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
+  if (ag.includes("nacex")) return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${tracking.split("/")[0]}&numero_albaran=${tracking.split("/")[1]}&externo=N`;
   if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
   if (ag.includes("correos")) return `https://www.correos.es/es/es/herramientas/localizador/envios/detalle?codigoEnvio=${tracking}`;
   return `https://www.google.com/search?q=tracking+${agencia}+${tracking}`;
 }
 
+function getTrackingInfo(pedido: Pedido): { tracking: string; url: string } | null {
+  const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
+  if (agencia.includes("nacex") && pedido.tracking_nacex) {
+    return { tracking: pedido.tracking_nacex, url: getTrackingUrl("nacex", pedido.tracking_nacex) };
+  }
+  if (pedido.tracking) {
+    return { tracking: pedido.tracking, url: getTrackingUrl(agencia, pedido.tracking) };
+  }
+  return null;
+}
+
 function LogoAgencia({ agencia }: { agencia?: string }) {
   const ag = (agencia || "").toLowerCase();
   if (ag.includes("mrw")) return <span style={{ background: "#E30613", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>MRW</span>;
+  if (ag.includes("nacex")) return <span style={{ background: "#FFD200", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>NACEX</span>;
   if (ag.includes("gls")) return <span style={{ background: "#F5A800", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
   if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
   if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>PROPIO</span>;
@@ -284,15 +299,7 @@ export default function ProveedorPage() {
     if (tipo === "iam") query = query.neq("tipo", "OEM");
     const { data, count } = await query;
     setPiezas(data || []);
-    // Solo actualizar totalPiezas si no hay filtro de tipo activo
-    // para no machacar los contadores de las pestañas
-    if (!tipo) {
-      if (count !== null) setTotalPiezas(count);
-    } else {
-      // Cuando filtramos por tipo, el count es el del tipo filtrado
-      // lo mostramos en la paginación pero no tocamos totalPiezas global
-      if (count !== null) setTotalPiezas(count);
-    }
+    if (count !== null) setTotalPiezas(count);
     setPaginaActual(pagina);
   }
 
@@ -458,8 +465,6 @@ export default function ProveedorPage() {
   });
   const excCp = exclusiones.filter(e => e.tipo === "cp");
   const excClientes = exclusiones.filter(e => e.tipo === "cliente");
-
-  // Filtrado almacén por tipo — se hace en query, no en memoria
   const piezasFiltradas = piezas;
 
   return (
@@ -585,7 +590,6 @@ export default function ProveedorPage() {
                 </div>
               </div>
               {piezaGuardada && <div style={successBanner}>✅ Pieza publicada correctamente</div>}
-
               <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
                 {[
                   { key: "todos", label: `📦 Todas (${totalPiezas.toLocaleString()})`, bg: undefined },
@@ -602,7 +606,6 @@ export default function ProveedorPage() {
                   }} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
                 ))}
               </div>
-
               <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" }}>
                 <button onClick={() => setSeccion("publicar")} style={addButton}>➕ PUBLICAR NUEVA PIEZA</button>
                 <button onClick={() => setSeccion("importar")} style={importButton}>📥 IMPORTAR EXCEL</button>
@@ -624,11 +627,7 @@ export default function ProveedorPage() {
                         {piezasFiltradas.map(pieza => (
                           <tr key={pieza.id} style={trStyle}>
                             <td style={tdStyle}><strong>{pieza.referencia}</strong></td>
-                            <td style={tdStyle}>
-                              <span style={{ background: (pieza as any).tipo === "OEM" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: (pieza as any).tipo === "OEM" ? "#60a5fa" : "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-                                {(pieza as any).tipo || "IAM"}
-                              </span>
-                            </td>
+                            <td style={tdStyle}><span style={{ background: (pieza as any).tipo === "OEM" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: (pieza as any).tipo === "OEM" ? "#60a5fa" : "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>{(pieza as any).tipo || "IAM"}</span></td>
                             <td style={tdStyle}>{pieza.descripcion}</td>
                             <td style={tdStyle}>{pieza.marca || "-"}</td>
                             <td style={tdStyle}>{editandoId === pieza.id ? <input value={editPrecio} onChange={e => setEditPrecio(e.target.value)} style={miniInput} type="number" /> : <span style={{ color: "#22c55e", fontWeight: 900 }}>{pieza.precio}€</span>}</td>
@@ -748,6 +747,7 @@ export default function ProveedorPage() {
                         const mensajesPedido = mensajes.filter(m => m.pedido_id === pedido.id);
                         const expandido = pedidoExpandido === pedido.id;
                         const puedeAnular = !pedido.anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
+                        const trackingInfo = getTrackingInfo(pedido);
                         return (
                           <React.Fragment key={pedido.id}>
                             <tr style={{ ...trStyle, cursor: "pointer", opacity: pedido.anulado ? 0.6 : 1 }} onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}>
@@ -757,7 +757,12 @@ export default function ProveedorPage() {
                               <td style={tdStyle}><div style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>{pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}</td>
                               <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
                               <td style={tdStyle}><LogoAgencia agencia={pedido.agencia || pedido.transporte} /></td>
-                              <td style={tdStyle}>{pedido.tracking ? <a href={getTrackingUrl(pedido.agencia || "", pedido.tracking)} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{pedido.tracking}</a> : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin tracking</span>}</td>
+                              <td style={tdStyle}>
+                                {trackingInfo
+                                  ? <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{trackingInfo.tracking}</a>
+                                  : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin tracking</span>
+                                }
+                              </td>
                               <td style={tdStyle}><EstadoEnvio estado={pedido.estado_envio} anulado={pedido.anulado} /></td>
                               <td style={tdStyle}><button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={btnAccion}>{expandido ? "▲ Cerrar" : "▼ Detalle"}</button></td>
                             </tr>
@@ -793,8 +798,9 @@ export default function ProveedorPage() {
                                   {!pedido.anulado && (
                                     <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
                                       <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
-                                        {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albaran cliente</a>}
-                                        {pestañaPedidos === "recibidos" && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envio</a>}
+                                        {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán cliente</a>}
+                                        {pestañaPedidos === "recibidos" && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
+                                        {pestañaPedidos === "recibidos" && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
                                       </div>
                                       <div style={{ flex: 1 }}>
                                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
@@ -917,7 +923,7 @@ export default function ProveedorPage() {
               <div style={{ maxWidth: 600 }}>
                 <div style={{ ...formCard, border: "1px solid rgba(37,99,235,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📧 Email para facturas</h2>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí. Aparecerá al solicitarte una factura.</p>
+                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí.</p>
                   <input type="email" placeholder="contabilidad@tuempresa.com" value={emailFacturas} onChange={e => setEmailFacturas(e.target.value)} style={{ ...formInput, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.1)" }} />
                   {emailFacturas && <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 6 }}>✓ Las solicitudes de factura indicarán este email</p>}
                   <button onClick={async () => { if (!userId) return; setGuardandoEmailFacturas(true); await supabase.from("usuarios").update({ email_facturas: emailFacturas.trim().toLowerCase() || null }).eq("id", userId); setGuardandoEmailFacturas(false); setEmailFacturasGuardado(true); setTimeout(() => setEmailFacturasGuardado(false), 3000); }} disabled={guardandoEmailFacturas} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", opacity: guardandoEmailFacturas ? 0.7 : 1 }}>
