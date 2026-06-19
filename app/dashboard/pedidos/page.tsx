@@ -8,16 +8,35 @@ import { supabase } from "../../lib/supabase";
 function getTrackingUrl(agencia: string, tracking: string): string {
   const ag = (agencia || "").toLowerCase();
   if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
+  if (ag.includes("nacex")) return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${tracking.split("/")[0]}&numero_albaran=${tracking.split("/")[1]}&externo=N`;
   if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
   if (ag.includes("correos")) return `https://www.correosexpress.com/web/correosexpress/busqueda-de-envios?referencia=${tracking}`;
   return `https://www.google.com/search?q=tracking+${encodeURIComponent(agencia)}+${tracking}`;
 }
 
-function TrackingBadge({ tracking, agencia }: { tracking: string; agencia: string }) {
+// Devuelve el tracking activo del pedido y la URL de seguimiento
+function getTrackingInfo(pedido: any): { tracking: string; url: string } | null {
+  const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
+  if (agencia.includes("nacex") && pedido.tracking_nacex) {
+    return {
+      tracking: pedido.tracking_nacex,
+      url: getTrackingUrl("nacex", pedido.tracking_nacex),
+    };
+  }
+  if (pedido.tracking) {
+    return {
+      tracking: pedido.tracking,
+      url: getTrackingUrl(agencia, pedido.tracking),
+    };
+  }
+  return null;
+}
+
+function TrackingBadge({ tracking, url }: { tracking: string; url: string }) {
   if (!tracking) return null;
   return (
     <a
-      href={getTrackingUrl(agencia, tracking)}
+      href={url}
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
@@ -175,7 +194,8 @@ export default function Pedidos() {
       const proveedor = getProveedorPedido(p);
       const comprador = getCompradorPedido(p);
       const productos = (p.productos || []).map((pr: any) => `${pr.referencia} ${pr.descripcion}`).join(" ").toLowerCase();
-      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || comprador.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q) || (p.tracking || "").toLowerCase().includes(q))) return false;
+      const trackingInfo = getTrackingInfo(p);
+      if (!((p.codigo || "").toLowerCase().includes(q) || String(p.id).includes(q) || proveedor.nombre.toLowerCase().includes(q) || comprador.nombre.toLowerCase().includes(q) || productos.includes(q) || (p.agencia || p.transporte || "").toLowerCase().includes(q) || (trackingInfo?.tracking || "").toLowerCase().includes(q))) return false;
     }
     if (filtroEstado !== "todos") {
       if (filtroEstado === "anulado") return p.anulado;
@@ -214,15 +234,17 @@ export default function Pedidos() {
     const anulado = pedido.anulado || false;
     const puedeAnular = !anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
     const agencia = pedido.agencia || pedido.transporte || "";
+    const trackingInfo = getTrackingInfo(pedido);
+
     return (
       <>
         {/* TRACKING */}
-        {pedido.tracking && !anulado && (
+        {trackingInfo && !anulado && (
           <div style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
             <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🚚 SEGUIMIENTO DEL ENVÍO</p>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <span style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: "monospace" }}>{pedido.tracking}</span>
-              <TrackingBadge tracking={pedido.tracking} agencia={agencia} />
+              <span style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: "monospace" }}>{trackingInfo.tracking}</span>
+              <TrackingBadge tracking={trackingInfo.tracking} url={trackingInfo.url} />
             </div>
             <p style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>Clic en el número para rastrear tu envío en {agencia.toUpperCase() || "la agencia"}</p>
           </div>
@@ -232,6 +254,7 @@ export default function Pedidos() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán PDF</a>}
           {esVendedor && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta envío</a>}
+          {esVendedor && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
           {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura PDF</a>}
         </div>
 
@@ -355,6 +378,7 @@ export default function Pedidos() {
             const productos = pedido.productos || [];
             const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
             const agencia = pedido.agencia || pedido.transporte || "";
+            const trackingInfo = getTrackingInfo(pedido);
             return (
               <div key={pedido.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", opacity: anulado ? 0.75 : 1 }}>
                 <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
@@ -371,8 +395,8 @@ export default function Pedidos() {
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
                     <span style={{ color: "#94a3b8" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
                     {agencia && <span style={{ color: "#94a3b8" }}>🚚 {agencia}</span>}
-                    {pedido.tracking && (
-                      <a href={getTrackingUrl(agencia, pedido.tracking)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {pedido.tracking}</a>
+                    {trackingInfo && (
+                      <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {trackingInfo.tracking}</a>
                     )}
                     <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
                   </div>
@@ -409,6 +433,7 @@ export default function Pedidos() {
             const productos = pedido.productos || [];
             const contraparte = esVendedor ? getCompradorPedido(pedido) : getProveedorPedido(pedido);
             const agencia = pedido.agencia || pedido.transporte || "";
+            const trackingInfo = getTrackingInfo(pedido);
             return (
               <React.Fragment key={pedido.id}>
                 <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1.2fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
@@ -428,9 +453,9 @@ export default function Pedidos() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
                   <div onClick={e => e.stopPropagation()}>
-                    {pedido.tracking ? (
-                      <a href={getTrackingUrl(agencia, pedido.tracking)} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "none", background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", padding: "5px 10px", borderRadius: 8 }}>
-                        🔍 {pedido.tracking}
+                    {trackingInfo ? (
+                      <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "none", background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", padding: "5px 10px", borderRadius: 8 }}>
+                        🔍 {trackingInfo.tracking}
                       </a>
                     ) : (
                       <span style={{ color: "#475569", fontSize: 12 }}>{agencia || "—"}</span>
