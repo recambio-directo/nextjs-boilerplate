@@ -96,6 +96,34 @@ export default function CheckoutPage() {
         const disponibles = getAgenciasDisponibles(cpOrigen, cpDestino);
         agenciasValidas = agenciasValidas.filter(a => disponibles.includes(a));
       }
+
+      // NACEX: consulta real de cobertura contra su web (no tabla fija de islas)
+      let nacexDisponible = true;
+      for (const provId of proveedorIds) {
+        const { data: prov } = await supabase.from("usuarios").select("codigo_postal, ciudad").eq("id", provId).single();
+        const cpOrigen = prov?.codigo_postal || "";
+        const poblacionOrigen = prov?.ciudad || "";
+        const cpDestino = perfil?.codigo_postal || "";
+        const poblacionDestino = perfil?.ciudad || "";
+
+        if (!cpOrigen || !cpDestino) { nacexDisponible = false; break; }
+
+        try {
+          const dispRes = await fetch("/api/nacex/disponibilidad", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cpOrigen, poblacionOrigen, cpDestino, poblacionDestino }),
+          });
+          const dispData = await dispRes.json();
+          if (!dispData.ok || !dispData.disponible) { nacexDisponible = false; break; }
+        } catch (e) {
+          console.error("Error consultando disponibilidad NACEX:", e);
+          nacexDisponible = false;
+          break;
+        }
+      }
+      if (nacexDisponible) agenciasValidas.push("NACEX");
+
       setAgenciasDisponibles(agenciasValidas);
       if (transporte && !agenciasValidas.includes(transporte)) setTransporte(null);
     }
@@ -110,6 +138,7 @@ export default function CheckoutPage() {
   function getPrecioTransporte(): number {
     if (!transporte || transporte === "Mis Medios") return 0;
     if (transporte === "MRW") return 7.95;
+    if (transporte === "NACEX") return 7.50;
     if (transporte === "GLS") return 6.50;
     if (transporte === "Correos Express") return 5.00;
     return 0;
@@ -262,6 +291,53 @@ export default function CheckoutPage() {
         } catch (mrwErr) { console.error("Error MRW:", mrwErr); }
       }
 
+      if (transporte === "NACEX" && pedidoInsertado?.id) {
+        try {
+          const provDireccionParts = proveedorDireccion.split(",");
+          const provCiudad = provDireccionParts[provDireccionParts.length - 1]?.trim() || proveedorCiudad || "";
+          const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
+
+          const nacexRes = await fetch("/api/nacex/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedidoId: pedidoInsertado.id,
+              pedidoCodigo: codigo,
+              remitenteNombre: nombreProveedor,
+              remitenteDireccion: provDireccionSolo,
+              remitenteCodigoPostal: proveedorCodigoPostal,
+              remitentePoblacion: provCiudad,
+              remitenteTelefono: proveedorTelefono,
+              destinatarioNombre: empresa || user.email,
+              destinatarioDireccion: direccion,
+              destinatarioCodigoPostal: codigoPostal,
+              destinatarioPoblacion: ciudad,
+              destinatarioTelefono: telefono,
+              destinatarioEmail: user.email,
+              pesoKg: Math.max(1, grupo.productos.length * 2),
+            }),
+          });
+          const nacexData = await nacexRes.json();
+          if (nacexData.ok && nacexData.localizador) {
+            await supabase.from("pedidos")
+              .update({
+                tracking_nacex: nacexData.localizador,
+                codigo_postal_destino: codigoPostal,
+              })
+              .eq("id", pedidoInsertado.id);
+
+            await generarYGuardarPDFs(
+              pedidoInsertado.id, codigo,
+              nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion,
+              proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
+              grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha,
+              nacexData.localizador
+            );
+          } else {
+            console.error("NACEX error:", nacexData.error);
+          }
+        } catch (nacexErr) { console.error("Error NACEX:", nacexErr); }
+      }
+
       if (emailProveedor) {
         try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
       }
@@ -331,6 +407,7 @@ export default function CheckoutPage() {
 
   const todasOpciones = [
     { key: "MRW", color: "#E30613", label: "MRW 24H", precio: "7.95€" },
+    { key: "NACEX", color: "#FFD200", textColor: "#1a1a1a", label: "NACEX", precio: "7.50€" },
     { key: "GLS", color: "#F5A800", label: "GLS", precio: "6.50€" },
     { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: "5.00€" },
     { key: "Mis Medios", color: "rgba(139,92,246,0.5)", label: "Mis Medios", precio: "Gratis" },
