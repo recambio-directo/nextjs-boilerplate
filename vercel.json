@@ -9,6 +9,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/seur/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/ftp/procesar",
       "schedule": "0 5 * * *"
     }
@@ -18,6 +22,9 @@
       "maxDuration": 30
     },
     "app/api/nacex/**": {
+      "maxDuration": 30
+    },
+    "app/api/seur/**": {
       "maxDuration": 30
     }
   },
