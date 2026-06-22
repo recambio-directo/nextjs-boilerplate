@@ -32,6 +32,8 @@ type Pedido = {
   agencia?: string;
   tracking?: string;
   tracking_nacex?: string;
+  tracking_seur?: string;
+  collection_ref_seur?: string;
   transporte?: string;
   productos?: any[];
   created_at?: string;
@@ -44,6 +46,7 @@ type Pedido = {
   albaran_url?: string;
   etiqueta_envio_url?: string;
   etiqueta_nacex_url?: string;
+  etiqueta_seur_url?: string;
 };
 
 type Mensaje = {
@@ -62,6 +65,7 @@ function getTrackingUrl(agencia: string, tracking: string): string {
   const ag = (agencia || "").toLowerCase();
   if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
   if (ag.includes("nacex")) return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${tracking.split("/")[0]}&numero_albaran=${tracking.split("/")[1]}&externo=N`;
+  if (ag.includes("seur")) return `https://www.seur.com/es/particular/herramientas/localizador-de-envios.html?referencia=${tracking}`;
   if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
   if (ag.includes("correos")) return `https://www.correos.es/es/es/herramientas/localizador/envios/detalle?codigoEnvio=${tracking}`;
   return `https://www.google.com/search?q=tracking+${agencia}+${tracking}`;
@@ -71,6 +75,9 @@ function getTrackingInfo(pedido: Pedido): { tracking: string; url: string } | nu
   const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
   if (agencia.includes("nacex") && pedido.tracking_nacex) {
     return { tracking: pedido.tracking_nacex, url: getTrackingUrl("nacex", pedido.tracking_nacex) };
+  }
+  if (agencia.includes("seur") && pedido.tracking_seur) {
+    return { tracking: pedido.tracking_seur, url: getTrackingUrl("seur", pedido.tracking_seur) };
   }
   if (pedido.tracking) {
     return { tracking: pedido.tracking, url: getTrackingUrl(agencia, pedido.tracking) };
@@ -82,7 +89,8 @@ function LogoAgencia({ agencia }: { agencia?: string }) {
   const ag = (agencia || "").toLowerCase();
   if (ag.includes("mrw")) return <span style={{ background: "#E30613", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>MRW</span>;
   if (ag.includes("nacex")) return <span style={{ background: "#FFD200", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>NACEX</span>;
-  if (ag.includes("gls")) return <span style={{ background: "#F5A800", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
+  if (ag.includes("seur")) return <span style={{ background: "#F5A800", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>SEUR</span>;
+  if (ag.includes("gls")) return <span style={{ background: "#00467F", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
   if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
   if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>PROPIO</span>;
   return <span style={{ color: "#94a3b8" }}>{agencia || "-"}</span>;
@@ -748,6 +756,9 @@ export default function ProveedorPage() {
                         const expandido = pedidoExpandido === pedido.id;
                         const puedeAnular = !pedido.anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
                         const trackingInfo = getTrackingInfo(pedido);
+                        const agencia = pedido.agencia || pedido.transporte || "";
+                        const esSeur = agencia.toLowerCase().includes("seur");
+                        const esNacex = agencia.toLowerCase().includes("nacex");
                         return (
                           <React.Fragment key={pedido.id}>
                             <tr style={{ ...trStyle, cursor: "pointer", opacity: pedido.anulado ? 0.6 : 1 }} onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}>
@@ -756,7 +767,7 @@ export default function ProveedorPage() {
                               <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900 }}>{Number(pedido.total).toFixed(2)}€</span></td>
                               <td style={tdStyle}><div style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>{pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}</td>
                               <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
-                              <td style={tdStyle}><LogoAgencia agencia={pedido.agencia || pedido.transporte} /></td>
+                              <td style={tdStyle}><LogoAgencia agencia={agencia} /></td>
                               <td style={tdStyle}>
                                 {trackingInfo
                                   ? <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{trackingInfo.tracking}</a>
@@ -799,8 +810,9 @@ export default function ProveedorPage() {
                                     <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
                                       <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
                                         {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán cliente</a>}
-                                        {pestañaPedidos === "recibidos" && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
-                                        {pestañaPedidos === "recibidos" && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
+                                        {pestañaPedidos === "recibidos" && esNacex && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
+                                        {pestañaPedidos === "recibidos" && esSeur && pedido.etiqueta_seur_url && <a href={pedido.etiqueta_seur_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.3)", color: "#F5A800", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟠 Etiqueta SEUR</a>}
+                                        {pestañaPedidos === "recibidos" && !esNacex && !esSeur && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
                                       </div>
                                       <div style={{ flex: 1 }}>
                                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
