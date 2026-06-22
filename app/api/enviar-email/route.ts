@@ -49,10 +49,10 @@ export async function POST(request: Request) {
       clienteProvincia = clientePerfil.provincia || "";
     }
 
-    // Obtener URLs de PDFs — ahora incluye etiqueta_nacex_url
+    // Obtener URLs de PDFs
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, agencia, transporte")
+      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte")
       .eq("id", pedidoId)
       .single();
 
@@ -62,14 +62,16 @@ export async function POST(request: Request) {
     const agenciaPedido = (pedidoData?.agencia || pedidoData?.transporte || agencia || "").toLowerCase();
     const esNacex = agenciaPedido.includes("nacex");
     const esMrw = agenciaPedido.includes("mrw");
+    const esSeur = agenciaPedido.includes("seur");
 
     let etiquetaUrl: string | null = null;
     if (esNacex && pedidoData?.etiqueta_nacex_url) {
       etiquetaUrl = pedidoData.etiqueta_nacex_url;
     } else if (esMrw && pedidoData?.etiqueta_mrw_url) {
       etiquetaUrl = pedidoData.etiqueta_mrw_url;
+    } else if (esSeur && pedidoData?.etiqueta_seur_url) {
+      etiquetaUrl = pedidoData.etiqueta_seur_url;
     } else {
-      // Fallback: etiqueta interna para otras agencias (GLS, Correos Express, Mis Medios)
       etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
     }
 
@@ -208,7 +210,9 @@ export async function POST(request: Request) {
       ? `etiqueta-nacex-${codigo}.pdf`
       : esMrw
         ? `etiqueta-mrw-${codigo}.pdf`
-        : `etiqueta-envio-${codigo}.pdf`;
+        : esSeur
+          ? `etiqueta-seur-${codigo}.pdf`
+          : `etiqueta-envio-${codigo}.pdf`;
 
     const mailEmbalaje = await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
@@ -264,7 +268,7 @@ export async function POST(request: Request) {
               </p>
             </div>
             <p style="color:#64748b;font-size:12px;margin-top:20px">
-              ¿Tienes algún problema con el pedido? Contáctanos en 
+              ¿Tienes algún problema con el pedido? Contáctanos en
               <a href="mailto:info@recambio-directo.com" style="color:#2563eb">info@recambio-directo.com</a>
               o desde tu <a href="https://www.recambio-directo.com/dashboard/proveedor" style="color:#2563eb">panel de proveedor</a>.
             </p>
