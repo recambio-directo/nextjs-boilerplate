@@ -50,7 +50,7 @@ function calcularFechaRecogida(): string {
   // En modo test ponemos +30 días para no generar recogidas reales
   // En producción usamos el siguiente día hábil
   if (testMode) {
-    fecha.setDate(fecha.getDate() + 30);
+    fecha.setDate(fecha.getDate() + 14);
   } else {
     // Siguiente día hábil (lunes-viernes)
     fecha.setDate(fecha.getDate() + 1);
