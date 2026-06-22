@@ -17,16 +17,10 @@ function getTrackingUrl(agencia: string, tracking: string): string {
 function getTrackingInfo(pedido: any): { tracking: string; url: string } | null {
   const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
   if (agencia.includes("nacex") && pedido.tracking_nacex) {
-    return {
-      tracking: pedido.tracking_nacex,
-      url: getTrackingUrl("nacex", pedido.tracking_nacex),
-    };
+    return { tracking: pedido.tracking_nacex, url: getTrackingUrl("nacex", pedido.tracking_nacex) };
   }
   if (pedido.tracking) {
-    return {
-      tracking: pedido.tracking,
-      url: getTrackingUrl(agencia, pedido.tracking),
-    };
+    return { tracking: pedido.tracking, url: getTrackingUrl(agencia, pedido.tracking) };
   }
   return null;
 }
@@ -34,22 +28,21 @@ function getTrackingInfo(pedido: any): { tracking: string; url: string } | null 
 function TrackingBadge({ tracking, url }: { tracking: string; url: string }) {
   if (!tracking) return null;
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={e => e.stopPropagation()}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-        color: "white", padding: "8px 14px", borderRadius: 10,
-        fontWeight: 700, fontSize: 12, textDecoration: "none",
-        border: "none", cursor: "pointer",
-      }}
-    >
+    <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 12, textDecoration: "none", border: "none", cursor: "pointer" }}>
       🔍 {tracking} →
     </a>
   );
+}
+
+function LogoAgencia({ agencia }: { agencia: string }) {
+  const ag = (agencia || "").toLowerCase();
+  if (ag.includes("nacex")) return <span style={{ background: "#FFD200", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>NACEX</span>;
+  if (ag.includes("mrw")) return <span style={{ background: "#E30613", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>MRW</span>;
+  if (ag.includes("gls")) return <span style={{ background: "#F5A800", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>GLS</span>;
+  if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
+  if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>PROPIO</span>;
+  if (agencia) return <span style={{ color: "#94a3b8", fontSize: 12 }}>{agencia}</span>;
+  return <span style={{ color: "#475569", fontSize: 12 }}>—</span>;
 }
 
 export default function Pedidos() {
@@ -131,10 +124,7 @@ export default function Pedidos() {
       emailProveedor = provPerfil?.email || "";
     }
     try {
-      await fetch("/api/send-anulacion", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, anuladorTipo: "taller", anuladorNombre: "", clienteEmail: pedido.cliente_email || userEmail, clienteNombre: pedido.cliente_nombre || "", proveedorEmail: emailProveedor, proveedorNombre: proveedor.nombre, productos: pedido.productos || [], motivoAnulacion: motivoSeleccionado }),
-      });
+      await fetch("/api/send-anulacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, anuladorTipo: "taller", anuladorNombre: "", clienteEmail: pedido.cliente_email || userEmail, clienteNombre: pedido.cliente_nombre || "", proveedorEmail: emailProveedor, proveedorNombre: proveedor.nombre, productos: pedido.productos || [], motivoAnulacion: motivoSeleccionado }) });
     } catch (e) { console.error(e); }
     cargarPedidos();
   }
@@ -151,10 +141,7 @@ export default function Pedidos() {
       if (provPerfil?.email) emailProveedor = provPerfil.email;
     }
     try {
-      await fetch("/api/send-solicitud-factura", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, clienteEmail: user.email, clienteNombre: perfil?.nombre_empresa || user.email, clienteCif: perfil?.cif || "-", clienteTelefono: perfil?.telefono || "-", clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "), proveedorNombre: proveedor.nombre, emailProveedor, productos: pedido.productos || [], emailFacturasCliente: perfil?.email_facturas || "" }),
-      });
+      await fetch("/api/send-solicitud-factura", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, clienteEmail: user.email, clienteNombre: perfil?.nombre_empresa || user.email, clienteCif: perfil?.cif || "-", clienteTelefono: perfil?.telefono || "-", clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "), proveedorNombre: proveedor.nombre, emailProveedor, productos: pedido.productos || [], emailFacturasCliente: perfil?.email_facturas || "" }) });
       alert("✅ Solicitud enviada al proveedor.");
     } catch (e) { alert("Error al enviar la solicitud"); }
     setSolicitandoFactura(null);
@@ -220,14 +207,13 @@ export default function Pedidos() {
     anulado: pedidos.filter(p => p.anulado).length,
   };
 
-  const estadoColor: Record<string, string> = {
-    entregado: "#4ade80", enviado: "#60a5fa", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171",
-  };
-  const estadoEmoji: Record<string, string> = {
-    entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌",
-  };
-
+  const estadoColor: Record<string, string> = { entregado: "#4ade80", enviado: "#60a5fa", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171" };
+  const estadoEmoji: Record<string, string> = { entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌" };
   const esVendedor = pestañaActiva === "recibidos";
+
+  // Grid con columna TRANSPORTE añadida
+  const GRID_COLS = "1.2fr 1.5fr 1.5fr 0.8fr 0.7fr 1.2fr 1fr 110px";
+  const GRID_HEADERS = ["CÓDIGO", "REFERENCIAS", esVendedor ? "COMPRADOR" : "PROVEEDOR", "TOTAL", "TRANSPORTE", "TRACKING", "ESTADO", "ACCIONES"];
 
   function AccionesExpandidas({ pedido }: { pedido: any }) {
     const anulado = pedido.anulado || false;
@@ -235,10 +221,8 @@ export default function Pedidos() {
     const agencia = pedido.agencia || pedido.transporte || "";
     const esNacex = agencia.toLowerCase().includes("nacex");
     const trackingInfo = getTrackingInfo(pedido);
-
     return (
       <>
-        {/* TRACKING */}
         {trackingInfo && !anulado && (
           <div style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
             <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>🚚 SEGUIMIENTO DEL ENVÍO</p>
@@ -249,20 +233,12 @@ export default function Pedidos() {
             <p style={{ color: "#64748b", fontSize: 11, marginTop: 6 }}>Clic en el número para rastrear tu envío en {agencia.toUpperCase() || "la agencia"}</p>
           </div>
         )}
-
-        {/* Documentos — solo se muestra la etiqueta de la agencia elegida */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán PDF</a>}
-          {esVendedor && esNacex && pedido.etiqueta_nacex_url && (
-            <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>
-          )}
-          {esVendedor && !esNacex && pedido.etiqueta_envio_url && (
-            <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta envío</a>
-          )}
+          {esVendedor && esNacex && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
+          {esVendedor && !esNacex && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta envío</a>}
           {pedido.factura_url && <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🧾 Factura PDF</a>}
         </div>
-
-        {/* Factura */}
         {!anulado && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, margin: 0, marginRight: 4 }}>📄 FACTURA:</p>
@@ -286,8 +262,6 @@ export default function Pedidos() {
             )}
           </div>
         )}
-
-        {/* Botones */}
         {!anulado && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
             <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
@@ -324,7 +298,6 @@ export default function Pedidos() {
         </div>
       </div>
 
-      {/* PESTAÑAS */}
       <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
         <button onClick={() => { setPestañaActiva("realizados"); setPedidoExpandido(null); setFiltroEstado("todos"); }} style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "realizados" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "transparent", color: pestañaActiva === "realizados" ? "white" : "#94a3b8" }}>📤 Realizados ({pedidosRealizados.length})</button>
         <button onClick={() => { setPestañaActiva("recibidos"); setPedidoExpandido(null); setFiltroEstado("todos"); }} style={{ padding: isMobile ? "10px 18px" : "12px 28px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 13 : 15, border: "none", background: pestañaActiva === "recibidos" ? "linear-gradient(135deg,#16a34a,#15803d)" : "transparent", color: pestañaActiva === "recibidos" ? "white" : "#94a3b8" }}>📥 Recibidos ({pedidosRecibidos.length})</button>
@@ -334,7 +307,6 @@ export default function Pedidos() {
         {pestañaActiva === "realizados" ? "🛒 Pedidos que has realizado como comprador en la plataforma" : "🏭 Pedidos recibidos de tus piezas publicadas — actúas como vendedor"}
       </div>
 
-      {/* FILTROS */}
       <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 14 : 20, padding: isMobile ? "14px" : "20px 24px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0 12px", height: 42 }}>
           <span style={{ marginRight: 8 }}>🔍</span>
@@ -342,14 +314,7 @@ export default function Pedidos() {
           {busqueda && <button onClick={() => setBusqueda("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>✕</button>}
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-          {[
-            { key: "todos", label: `Todos (${contadores.todos})` },
-            { key: "pendiente", label: `⏳ (${contadores.pendiente})` },
-            { key: "preparando", label: `🔧 (${contadores.preparando})` },
-            { key: "enviado", label: `🚚 (${contadores.enviado})` },
-            { key: "entregado", label: `✅ (${contadores.entregado})` },
-            { key: "anulado", label: `❌ (${contadores.anulado})` },
-          ].map(({ key, label }) => (
+          {[{ key: "todos", label: `Todos (${contadores.todos})` }, { key: "pendiente", label: `⏳ (${contadores.pendiente})` }, { key: "preparando", label: `🔧 (${contadores.preparando})` }, { key: "enviado", label: `🚚 (${contadores.enviado})` }, { key: "entregado", label: `✅ (${contadores.entregado})` }, { key: "anulado", label: `❌ (${contadores.anulado})` }].map(({ key, label }) => (
             <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0, background: filtroEstado === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{label}</button>
           ))}
         </div>
@@ -396,12 +361,10 @@ export default function Pedidos() {
                       <span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 11, background: `${estadoColor[estado]}22`, padding: "3px 8px", borderRadius: 999 }}>{estadoEmoji[estado]} {estado}</span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ color: "#94a3b8" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
-                    {agencia && <span style={{ color: "#94a3b8" }}>🚚 {agencia}</span>}
-                    {trackingInfo && (
-                      <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {trackingInfo.tracking}</a>
-                    )}
+                    {agencia && <LogoAgencia agencia={agencia} />}
+                    {trackingInfo && <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {trackingInfo.tracking}</a>}
                     <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
                   </div>
                   <div style={{ marginTop: 6, textAlign: "right", color: "#64748b", fontSize: 11 }}>{expandido ? "▲ Cerrar" : "▼ Ver detalle"}</div>
@@ -427,8 +390,8 @@ export default function Pedidos() {
       {/* DESKTOP */}
       {!isMobile && pedidosFiltrados.length > 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1.2fr 1fr 120px", gap: 16, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
-            {["CÓDIGO", "REFERENCIAS", esVendedor ? "COMPRADOR" : "PROVEEDOR", "TOTAL", "TRACKING", "ESTADO", "ACCIONES"].map(h => <div key={h}>{h}</div>)}
+          <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
+            {GRID_HEADERS.map(h => <div key={h}>{h}</div>)}
           </div>
           {pedidosFiltrados.map(pedido => {
             const anulado = pedido.anulado || false;
@@ -440,7 +403,7 @@ export default function Pedidos() {
             const trackingInfo = getTrackingInfo(pedido);
             return (
               <React.Fragment key={pedido.id}>
-                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: "1.2fr 1.5fr 1.5fr 1fr 1.2fr 1fr 120px", gap: 16, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
+                <div onClick={() => setPedidoExpandido(expandido ? null : pedido.id)} style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", opacity: anulado ? 0.7 : 1, background: expandido ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
                   <div>
                     <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div>
                     <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</div>
@@ -456,13 +419,14 @@ export default function Pedidos() {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
+                  <div><LogoAgencia agencia={agencia} /></div>
                   <div onClick={e => e.stopPropagation()}>
                     {trackingInfo ? (
                       <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "none", background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", padding: "5px 10px", borderRadius: 8 }}>
                         🔍 {trackingInfo.tracking}
                       </a>
                     ) : (
-                      <span style={{ color: "#475569", fontSize: 12 }}>{agencia || "—"}</span>
+                      <span style={{ color: "#475569", fontSize: 12 }}>—</span>
                     )}
                   </div>
                   <div><span style={{ color: estadoColor[estado] || "#f59e0b", fontWeight: 700, fontSize: 12, background: `${estadoColor[estado]}22`, padding: "4px 10px", borderRadius: 999 }}>{estado.toUpperCase()}</span></div>
@@ -480,13 +444,11 @@ export default function Pedidos() {
                           </div>
                         ))}
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TOTAL</p><p style={{ color: "#22c55e", fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(pedido.total)}€</p></div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p><p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>{agencia || "-"}</p></div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>PAGO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{pedido.estado_pago || "pendiente"}</p></div>
-                          <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ESTADO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0, color: estadoColor[estado] }}>{estado}</p></div>
-                        </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignContent: "start" }}>
+                        <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TOTAL</p><p style={{ color: "#22c55e", fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(pedido.total)}€</p></div>
+                        <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRANSPORTE</p><div style={{ marginTop: 4 }}><LogoAgencia agencia={agencia} /></div></div>
+                        <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>PAGO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{pedido.estado_pago || "pendiente"}</p></div>
+                        <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 16px" }}><p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ESTADO</p><p style={{ fontWeight: 700, fontSize: 13, margin: 0, color: estadoColor[estado] }}>{estado}</p></div>
                       </div>
                     </div>
                     <AccionesExpandidas pedido={pedido} />
@@ -498,7 +460,6 @@ export default function Pedidos() {
         </div>
       )}
 
-      {/* MODAL ANULACIÓN */}
       {modalAnular && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#0f172a", borderRadius: 20, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }}>
