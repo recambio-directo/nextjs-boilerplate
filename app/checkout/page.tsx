@@ -18,7 +18,6 @@ type Producto = {
   proveedor_nombre?: string;
 };
 
-// ── FESTIVOS NACIONALES ──────────────────────────────────────────────────────
 const FESTIVOS = [
   "2025-12-25","2026-01-01","2026-01-06",
   "2026-04-02","2026-04-03","2026-05-01",
@@ -47,12 +46,12 @@ function calcularFechasEnvio(agencia: string) {
 
   const horaCierre = ag.includes("nacex") ? "17:00"
     : ag.includes("mrw") ? "16:00"
+    : ag.includes("seur") ? "16:00"
     : ag.includes("gls") ? "15:00"
     : ag.includes("correos") ? "14:00"
     : "16:00";
 
   const horaCierreNum = parseInt(horaCierre);
-
   let recogida = new Date(horaEs);
   recogida.setHours(0, 0, 0, 0);
   const recogidaHoy = esDiaHabil(recogida) && horaActual < horaCierreNum;
@@ -60,6 +59,7 @@ function calcularFechasEnvio(agencia: string) {
 
   const diasTransito = ag.includes("nacex") ? 1
     : ag.includes("mrw") ? 1
+    : ag.includes("seur") ? 1
     : ag.includes("gls") ? 2
     : ag.includes("correos") ? 2
     : 1;
@@ -72,7 +72,6 @@ function fmtFecha(fecha: Date): string {
   return fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
 }
 
-// ── COMPONENTE SELECTOR DE TRANSPORTE ───────────────────────────────────────
 function SelectorTransporte({
   opciones, transporte, setTransporte,
 }: {
@@ -87,17 +86,7 @@ function SelectorTransporte({
         const esMisMedios = key === "Mis Medios";
         const { recogida, entrega, horaCierre, recogidaHoy } = calcularFechasEnvio(key);
         return (
-          <button
-            key={key}
-            onClick={() => setTransporte(key)}
-            style={{
-              borderRadius: 14, padding: "14px 16px", cursor: "pointer",
-              textAlign: "left" as const,
-              background: sel ? "rgba(37,99,235,0.12)" : "rgba(255,255,255,0.03)",
-              border: sel ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)",
-              color: "white",
-            }}
-          >
+          <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 14, padding: "14px 16px", cursor: "pointer", textAlign: "left" as const, background: sel ? "rgba(37,99,235,0.12)" : "rgba(255,255,255,0.03)", border: sel ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                 <div style={{ background: color, borderRadius: 6, padding: "3px 10px" }}>
@@ -111,9 +100,7 @@ function SelectorTransporte({
                 <div style={{ display: "flex", gap: 14, flexShrink: 0 }}>
                   <div style={{ textAlign: "center" as const }}>
                     <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, margin: "0 0 2px" }}>RECOGIDA</p>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: recogidaHoy ? "#4ade80" : "#fbbf24" }}>
-                      {recogidaHoy ? "Hoy" : fmtFecha(recogida)}
-                    </p>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: recogidaHoy ? "#4ade80" : "#fbbf24" }}>{recogidaHoy ? "Hoy" : fmtFecha(recogida)}</p>
                     <p style={{ margin: 0, fontSize: 10, color: "#475569" }}>antes {horaCierre}</p>
                   </div>
                   <div style={{ width: 1, background: "rgba(255,255,255,0.06)" }} />
@@ -128,9 +115,7 @@ function SelectorTransporte({
               )}
             </div>
             {!esMisMedios && !recogidaHoy && (
-              <p style={{ margin: "8px 0 0", fontSize: 11, color: "#f59e0b" }}>
-                ⚠️ Pedido fuera de horario — recogida el {fmtFecha(recogida)}
-              </p>
+              <p style={{ margin: "8px 0 0", fontSize: 11, color: "#f59e0b" }}>⚠️ Pedido fuera de horario — recogida el {fmtFecha(recogida)}</p>
             )}
           </button>
         );
@@ -177,7 +162,7 @@ export default function CheckoutPage() {
 
   function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
     const esIsla = (cp: string) => cp.startsWith("35") || cp.startsWith("38") || cp.startsWith("51") || cp.startsWith("52");
-    const agencias: string[] = ["Mis Medios", "MRW", "Correos Express"];
+    const agencias: string[] = ["Mis Medios", "MRW", "Correos Express", "SEUR"];
     if (!esIsla(cpOrigen) && !esIsla(cpDestino)) agencias.push("GLS");
     return agencias;
   }
@@ -209,7 +194,7 @@ export default function CheckoutPage() {
       setCantidades(initCantidades);
 
       const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
-      let agenciasValidas = ["MRW", "GLS", "Correos Express", "Mis Medios"];
+      let agenciasValidas = ["MRW", "SEUR", "GLS", "Correos Express", "Mis Medios"];
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
         const cpOrigen = prov?.codigo_postal || "";
@@ -253,6 +238,7 @@ export default function CheckoutPage() {
     if (!transporte || transporte === "Mis Medios") return 0;
     if (transporte === "MRW") return 7.95;
     if (transporte === "NACEX") return 7.50;
+    if (transporte === "SEUR") return 7.50;
     if (transporte === "GLS") return 6.50;
     if (transporte === "Correos Express") return 5.00;
     return 0;
@@ -402,6 +388,43 @@ export default function CheckoutPage() {
         } catch (nacexErr) { console.error("Error NACEX:", nacexErr); }
       }
 
+      if (transporte === "SEUR" && pedidoInsertado?.id) {
+        try {
+          const provDireccionParts = proveedorDireccion.split(",");
+          const provCiudad = provDireccionParts[provDireccionParts.length - 1]?.trim() || proveedorCiudad || "";
+          const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
+          const seurRes = await fetch("/api/seur/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pedidoId: pedidoInsertado.id,
+              pedidoCodigo: codigo,
+              remitenteNombre: nombreProveedor,
+              remitenteCif: proveedorCif,
+              remitenteDireccion: provDireccionSolo,
+              remitenteCodigoPostal: proveedorCodigoPostal,
+              remitentePoblacion: provCiudad,
+              remitenteTelefono: proveedorTelefono,
+              remitenteEmail: emailProveedor,
+              destinatarioNombre: empresa || user.email,
+              destinatarioDireccion: direccion,
+              destinatarioCodigoPostal: codigoPostal,
+              destinatarioPoblacion: ciudad,
+              destinatarioTelefono: telefono,
+              destinatarioEmail: user.email,
+              pesoKg: Math.max(1, grupo.productos.length * 2),
+            }),
+          });
+          const seurData = await seurRes.json();
+          if (seurData.ok && seurData.collectionRef) {
+            await supabase.from("pedidos").update({
+              tracking_seur: seurData.tracking,
+              collection_ref_seur: seurData.collectionRef,
+            }).eq("id", pedidoInsertado.id);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, seurData.tracking);
+          } else { console.error("SEUR error:", seurData.error); }
+        } catch (seurErr) { console.error("Error SEUR:", seurErr); }
+      }
+
       if (emailProveedor) {
         try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
       }
@@ -420,11 +443,12 @@ export default function CheckoutPage() {
   }
 
   const todasOpciones = [
-    { key: "MRW",             color: "#E30613", label: "MRW 24H",           precio: 7.95 },
-    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX", precio: 7.50 },
-    { key: "GLS",             color: "#F5A800", label: "GLS",                precio: 6.50 },
+    { key: "MRW",             color: "#E30613",                  label: "MRW 24H",        precio: 7.95 },
+    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX",     precio: 7.50 },
+    { key: "SEUR",            color: "#F5A800", textColor: "#1a1a1a", label: "SEUR 24",   precio: 7.50 },
+    { key: "GLS",             color: "#00467F",                  label: "GLS",             precio: 6.50 },
     { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: 5.00 },
-    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)", label: "Mis Medios", precio: 0 },
+    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)",     label: "Mis Medios",     precio: 0 },
   ];
   const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
 
@@ -484,7 +508,6 @@ export default function CheckoutPage() {
       {mostrarModalRD && <ModalRDPago />}
       <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>FINALIZAR PEDIDO</h1>
       <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 20 }}>Revisa y confirma tu pedido</p>
-
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🛒 Artículos</h2>
         {productos.length === 0 ? (
@@ -517,17 +540,14 @@ export default function CheckoutPage() {
           </div>
         )}
       </div>
-
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🚚 Transporte</h2>
         <SelectorTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
       </div>
-
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>💳 Forma de pago</h2>
         <FormaPagoBlock />
       </div>
-
       <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 16, marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ fontSize: 16, fontWeight: 900, margin: 0 }}>📍 Entrega</h2>
@@ -552,7 +572,6 @@ export default function CheckoutPage() {
           </div>
         )}
       </div>
-
       <div style={{ position: "fixed", bottom: 64, left: 0, right: 0, background: "rgba(2,6,23,0.98)", borderTop: "1px solid rgba(255,255,255,0.08)", padding: "12px 16px", zIndex: 998 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: "#94a3b8" }}>
@@ -566,7 +585,6 @@ export default function CheckoutPage() {
           {cargando ? "PROCESANDO..." : !transporte ? "Elige transporte" : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
         </button>
       </div>
-
       {mostrarStripe && <StripeCheckout total={total} metadata={{ empresa, clienteEmail }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
     </main>
   );
@@ -578,7 +596,6 @@ export default function CheckoutPage() {
       <section>
         <h1 style={{ fontSize: 72, fontWeight: 900, lineHeight: 1, marginBottom: 24 }}>FINALIZAR PEDIDO</h1>
         <p style={{ color: "#94a3b8", fontSize: 22, lineHeight: 1.7, marginBottom: 40 }}>Tus datos profesionales se cargan automáticamente desde tu cuenta.</p>
-
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 30, padding: 32, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 30 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
             <h2 style={{ fontSize: 32, fontWeight: 900, margin: 0 }}>DATOS ENTREGA</h2>
@@ -603,14 +620,12 @@ export default function CheckoutPage() {
             </div>
           )}
         </div>
-
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 30, padding: 32, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 30 }}>
           <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 26 }}>TRANSPORTE</h2>
           {!transporte && <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "12px 18px", borderRadius: 12, marginBottom: 20, fontSize: 14 }}>Selecciona una opción de transporte para continuar</div>}
           <SelectorTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
         </div>
       </section>
-
       <aside style={{ position: "sticky", top: 40, height: "fit-content" }}>
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 34, border: "1px solid rgba(255,255,255,0.06)" }}>
           <h2 style={{ fontSize: 32, fontWeight: 900, marginBottom: 26 }}>RESUMEN</h2>
@@ -666,7 +681,6 @@ export default function CheckoutPage() {
           <p style={{ color: "#94a3b8", fontSize: 12, textAlign: "center", marginTop: 16 }}>Cada proveedor recibirá su albarán automáticamente por email</p>
         </div>
       </aside>
-
       {mostrarStripe && <StripeCheckout total={total} metadata={{ empresa, clienteEmail }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
     </main>
   );
