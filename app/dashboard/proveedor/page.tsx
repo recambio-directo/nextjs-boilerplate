@@ -232,11 +232,11 @@ export default function ProveedorPage() {
   async function cargarNotificaciones(uid: string) {
     const KEY = `rd_notif_last_prov_${uid}`;
     const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
-    const ultimo = parseInt(sessionStorage.getItem(KEY) || "0");
+    const ultimo = parseInt(localStorage.getItem(KEY) || "0");
     const ahora = Date.now();
     if (ahora - ultimo < 60000) return;
-    sessionStorage.setItem(KEY, String(ahora));
-    const vistasAntes = new Set<string>(JSON.parse(sessionStorage.getItem(VISTAS_KEY) || "[]"));
+    localStorage.setItem(KEY, String(ahora));
+    const vistasAntes = new Set<string>(JSON.parse(localStorage.getItem(VISTAS_KEY) || "[]"));
     const notifsTotales: any[] = [];
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
     const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
@@ -253,7 +253,7 @@ export default function ProveedorPage() {
     });
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
-    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(notifsTotales.map(n => String(n.id))));
+    localStorage.setItem(VISTAS_KEY, JSON.stringify(notifsTotales.map(n => String(n.id))));
   }
 
   async function cargarDatos() {
@@ -500,10 +500,10 @@ export default function ProveedorPage() {
                 const uid = userId;
                 if (uid) {
                   const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
-                  sessionStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id))));
+                  localStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id))));
                   const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
                   if (convIds.length > 0) { supabase.from("mensajes").update({ leido: true }).in("conversacion_id", [...new Set(convIds)]).neq("user_id", uid); }
-                  sessionStorage.removeItem(`rd_notif_last_prov_${uid}`);
+                  localStorage.removeItem(`rd_notif_last_prov_${uid}`);
                 }
                 setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
               }
@@ -522,7 +522,7 @@ export default function ProveedorPage() {
                 ) : (
                   <div style={{ maxHeight: 380, overflowY: "auto" as const }}>
                     {notifs.slice(0, 20).map((n, i) => (
-                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (userId) sessionStorage.removeItem(`rd_notif_last_prov_${userId}`); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
+                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (userId) localStorage.removeItem(`rd_notif_last_prov_${userId}`); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
                         <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
