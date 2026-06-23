@@ -285,8 +285,13 @@ export default function CheckoutPage() {
       await supabase.storage.from("FACTURAS").upload(etiquetaPath, etiquetaBlob, { contentType: "application/pdf", upsert: true });
       const { data: albaranUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranPath);
       const { data: etiquetaUrl } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
-      await supabase.from("pedidos").update({ albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: etiquetaUrl.publicUrl }).eq("id", pedidoId);
-      return { albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: etiquetaUrl.publicUrl };
+      const agLower = (transporte || "").toLowerCase();
+const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos");
+await supabase.from("pedidos").update({
+  albaran_url: albaranUrl.publicUrl,
+  ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }),
+}).eq("id", pedidoId);
+      return { albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: tieneEtiquetaAgencia ? null : etiquetaUrl.publicUrl };
     } catch (e) { console.error("Error generando PDFs:", e); return null; }
   }
 
