@@ -348,6 +348,7 @@ export default function CheckoutPage() {
         grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha
       );
 
+      // MRW
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -371,6 +372,7 @@ export default function CheckoutPage() {
         } catch (mrwErr) { console.error("Error MRW:", mrwErr); }
       }
 
+      // NACEX
       if (transporte === "NACEX" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -388,6 +390,7 @@ export default function CheckoutPage() {
         } catch (nacexErr) { console.error("Error NACEX:", nacexErr); }
       }
 
+      // SEUR
       if (transporte === "SEUR" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -396,37 +399,58 @@ export default function CheckoutPage() {
           const seurRes = await fetch("/api/seur/crear-envio", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              pedidoId: pedidoInsertado.id,
-              pedidoCodigo: codigo,
-              remitenteNombre: nombreProveedor,
-              remitenteCif: proveedorCif,
-              remitenteDireccion: provDireccionSolo,
-              remitenteCodigoPostal: proveedorCodigoPostal,
-              remitentePoblacion: provCiudad,
-              remitenteTelefono: proveedorTelefono,
+              pedidoId: pedidoInsertado.id, pedidoCodigo: codigo,
+              remitenteNombre: nombreProveedor, remitenteCif: proveedorCif,
+              remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal,
+              remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono,
               remitenteEmail: emailProveedor,
-              destinatarioNombre: empresa || user.email,
-              destinatarioDireccion: direccion,
-              destinatarioCodigoPostal: codigoPostal,
-              destinatarioPoblacion: ciudad,
-              destinatarioTelefono: telefono,
-              destinatarioEmail: user.email,
+              destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion,
+              destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad,
+              destinatarioTelefono: telefono, destinatarioEmail: user.email,
               pesoKg: Math.max(1, grupo.productos.length * 2),
             }),
           });
           const seurData = await seurRes.json();
           if (seurData.ok && seurData.collectionRef) {
-            await supabase.from("pedidos").update({
-              tracking_seur: seurData.tracking,
-              collection_ref_seur: seurData.collectionRef,
-            }).eq("id", pedidoInsertado.id);
+            await supabase.from("pedidos").update({ tracking_seur: seurData.tracking, collection_ref_seur: seurData.collectionRef }).eq("id", pedidoInsertado.id);
             await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, seurData.tracking);
           } else { console.error("SEUR error:", seurData.error); }
         } catch (seurErr) { console.error("Error SEUR:", seurErr); }
       }
 
+      // CORREOS EXPRESS
+      if (transporte === "Correos Express" && pedidoInsertado?.id) {
+        try {
+          const cexRes = await fetch("/api/correos-express/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id }),
+          });
+          const cexData = await cexRes.json();
+          if (cexData.ok && cexData.numEnvio) {
+            // tracking y collection_ref ya se guardan dentro del endpoint
+            await generarYGuardarPDFs(
+              pedidoInsertado.id, codigo, nombreProveedor, emailProveedor,
+              proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad,
+              proveedorCodigoPostal, proveedorProvincia, grupo.productos,
+              subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio
+            );
+          } else { console.error("Correos Express error:", cexData.error); }
+        } catch (cexErr) { console.error("Error Correos Express:", cexErr); }
+      }
+
       if (emailProveedor) {
-        try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); } catch (e) { console.error("Error email:", e); }
+        try {
+          await fetch("/api/enviar-email", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor,
+              productos: grupo.productos, cliente: empresa, clienteEmail: user.email,
+              telefono, cif, direccion: direccionCompleta, agencia: transporte,
+              formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo,
+              codigo, fecha, pedidoId: pedidoInsertado?.id,
+            }),
+          });
+        } catch (e) { console.error("Error email:", e); }
       }
     }
 
@@ -435,7 +459,10 @@ export default function CheckoutPage() {
       const nuevoCreditoRD = Math.max(0, creditoRD - total);
       await supabase.from("usuarios").update({ credito_rd: nuevoCreditoRD }).eq("id", user.id);
       setCreditoRD(nuevoCreditoRD);
-      if (nuevoCreditoRD === 0) { try { await fetch("/api/send-credito-agotado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteEmail: user.email, clienteNombre: empresa }) }); } catch (e) { console.error(e); } }
+      if (nuevoCreditoRD === 0) {
+        try { await fetch("/api/send-credito-agotado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteEmail: user.email, clienteNombre: empresa }) }); }
+        catch (e) { console.error(e); }
+      }
     }
     const { data: perfilTipo } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
     if (perfilTipo?.tipo === "proveedor") window.location.href = "/dashboard/proveedor";
@@ -443,12 +470,12 @@ export default function CheckoutPage() {
   }
 
   const todasOpciones = [
-    { key: "MRW",             color: "#E30613",                  label: "MRW 24H",        precio: 7.95 },
-    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX",     precio: 7.50 },
-    { key: "SEUR",            color: "#F5A800", textColor: "#1a1a1a", label: "SEUR 24",   precio: 7.50 },
-    { key: "GLS",             color: "#00467F",                  label: "GLS",             precio: 6.50 },
-    { key: "Correos Express", color: "#FFCC00", textColor: "#333", label: "Correos Express", precio: 5.00 },
-    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)",     label: "Mis Medios",     precio: 0 },
+    { key: "MRW",             color: "#E30613",                    label: "MRW 24H",          precio: 7.95 },
+    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX",          precio: 7.50 },
+    { key: "SEUR",            color: "#F5A800", textColor: "#1a1a1a", label: "SEUR 24",        precio: 7.50 },
+    { key: "GLS",             color: "#00467F",                    label: "GLS",               precio: 6.50 },
+    { key: "Correos Express", color: "#FFCC00", textColor: "#333",   label: "Correos Express", precio: 5.00 },
+    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)",       label: "Mis Medios",        precio: 0 },
   ];
   const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
 
