@@ -121,6 +121,16 @@ export default function Pedidos() {
     setModalAnular(null);
     setAnulando(pedido.id);
     await supabase.from("pedidos").update({ anulado: true, estado_envio: "anulado", motivo_anulacion: motivoSeleccionado }).eq("id", pedido.id);
+
+    // Anular recogida en la agencia automáticamente
+    try {
+      await fetch("/api/anular-envio-agencia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId: pedido.id }),
+      });
+    } catch (e) { console.error("Error anulando en agencia:", e); }
+
     setAnulando(null);
     const proveedor = getProveedorPedido(pedido);
     let emailProveedor = "";
