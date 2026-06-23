@@ -360,16 +360,6 @@ export default function ProveedorPage() {
     setModalAnular(null);
     setAnulandoPedido(pedido.id);
     await supabase.from("pedidos").update({ anulado: true, estado_envio: "anulado", motivo_anulacion: motivoSeleccionado }).eq("id", pedido.id);
-
-    // Anular recogida en la agencia automáticamente
-    try {
-      await fetch("/api/anular-envio-agencia", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId: pedido.id }),
-      });
-    } catch (e) { console.error("Error anulando en agencia:", e); }
-
     setAnulandoPedido(null);
     const { data: { user } } = await supabase.auth.getUser();
     const { data: provPerfil } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", user?.id || "").single();
@@ -769,6 +759,7 @@ export default function ProveedorPage() {
                         const agencia = pedido.agencia || pedido.transporte || "";
                         const esSeur = agencia.toLowerCase().includes("seur");
                         const esNacex = agencia.toLowerCase().includes("nacex");
+                        const esMrw = agencia.toLowerCase().includes("mrw");
                         return (
                           <React.Fragment key={pedido.id}>
                             <tr style={{ ...trStyle, cursor: "pointer", opacity: pedido.anulado ? 0.6 : 1 }} onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}>
@@ -822,7 +813,8 @@ export default function ProveedorPage() {
                                         {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán cliente</a>}
                                         {pestañaPedidos === "recibidos" && esNacex && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
                                         {pestañaPedidos === "recibidos" && esSeur && pedido.etiqueta_seur_url && <a href={pedido.etiqueta_seur_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.3)", color: "#F5A800", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟠 Etiqueta SEUR</a>}
-                                        {pestañaPedidos === "recibidos" && !esNacex && !esSeur && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
+                                        {pestañaPedidos === "recibidos" && esMrw && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(227,6,19,0.15)", border: "1px solid rgba(227,6,19,0.3)", color: "#E30613", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🔴 Etiqueta MRW</a>}
+                                        {pestañaPedidos === "recibidos" && !esNacex && !esSeur && !esMrw && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
                                       </div>
                                       <div style={{ flex: 1 }}>
                                         <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
