@@ -61,8 +61,9 @@ export async function POST(request: Request) {
     // Elegir la etiqueta correcta según la agencia del pedido
     const agenciaPedido = (pedidoData?.agencia || pedidoData?.transporte || agencia || "").toLowerCase();
     const esNacex = agenciaPedido.includes("nacex");
-    const esMrw = agenciaPedido.includes("mrw");
-    const esSeur = agenciaPedido.includes("seur");
+    const esMrw   = agenciaPedido.includes("mrw");
+    const esSeur  = agenciaPedido.includes("seur");
+    const esCex   = agenciaPedido.includes("correos");
 
     let etiquetaUrl: string | null = null;
     if (esNacex && pedidoData?.etiqueta_nacex_url) {
@@ -71,6 +72,9 @@ export async function POST(request: Request) {
       etiquetaUrl = pedidoData.etiqueta_mrw_url;
     } else if (esSeur && pedidoData?.etiqueta_seur_url) {
       etiquetaUrl = pedidoData.etiqueta_seur_url;
+    } else if (esCex && pedidoData?.etiqueta_envio_url) {
+      // Correos Express guarda la etiqueta en etiqueta_envio_url
+      etiquetaUrl = pedidoData.etiqueta_envio_url;
     } else {
       etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
     }
@@ -83,7 +87,7 @@ export async function POST(request: Request) {
       } catch { return null; }
     }
 
-    const albaranBase64 = albaranUrl ? await urlToBase64(albaranUrl) : null;
+    const albaranBase64  = albaranUrl  ? await urlToBase64(albaranUrl)  : null;
     const etiquetaBase64 = etiquetaUrl ? await urlToBase64(etiquetaUrl) : null;
 
     const fechaFormateada = fecha
@@ -206,13 +210,11 @@ export async function POST(request: Request) {
     });
 
     // ── MAIL 3: PROVEEDOR — Etiqueta correcta + dossier embalaje ────────────
-    const nombreEtiqueta = esNacex
-      ? `etiqueta-nacex-${codigo}.pdf`
-      : esMrw
-        ? `etiqueta-mrw-${codigo}.pdf`
-        : esSeur
-          ? `etiqueta-seur-${codigo}.pdf`
-          : `etiqueta-envio-${codigo}.pdf`;
+    const nombreEtiqueta = esNacex ? `etiqueta-nacex-${codigo}.pdf`
+      : esMrw  ? `etiqueta-mrw-${codigo}.pdf`
+      : esSeur ? `etiqueta-seur-${codigo}.pdf`
+      : esCex  ? `etiqueta-correos-express-${codigo}.pdf`
+      : `etiqueta-envio-${codigo}.pdf`;
 
     const mailEmbalaje = await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
