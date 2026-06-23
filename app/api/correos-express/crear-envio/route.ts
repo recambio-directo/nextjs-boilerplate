@@ -114,11 +114,23 @@ export async function POST(req: NextRequest) {
 
     const resp = await fetch(CEX_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: authHeader },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": authHeader,
+      },
       body: JSON.stringify(body),
     });
 
-    const data = await resp.json();
+    const rawText = await resp.text();
+
+    // Si CEX devuelve HTML es error de autenticación o endpoint incorrecto
+    if (rawText.trim().startsWith("<")) {
+      console.error("CEX devolvió HTML — posible error de credenciales:", rawText.substring(0, 300));
+      return NextResponse.json({ error: "CEX devolvió HTML en lugar de JSON. Verificar credenciales y endpoint.", raw: rawText.substring(0, 300) }, { status: 400 });
+    }
+
+    const data = JSON.parse(rawText);
 
     if (data.codigoRetorno !== 0) {
       console.error("CEX error:", data);
