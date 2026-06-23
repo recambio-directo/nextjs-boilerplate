@@ -428,7 +428,7 @@ export default function ProveedorPage() {
       fotoUrl = urlData.publicUrl;
       setSubiendoFoto(false);
     }
-    const { error } = await supabase.from("piezas_publicadas").insert({ proveedor_id: user.id, proveedor_nombre: nombreEmpresa, referencia: formReferencia.toUpperCase().trim(), descripcion: formDescripcion.toUpperCase().trim(), precio: parseFloat(formPrecio), stock: parseInt(formStock), marca: formMarca.toUpperCase().trim(), provincia: provinciaPerfil || null, tipo: formTipo, foto_url: fotoUrl });
+    const { error } = await supabase.from("piezas_publicadas").insert({ proveedor_id: user.id, proveedor_nombre: nombreEmpresa, referencia: formReferencia.toUpperCase().trim(), descripcion: formDescripcion.toUpperCase().trim(), precio: parseFloat(formPrecio), stock: parseInt(formStock), marca: formMarca.toUpperCase().trim(), provincia: provinciaPerfil || null, tipo: formTipo, foto_url: fotoUrl, origen: "manual" });
     setGuardandoPieza(false);
     if (error) { alert("Error al publicar: " + error.message); return; }
     setFormReferencia(""); setFormDescripcion(""); setFormPrecio(""); setFormStock(""); setFormMarca(""); setFormTipo("OEM"); setFormFoto(null); setFormFotoPreview(null);
