@@ -75,7 +75,6 @@ export default function ImportarStock({
       setColumnas(cols);
       setFilas(json);
 
-      // Auto-detectar columnas por nombre similar
       const autoMapeo: MapeoColumnas = { referencia: "", descripcion: "", marca: "", precio: "", stock: "" };
       const buscar = (terminos: string[]) => cols.find(c => terminos.some(t => c.toLowerCase().includes(t))) || "";
       autoMapeo.referencia = buscar(["ref", "codigo", "code", "part"]);
@@ -93,7 +92,6 @@ export default function ImportarStock({
   function mapeoCompleto() {
     return CAMPOS_OBLIGATORIOS.every(c => mapeo[c as keyof MapeoColumnas] !== "");
   }
-  // impuesto es opcional — no bloquea
 
   function getVal(fila: any, col: string | undefined): string {
     if (!col) return "";
@@ -107,39 +105,36 @@ export default function ImportarStock({
     const errores: string[] = [];
     let insertadas = 0;
     let actualizadas = 0;
-    let eliminadas = 0;
 
-    // MODO REEMPLAZAR: borrar solo el stock del mismo tipo
+    // MODO REEMPLAZAR: borrar solo piezas de origen "ftp" del mismo tipo
     if (modoImport === "reemplazar") {
       setProgresoTexto("Eliminando stock anterior...");
       const { error: deleteError } = await supabase
         .from("piezas_publicadas")
         .delete()
         .eq("proveedor_id", proveedorId)
-        .eq("tipo", tipoDefecto);
+        .eq("tipo", tipoDefecto)
+        .eq("origen", "ftp"); // ← solo borra las del FTP, respeta las manuales
       if (deleteError) {
         alert("Error al limpiar el stock anterior: " + deleteError.message);
         setFase("preview");
         return;
       }
-      eliminadas = 1;
     }
 
-    // Preparar todas las filas válidas
+    // Preparar filas válidas
     const filasValidas: any[] = [];
     const filasInvalidas: string[] = [];
-    const mapaImpuestos = new Map<string, number>(); // refPrincipal -> precio casco
+    const mapaImpuestos = new Map<string, number>();
 
-    // PRIMERA PASADA: identificar cascos (desc contiene "CASCO")
+    // PRIMERA PASADA: detectar cascos
     for (let i = 0; i < filas.length; i++) {
       const fila = filas[i];
       const descripcion = getVal(fila, mapeo.descripcion).toUpperCase();
       const referencia = getVal(fila, mapeo.referencia).toUpperCase();
       const precioRaw = getVal(fila, mapeo.precio).replace(",", ".");
       const precio = parseFloat(precioRaw);
-
       if (descripcion.includes("CASCO") && referencia.endsWith("C") && !isNaN(precio) && precio > 0) {
-        // La ref principal es la misma sin la C final
         const refPrincipal = referencia.slice(0, -1);
         mapaImpuestos.set(refPrincipal, precio);
       }
@@ -154,9 +149,7 @@ export default function ImportarStock({
       const precioRaw = getVal(fila, mapeo.precio).replace(",", ".");
       const stockRaw = getVal(fila, mapeo.stock);
 
-      // Saltar las líneas de casco — ya las procesamos
       if (descripcion.includes("CASCO")) { continue; }
-
       if (!referencia) { filasInvalidas.push(`Fila ${i + 2}: Referencia vacía`); continue; }
       if (!descripcion) { filasInvalidas.push(`Fila ${i + 2}: Descripción vacía (${referencia})`); continue; }
       if (!marca) { filasInvalidas.push(`Fila ${i + 2}: Marca vacía (${referencia})`); continue; }
@@ -166,7 +159,6 @@ export default function ImportarStock({
       if (isNaN(precio) || precio <= 0) { filasInvalidas.push(`Fila ${i + 2}: Precio inválido (${referencia})`); continue; }
       if (isNaN(stock) || stock < 0) { filasInvalidas.push(`Fila ${i + 2}: Stock inválido (${referencia})`); continue; }
 
-      // Impuesto: columna mapeada O casco detectado automáticamente
       const impuestoColumna = mapeo.impuesto ? parseFloat(getVal(fila, mapeo.impuesto as string).replace(",", ".")) || 0 : 0;
       const impuestoCasco = mapaImpuestos.get(referencia) || 0;
       const impuesto = impuestoColumna > 0 ? impuestoColumna : impuestoCasco;
@@ -174,7 +166,6 @@ export default function ImportarStock({
       filasValidas.push({ referencia, descripcion, marca, precio, stock, impuesto });
     }
 
-    // Info de cascos detectados
     if (mapaImpuestos.size > 0) {
       console.log(`Cascos detectados y vinculados: ${mapaImpuestos.size}`);
     }
@@ -186,7 +177,6 @@ export default function ImportarStock({
     const paraActualizar: Array<{ id: number; datos: any }> = [];
 
     if (modoImport === "reemplazar") {
-      // Todo es nuevo — insertar directamente
       for (const fila of filasValidas) {
         paraInsertar.push({
           proveedor_id: proveedorId,
@@ -199,10 +189,10 @@ export default function ImportarStock({
           impuesto: fila.impuesto || 0,
           tipo: tipoDefecto,
           provincia: provinciaPerfil || null,
+          origen: "ftp", // ← marcamos como ftp
         });
       }
     } else {
-      // MODO ACTUALIZAR: buscar existentes y decidir insert/update
       setProgresoTexto("Consultando stock existente...");
       const { data: existentes } = await supabase
         .from("piezas_publicadas")
@@ -217,7 +207,7 @@ export default function ImportarStock({
         if (existeId) {
           paraActualizar.push({
             id: existeId,
-            datos: { descripcion: fila.descripcion, marca: fila.marca, precio: fila.precio, stock: fila.stock, impuesto: fila.impuesto || 0, tipo: tipoDefecto, provincia: provinciaPerfil || null },
+            datos: { descripcion: fila.descripcion, marca: fila.marca, precio: fila.precio, stock: fila.stock, impuesto: fila.impuesto || 0, tipo: tipoDefecto, provincia: provinciaPerfil || null, origen: "ftp" },
           });
         } else {
           paraInsertar.push({
@@ -230,6 +220,7 @@ export default function ImportarStock({
             stock: fila.stock,
             impuesto: fila.impuesto || 0,
             provincia: provinciaPerfil || null,
+            origen: "ftp", // ← marcamos como ftp
           });
         }
       }
@@ -237,7 +228,6 @@ export default function ImportarStock({
 
     // INSERTAR en lotes de 500
     const LOTE = 500;
-    const totalLotesInsert = Math.ceil(paraInsertar.length / LOTE);
     for (let i = 0; i < paraInsertar.length; i += LOTE) {
       const lote = paraInsertar.slice(i, i + LOTE);
       const { error } = await supabase.from("piezas_publicadas").insert(lote);
@@ -248,7 +238,7 @@ export default function ImportarStock({
       setProgresoTexto(`Insertando nuevas... ${insertadas} de ${paraInsertar.length}`);
     }
 
-    // ACTUALIZAR en lotes de 500 usando upsert
+    // ACTUALIZAR en lotes de 500
     const lotesUpdate = [];
     for (let i = 0; i < paraActualizar.length; i += LOTE) {
       lotesUpdate.push(paraActualizar.slice(i, i + LOTE));
@@ -284,7 +274,6 @@ export default function ImportarStock({
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  // Preview con mapeo aplicado
   const preview = filas.slice(0, 5).map(f => ({
     referencia: getVal(f, mapeo.referencia),
     descripcion: getVal(f, mapeo.descripcion),
@@ -297,91 +286,59 @@ export default function ImportarStock({
     const wb = XLSX.utils.book_new();
     const datos = [["REFERENCIA", "DESCRIPCION", "MARCA", "PRECIO", "STOCK"]];
     const ws = XLSX.utils.aoa_to_sheet(datos);
-
-    // Ancho de columnas
-    ws["!cols"] = [
-      { wch: 20 }, // REFERENCIA
-      { wch: 45 }, // DESCRIPCION
-      { wch: 20 }, // MARCA
-      { wch: 14 }, // PRECIO
-      { wch: 10 }, // STOCK
-    ];
-
+    ws["!cols"] = [{ wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 14 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
     XLSX.writeFile(wb, "plantilla_importar_stock_recambiodirecto.xlsx");
   }
 
   return (
     <div>
-
-      {/* IDLE */}
       {fase === "idle" && (
         <div>
-          {/* Instrucciones */}
           <div style={instruccionesBox}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <h3 style={{ fontWeight: 800, fontSize: 16, color: "#60a5fa", margin: 0 }}>📋 Formato del Excel</h3>
-              <button onClick={descargarPlantilla} style={btnPlantilla}>
-                ⬇️ Descargar plantilla
-              </button>
+              <button onClick={descargarPlantilla} style={btnPlantilla}>⬇️ Descargar plantilla</button>
             </div>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 12 }}>
-              Descarga la plantilla o usa tu propio Excel — en el siguiente paso podrás indicar cuál columna corresponde a cada campo.
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 12 }}>Descarga la plantilla o usa tu propio Excel — en el siguiente paso podrás indicar cuál columna corresponde a cada campo.</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {CAMPOS_OBLIGATORIOS.map(campo => (
-                <div key={campo} style={campoBadge}>
-                  <span style={{ color: "#f87171", marginRight: 6 }}>*</span>
-                  <strong>{CAMPOS_LABELS[campo]}</strong>
-                </div>
+                <div key={campo} style={campoBadge}><span style={{ color: "#f87171", marginRight: 6 }}>*</span><strong>{CAMPOS_LABELS[campo]}</strong></div>
               ))}
             </div>
             <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 10 }}>* Campos obligatorios — las filas sin estos datos serán omitidas</p>
           </div>
 
-          {/* SELECTOR TIPO */}
           <div style={{ marginBottom: 20 }}>
             <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIAS A IMPORTAR</p>
             <div style={{ display: "flex", gap: 12 }}>
               {(["IAM", "OEM"] as const).map(t => (
                 <button key={t} onClick={() => setTipoDefecto(t)} style={{ flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.25)" : "rgba(139,92,246,0.25)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : "#a78bfa") : "#94a3b8", outline: tipoDefecto === t ? ("2px solid " + (t === "OEM" ? "#2563eb" : "#7c3aed")) : "none" }}>
                   {t === "OEM" ? "🔵 OEM" : "🟣 IAM"}
-                  <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>
-                    {t === "OEM" ? "Servicio oficial — referencias originales de fabricante" : "Distribuidor — aftermarket / equivalentes"}
-                  </p>
+                  <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>{t === "OEM" ? "Servicio oficial — referencias originales de fabricante" : "Distribuidor — aftermarket / equivalentes"}</p>
                 </button>
               ))}
             </div>
           </div>
 
-          <div
-            onClick={() => inputRef.current?.click()}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) leerArchivo(f); }}
-          >
+          <div onClick={() => inputRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) leerArchivo(f); }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📂</div>
             <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Arrastra tu Excel aquí</h3>
             <p style={{ color: "#94a3b8", marginBottom: 16 }}>o haz clic para seleccionar el archivo</p>
-            {provinciaPerfil
-              ? <div style={provinciaBadge}>📍 Provincia automática: <strong>{provinciaPerfil}</strong></div>
-              : <div style={avisoSinProvincia}>⚠️ Sin provincia configurada en tu perfil</div>}
+            {provinciaPerfil ? <div style={provinciaBadge}>📍 Provincia automática: <strong>{provinciaPerfil}</strong></div> : <div style={avisoSinProvincia}>⚠️ Sin provincia configurada en tu perfil</div>}
             <div style={{ ...dropBadge, marginTop: 12 }}>.xlsx / .xls / .csv</div>
-            <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) leerArchivo(f); }} />
+            <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) leerArchivo(f); }} />
           </div>
         </div>
       )}
 
-      {/* MAPEO DE COLUMNAS */}
       {fase === "mapeo" && (
         <div>
           <div style={mapeoHeader}>
             <div>
               <div style={{ color: "#60a5fa", fontWeight: 700, marginBottom: 4 }}>📄 {nombreArchivo}</div>
               <h3 style={{ fontSize: 22, fontWeight: 900 }}>{filas.length.toLocaleString()} filas detectadas</h3>
-              <p style={{ color: "#94a3b8", marginTop: 4, fontSize: 14 }}>
-                Asigna qué columna de tu Excel corresponde a cada campo
-              </p>
+              <p style={{ color: "#94a3b8", marginTop: 4, fontSize: 14 }}>Asigna qué columna de tu Excel corresponde a cada campo</p>
             </div>
             <button onClick={resetear} style={btnCancelar}>← Cambiar archivo</button>
           </div>
@@ -389,62 +346,31 @@ export default function ImportarStock({
           <div style={mapeoGrid}>
             {CAMPOS_OBLIGATORIOS.map(campo => (
               <div key={campo} style={mapeoCard}>
-                <p style={mapeoLabel}>
-                  <span style={{ color: "#f87171" }}>* </span>
-                  {CAMPOS_LABELS[campo]}
-                </p>
-                <select
-                  value={mapeo[campo as keyof MapeoColumnas]}
-                  onChange={e => setMapeo(prev => ({ ...prev, [campo]: e.target.value }))}
-                  style={mapeoSelect}
-                >
+                <p style={mapeoLabel}><span style={{ color: "#f87171" }}>* </span>{CAMPOS_LABELS[campo]}</p>
+                <select value={mapeo[campo as keyof MapeoColumnas]} onChange={e => setMapeo(prev => ({ ...prev, [campo]: e.target.value }))} style={mapeoSelect}>
                   <option value="">— Seleccionar columna —</option>
-                  {columnas.map(col => (
-                    <option key={col} value={col}>{col}</option>
-                  ))}
+                  {columnas.map(col => <option key={col} value={col}>{col}</option>)}
                 </select>
-                {mapeo[campo as keyof MapeoColumnas] && (
-                  <div style={mapeoPreviewVal}>
-                    Vista previa: <strong>{getVal(filas[0], mapeo[campo as keyof MapeoColumnas]) || "—"}</strong>
-                  </div>
-                )}
+                {mapeo[campo as keyof MapeoColumnas] && <div style={mapeoPreviewVal}>Vista previa: <strong>{getVal(filas[0], mapeo[campo as keyof MapeoColumnas]) || "—"}</strong></div>}
               </div>
             ))}
-            {/* Campo opcional impuesto */}
             <div style={{ ...mapeoCard, border: "1px solid rgba(245,158,11,0.3)" }}>
-              <p style={mapeoLabel}>
-                <span style={{ color: "#fbbf24", marginRight: 6 }}>○</span>
-                {CAMPOS_LABELS["impuesto"]}
-                <span style={{ color: "#94a3b8", fontSize: 11, marginLeft: 6 }}>(opcional)</span>
-              </p>
-              <select
-                value={mapeo.impuesto}
-                onChange={e => setMapeo(prev => ({ ...prev, impuesto: e.target.value }))}
-                style={{ ...mapeoSelect, borderColor: "rgba(245,158,11,0.3)" }}
-              >
+              <p style={mapeoLabel}><span style={{ color: "#fbbf24", marginRight: 6 }}>○</span>{CAMPOS_LABELS["impuesto"]}<span style={{ color: "#94a3b8", fontSize: 11, marginLeft: 6 }}>(opcional)</span></p>
+              <select value={mapeo.impuesto} onChange={e => setMapeo(prev => ({ ...prev, impuesto: e.target.value }))} style={{ ...mapeoSelect, borderColor: "rgba(245,158,11,0.3)" }}>
                 <option value="">— Sin impuesto —</option>
-                {columnas.map(col => (
-                  <option key={col} value={col}>{col}</option>
-                ))}
+                {columnas.map(col => <option key={col} value={col}>{col}</option>)}
               </select>
-              {mapeo.impuesto && (
-                <div style={mapeoPreviewVal}>
-                  Vista previa: <strong>{getVal(filas[0], mapeo.impuesto || "") || "—"}€</strong>
-                </div>
-              )}
+              {mapeo.impuesto && <div style={mapeoPreviewVal}>Vista previa: <strong>{getVal(filas[0], mapeo.impuesto || "") || "—"}€</strong></div>}
               <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>Ecotasa, casco, recargo especial...</p>
             </div>
           </div>
 
-          {/* Preview tabla */}
           {mapeoCompleto() && (
             <div style={{ marginTop: 24 }}>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 10, fontWeight: 700 }}>VISTA PREVIA (5 primeras filas)</p>
               <div style={tableWrap}>
                 <table style={tableStyle}>
-                  <thead>
-                    <tr>{["REFERENCIA", "DESCRIPCIÓN", "MARCA", "PRECIO", "STOCK"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
-                  </thead>
+                  <thead><tr>{["REFERENCIA", "DESCRIPCIÓN", "MARCA", "PRECIO", "STOCK"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                   <tbody>
                     {preview.map((fila, i) => (
                       <tr key={i} style={i % 2 === 0 ? {} : { background: "rgba(255,255,255,0.02)" }}>
@@ -462,113 +388,61 @@ export default function ImportarStock({
           )}
 
           <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
-            <button
-              onClick={() => setFase("preview")}
-              disabled={!mapeoCompleto()}
-              style={{ ...btnImportar, opacity: mapeoCompleto() ? 1 : 0.4, cursor: mapeoCompleto() ? "pointer" : "not-allowed" }}
-            >
-              Continuar → Vista previa
-            </button>
+            <button onClick={() => setFase("preview")} disabled={!mapeoCompleto()} style={{ ...btnImportar, opacity: mapeoCompleto() ? 1 : 0.4, cursor: mapeoCompleto() ? "pointer" : "not-allowed" }}>Continuar → Vista previa</button>
           </div>
         </div>
       )}
 
-      {/* PREVIEW FINAL */}
       {fase === "preview" && (
         <div>
           <div style={mapeoHeader}>
             <div>
               <h3 style={{ fontSize: 22, fontWeight: 900 }}>Listo para importar</h3>
-              <p style={{ color: "#94a3b8", marginTop: 6 }}>
-                <strong style={{ color: "white" }}>{filas.length.toLocaleString()}</strong> referencias · Provincia: <strong style={{ color: "white" }}>{provinciaPerfil || "Sin configurar"}</strong>
-              </p>
+              <p style={{ color: "#94a3b8", marginTop: 6 }}><strong style={{ color: "white" }}>{filas.length.toLocaleString()}</strong> referencias · Provincia: <strong style={{ color: "white" }}>{provinciaPerfil || "Sin configurar"}</strong></p>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <button onClick={() => setFase("mapeo")} style={btnCancelar}>← Editar mapeo</button>
-              <button onClick={importar} style={{
-                ...btnImportar,
-                background: modoImport === "reemplazar" ? "linear-gradient(135deg,#dc2626,#991b1b)" : "linear-gradient(135deg,#16a34a,#15803d)"
-              }}>
+              <button onClick={importar} style={{ ...btnImportar, background: modoImport === "reemplazar" ? "linear-gradient(135deg,#dc2626,#991b1b)" : "linear-gradient(135deg,#16a34a,#15803d)" }}>
                 {modoImport === "reemplazar" ? "⚠️ REEMPLAZAR TODO" : "✓ ACTUALIZAR"} ({filas.length.toLocaleString()} refs)
               </button>
             </div>
           </div>
 
-          {/* SELECTOR TIPO POR DEFECTO */}
           <div style={{ marginBottom: 16 }}>
             <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIA POR DEFECTO</p>
             <div style={{ display: "flex", gap: 10 }}>
               {(["OEM", "IAM", "UNIVERSAL"] as const).map(t => (
-                <button key={t} onClick={() => setTipoDefecto(t)} style={{
-                  padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none",
-                  background: tipoDefecto === t
-                    ? t === "OEM" ? "rgba(37,99,235,0.3)" : t === "IAM" ? "rgba(139,92,246,0.3)" : "rgba(22,163,74,0.3)"
-                    : "rgba(255,255,255,0.05)",
-                  color: tipoDefecto === t
-                    ? t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : "#4ade80"
-                    : "#94a3b8",
-                  outline: tipoDefecto === t ? "2px solid currentColor" : "none",
-                }}>{t}</button>
+                <button key={t} onClick={() => setTipoDefecto(t)} style={{ padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.3)" : t === "IAM" ? "rgba(139,92,246,0.3)" : "rgba(22,163,74,0.3)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : "#4ade80") : "#94a3b8", outline: tipoDefecto === t ? "2px solid currentColor" : "none" }}>{t}</button>
               ))}
             </div>
-            <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>
-              Todas las referencias del fichero se importaran como {tipoDefecto}
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>Todas las referencias del fichero se importaran como {tipoDefecto}</p>
           </div>
 
-          {/* SELECTOR MODO */}
           <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <button
-              onClick={() => setModoImport("reemplazar")}
-              style={{
-                flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none",
-                background: modoImport === "reemplazar" ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)",
-                color: modoImport === "reemplazar" ? "#f87171" : "#94a3b8",
-                outline: modoImport === "reemplazar" ? "2px solid rgba(239,68,68,0.5)" : "none",
-              }}
-            >
+            <button onClick={() => setModoImport("reemplazar")} style={{ flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: modoImport === "reemplazar" ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", color: modoImport === "reemplazar" ? "#f87171" : "#94a3b8", outline: modoImport === "reemplazar" ? "2px solid rgba(239,68,68,0.5)" : "none" }}>
               🔄 Reemplazar todo el stock
-              <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>
-                Borra todo lo actual e importa solo este fichero. Ideal para exportaciones diarias del ERP.
-              </p>
+              <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>Borra todo lo actual e importa solo este fichero. Ideal para exportaciones diarias del ERP.</p>
             </button>
-            <button
-              onClick={() => setModoImport("actualizar")}
-              style={{
-                flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none",
-                background: modoImport === "actualizar" ? "rgba(22,163,74,0.2)" : "rgba(255,255,255,0.05)",
-                color: modoImport === "actualizar" ? "#4ade80" : "#94a3b8",
-                outline: modoImport === "actualizar" ? "2px solid rgba(22,163,74,0.5)" : "none",
-              }}
-            >
+            <button onClick={() => setModoImport("actualizar")} style={{ flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: modoImport === "actualizar" ? "rgba(22,163,74,0.2)" : "rgba(255,255,255,0.05)", color: modoImport === "actualizar" ? "#4ade80" : "#94a3b8", outline: modoImport === "actualizar" ? "2px solid rgba(22,163,74,0.5)" : "none" }}>
               ➕ Añadir / Actualizar
-              <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>
-                Mantiene el stock actual, añade nuevas refs y actualiza precios de las existentes.
-              </p>
+              <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>Mantiene el stock actual, añade nuevas refs y actualiza precios de las existentes.</p>
             </button>
           </div>
 
           {modoImport === "reemplazar" && (
             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
-              <p style={{ color: "#f87171", fontSize: 14, fontWeight: 700 }}>
-                ⚠️ ATENCIÓN: Se eliminarán todas tus referencias <strong>{tipoDefecto}</strong> actuales y se sustituirán por las de este fichero.
-                Las referencias de otro tipo no se verán afectadas.
-              </p>
+              <p style={{ color: "#f87171", fontSize: 14, fontWeight: 700 }}>⚠️ ATENCIÓN: Se eliminarán las referencias <strong>{tipoDefecto}</strong> importadas por FTP/Excel. Las creadas manualmente no se verán afectadas.</p>
             </div>
           )}
           {modoImport === "actualizar" && (
             <div style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
-              <p style={{ color: "#4ade80", fontSize: 14 }}>
-                ✅ Las referencias nuevas se <strong>añadirán</strong>. Las existentes se <strong>actualizarán</strong>. Las que no estén en el fichero se <strong>mantienen</strong>.
-              </p>
+              <p style={{ color: "#4ade80", fontSize: 14 }}>✅ Las referencias nuevas se <strong>añadirán</strong>. Las existentes se <strong>actualizarán</strong>. Las que no estén en el fichero se <strong>mantienen</strong>.</p>
             </div>
           )}
 
           <div style={tableWrap}>
             <table style={tableStyle}>
-              <thead>
-                <tr>{["REFERENCIA", "DESCRIPCIÓN", "MARCA", "PRECIO", "STOCK"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
-              </thead>
+              <thead><tr>{["REFERENCIA", "DESCRIPCIÓN", "MARCA", "PRECIO", "STOCK"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
               <tbody>
                 {preview.map((fila, i) => (
                   <tr key={i} style={i % 2 === 0 ? {} : { background: "rgba(255,255,255,0.02)" }}>
@@ -586,21 +460,17 @@ export default function ImportarStock({
         </div>
       )}
 
-      {/* IMPORTANDO */}
       {fase === "importando" && (
         <div style={progressContainer}>
           <div style={{ fontSize: 48, marginBottom: 20 }}>⚙️</div>
           <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Importando referencias...</h3>
           <p style={{ color: "#94a3b8", marginBottom: 8 }}>No cierres esta ventana</p>
           <p style={{ color: "#60a5fa", fontSize: 14, marginBottom: 28, fontWeight: 600 }}>{progresoTexto}</p>
-          <div style={progressBar}>
-            <div style={{ ...progressFill, width: `${progreso}%` }} />
-          </div>
+          <div style={progressBar}><div style={{ ...progressFill, width: `${progreso}%` }} /></div>
           <p style={{ marginTop: 16, fontSize: 28, fontWeight: 900, color: "#60a5fa" }}>{progreso}%</p>
         </div>
       )}
 
-      {/* DONE */}
       {fase === "done" && resultado && (
         <div style={resultContainer}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>{resultado.errores.length === 0 ? "✅" : "⚠️"}</div>
@@ -615,9 +485,7 @@ export default function ImportarStock({
             <div style={erroresBox}>
               <p style={{ fontWeight: 700, marginBottom: 10, color: "#f87171" }}>Filas con errores ({resultado.errores.length}):</p>
               <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                {resultado.errores.slice(0, 50).map((e, i) => (
-                  <p key={i} style={{ fontSize: 13, color: "#fca5a5", marginBottom: 4 }}>• {e}</p>
-                ))}
+                {resultado.errores.slice(0, 50).map((e, i) => <p key={i} style={{ fontSize: 13, color: "#fca5a5", marginBottom: 4 }}>• {e}</p>)}
                 {resultado.errores.length > 50 && <p style={{ color: "#94a3b8", fontSize: 12 }}>... y {resultado.errores.length - 50} errores más</p>}
               </div>
             </div>
@@ -629,11 +497,9 @@ export default function ImportarStock({
   );
 }
 
-/* STYLES */
 const btnPlantilla = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "10px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" as const };
 const instruccionesBox = { background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 16, padding: "20px 24px", marginBottom: 20 };
 const campoBadge = { background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "white" };
-const dropZone = { border: "2px dashed rgba(37,99,235,0.4)", borderRadius: 24, padding: "50px 40px", textAlign: "center" as const, cursor: "pointer", background: "rgba(37,99,235,0.04)" };
 const dropBadge = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13 };
 const provinciaBadge = { display: "inline-block", background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "10px 18px", borderRadius: 12, fontSize: 14 };
 const avisoSinProvincia = { display: "inline-block", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "10px 18px", borderRadius: 12, fontSize: 14 };
