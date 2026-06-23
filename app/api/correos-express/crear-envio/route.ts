@@ -9,7 +9,7 @@ const supabase = createClient(
 const CEX_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionEnviok8s/json/grabacionEnvio";
 const CEX_USER = process.env.CEX_USUARIO!;
 const CEX_PASS = process.env.CEX_PASSWORD!;
-const CEX_SOLICITANTE = process.env.CEX_CODIGO_CLIENTE!; // código de cliente 9 dígitos
+const CEX_SOLICITANTE = process.env.CEX_SOLICITANTE || ("I" + process.env.CEX_CODIGO_CLIENTE!); // IB15160001
 const CEX_PRODUCTO = "63"; // Paq 24
 
 export async function POST(req: NextRequest) {
@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Authorization": authHeader,
       },
       body: JSON.stringify(body),
     });
