@@ -16,10 +16,9 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Falta pedidoId" }, { status: 400 });
     }
 
-    // Leer el pedido para saber qué agencia tiene y qué referencias de envío
     const { data: pedido } = await supabase
       .from("pedidos")
-      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, collection_ref_seur, estado_envio")
+      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, collection_ref_seur, collection_ref_correos_express, estado_envio")
       .eq("id", pedidoId)
       .single();
 
@@ -27,7 +26,6 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Pedido no encontrado" }, { status: 404 });
     }
 
-    // Solo anular si el envío no ha salido todavía
     if (["enviado", "entregado"].includes(pedido.estado_envio || "")) {
       return Response.json({
         ok: false,
@@ -39,19 +37,19 @@ export async function POST(request: Request) {
     const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://recambio-directo.com";
 
-    // ── SEUR ────────────────────────────────────────────────────────────────
-    if (agencia.includes("seur") && pedido.collection_ref_seur) {
-      const res = await fetch(`${baseUrl}/api/seur/anular`, {
+    // ── MRW ─────────────────────────────────────────────────────────────────
+    if (agencia.includes("mrw") && pedido.tracking) {
+      const res = await fetch(`${baseUrl}/api/mrw/anular`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collectionRef: pedido.collection_ref_seur }),
+        body: JSON.stringify({ numeroEnvio: pedido.tracking }),
       });
       const data = await res.json();
       return Response.json({
         ok: data.ok,
-        agencia: "SEUR",
-        referencia: pedido.collection_ref_seur,
-        mensaje: data.ok ? "Recogida SEUR anulada correctamente" : data.rawResponse,
+        agencia: "MRW",
+        referencia: pedido.tracking,
+        mensaje: data.ok ? "Envío MRW anulado correctamente" : data.mensaje,
       });
     }
 
@@ -71,23 +69,47 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── MRW ─────────────────────────────────────────────────────────────────
-    if (agencia.includes("mrw") && pedido.tracking) {
-      const res = await fetch(`${baseUrl}/api/mrw/anular`, {
+    // ── SEUR ────────────────────────────────────────────────────────────────
+    if (agencia.includes("seur") && pedido.collection_ref_seur) {
+      const res = await fetch(`${baseUrl}/api/seur/anular`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numeroEnvio: pedido.tracking }),
+        body: JSON.stringify({ collectionRef: pedido.collection_ref_seur }),
       });
       const data = await res.json();
       return Response.json({
         ok: data.ok,
-        agencia: "MRW",
-        referencia: pedido.tracking,
-        mensaje: data.ok ? "Envío MRW anulado correctamente" : data.mensaje,
+        agencia: "SEUR",
+        referencia: pedido.collection_ref_seur,
+        mensaje: data.ok ? "Recogida SEUR anulada correctamente" : data.rawResponse,
       });
     }
 
-    // Sin agencia integrada (GLS, Correos Express, Mis Medios)
+    // ── CORREOS EXPRESS ──────────────────────────────────────────────────────
+    if (agencia.includes("correos") && pedido.collection_ref_correos_express) {
+      const res = await fetch(`${baseUrl}/api/correos-express/anular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyRecogida: pedido.collection_ref_correos_express }),
+      });
+      const data = await res.json();
+      return Response.json({
+        ok: data.ok,
+        agencia: "Correos Express",
+        referencia: pedido.collection_ref_correos_express,
+        mensaje: data.ok ? "Recogida CEX anulada correctamente" : data.error,
+      });
+    }
+
+    // ── GLS (pendiente integración) ──────────────────────────────────────────
+    // Cuando lleguen las credenciales GLS, añadir aquí:
+    // if (agencia.includes("gls") && pedido.tracking_gls) { ... }
+
+    // ── CTT Express (pendiente integración) ─────────────────────────────────
+    // Cuando llegue la API CTT, añadir aquí:
+    // if (agencia.includes("ctt") && pedido.tracking_ctt) { ... }
+
+    // Sin agencia integrada (GLS, Mis Medios, etc.)
     return Response.json({
       ok: true,
       agencia: agencia || "sin_agencia",
