@@ -158,7 +158,7 @@ export default function CheckoutPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW", "GLS", "Correos Express", "Mis Medios"]);
+  const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW", "NACEX", "SEUR", "GLS", "Correos Express", "Mis Medios"]);
 
   function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
     const esIsla = (cp: string) => cp.startsWith("35") || cp.startsWith("38") || cp.startsWith("51") || cp.startsWith("52");
