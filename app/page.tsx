@@ -23,6 +23,12 @@ export default function Home() {
 
   useEffect(() => {
     async function checkSession() {
+      // Si venimos de un enlace de reset de contraseña, redirigir al formulario
+      if (window.location.hash.includes("type=recovery")) {
+        router.push("/auth/reset-password" + window.location.hash);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: perfil } = await supabase.from("usuarios").select("tipo, activo").eq("id", user.id).single();
@@ -158,32 +164,21 @@ export default function Home() {
           <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: m ? 16 : 24 }}>
-
           {/* TALLER */}
           <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: m ? 24 : 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
             <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
             <h3 style={{ fontSize: m ? 20 : 24, fontWeight: 900, marginBottom: 12 }}>Encuentra el recambio que necesitas en segundos</h3>
-            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
-              Sin esperar a que te cojan el teléfono. Sin catálogos desactualizados. Busca por referencia OEM o IAM, ve el precio en tiempo real y pide en 3 clics.
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sin esperar a que te cojan el teléfono. Sin catálogos desactualizados. Busca por referencia OEM o IAM, ve el precio en tiempo real y pide en 3 clics.</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
-              {[
-                "Acceso a referencias OEM, IAM y Universal",
-                "Entrega 24h con las principales agencias de transporte",
-                "Chat directo con el proveedor en cada pedido",
-                "Historial de pedidos y facturas descargables",
-                "RD Pago — compra ahora y paga en 15 días",
-              ].map(item => (
+              {["Acceso a referencias OEM, IAM y Universal", "Entrega 24h con las principales agencias de transporte", "Chat directo con el proveedor en cada pedido", "Historial de pedidos y facturas descargables", "RD Pago — compra ahora y paga en 15 días"].map(item => (
                 <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
                   <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
                 </div>
               ))}
             </div>
-            <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
-              Registrarme como taller →
-            </button>
+            <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>Registrarme como taller →</button>
           </div>
 
           {/* PROVEEDOR */}
@@ -191,26 +186,16 @@ export default function Home() {
             <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
             <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
             <h3 style={{ fontSize: m ? 20 : 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
-            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
-              Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
-              {[
-                "Importación masiva desde Excel, CSV o FTP automático",
-                "Albarán y etiqueta de envío generados automáticamente",
-                "Control total sobre quién ve tus precios",
-                "Panel de pedidos, facturación y estadísticas",
-                "Precio fijo mensual — sin sorpresas",
-              ].map(item => (
+              {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "Precio fijo mensual — sin sorpresas"].map(item => (
                 <div key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
                   <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
                 </div>
               ))}
             </div>
-            <button onClick={() => router.push("/registro?tipo=proveedor")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
-              Registrarme como proveedor →
-            </button>
+            <button onClick={() => router.push("/registro?tipo=proveedor")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#16a34a,#15803d)" }}>Registrarme como proveedor →</button>
           </div>
         </div>
       </section>
@@ -284,19 +269,11 @@ export default function Home() {
       <section style={{ padding: m ? "40px 20px" : "80px", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
           <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
-          <h2 style={{ fontSize: m ? 28 : 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>
-            1 mes gratis.<br />Sin compromiso.
-          </h2>
-          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17, marginBottom: 32, lineHeight: 1.7 }}>
-            Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes. Sin permanencia ni sorpresas.
-          </p>
+          <h2 style={{ fontSize: m ? 28 : 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>1 mes gratis.<br />Sin compromiso.</h2>
+          <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17, marginBottom: 32, lineHeight: 1.7 }}>Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes. Sin permanencia ni sorpresas.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
-            <button onClick={() => router.push("/registro")} style={{ ...loginButton, width: "auto", padding: "18px 48px", fontSize: 17, marginBottom: 0 }}>
-              EMPEZAR GRATIS →
-            </button>
-            <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>
-              Hablar con el equipo
-            </a>
+            <button onClick={() => router.push("/registro")} style={{ ...loginButton, width: "auto", padding: "18px 48px", fontSize: 17, marginBottom: 0 }}>EMPEZAR GRATIS →</button>
+            <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>Hablar con el equipo</a>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: m ? 16 : 32, marginTop: 32, flexWrap: "wrap" as const }}>
             {["Sin permanencia", "Precio fijo mensual", "Soporte incluido", "Alta en 24h"].map(g => (
