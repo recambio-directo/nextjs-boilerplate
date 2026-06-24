@@ -12,9 +12,9 @@ export async function POST(request: Request) {
     const password = process.env.NACEX_PASSWORD || "";
     const baseUrl = "https://nacexapi.nacex.com/api_nacex.php";
 
-    // NACEX usa el método anularEnvio
+    // NACEX usa el método anularEnvio — sin tilde en "metodo"
     const params = new URLSearchParams({
-      método: "anularEnvio",
+      metodo: "anularEnvio",
       user: usuario,
       pass: password,
       ag: localizador.split("/")[0] || "",
@@ -28,7 +28,6 @@ export async function POST(request: Request) {
     const rawText = await res.text();
     console.log("NACEX anular response:", rawText.substring(0, 300));
 
-    // NACEX devuelve ERROR= o OK=
     const ok = !rawText.includes("ERROR=") && (rawText.includes("OK") || res.ok);
 
     return Response.json({ ok, localizador, rawResponse: rawText });
