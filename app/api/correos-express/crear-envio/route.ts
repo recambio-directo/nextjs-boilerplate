@@ -10,6 +10,7 @@ const CEX_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionEnviok8s/json/grabac
 const CEX_USER = process.env.CEX_USUARIO!;
 const CEX_PASS = process.env.CEX_PASSWORD!;
 const CEX_SOLICITANTE = process.env.CEX_SOLICITANTE || ("I" + process.env.CEX_CODIGO_CLIENTE!); // IB15160001
+const CEX_CODIGO_CLIENTE = process.env.CEX_CODIGO_CLIENTE!; // B15160001
 const CEX_PRODUCTO = "63"; // Paq 24
 
 export async function POST(req: NextRequest) {
@@ -44,19 +45,19 @@ export async function POST(req: NextRequest) {
     const fechaStr = `${dd}${mm}${yyyy}`;
 
     const body = {
-      solicitante: CEX_SOLICITANTE,
+      solicitante: CEX_SOLICITANTE,       // IB15160001
       canalEntrada: "",
       numEnvio: "",
       ref: `RD-${pedido.codigo || pedidoId}`,
       refCliente: String(pedidoId),
       fecha: fechaStr,
-      codRte: CEX_SOLICITANTE,
+      codRte: CEX_CODIGO_CLIENTE,         // B15160001 (sin la I)
       nomRte: "RECAMBIO DIRECTO",
       nifRte: "",
       dirRte: "C/ Sola, 16",
       pobRte: "CEHEGIN",
       codPosNacRte: "30430",
-      paisISORte: "",
+      paisISORte: "ES",                   // obligatorio desde v03.17
       codPosIntRte: "",
       contacRte: "RECAMBIO DIRECTO",
       telefRte: "",
@@ -92,24 +93,27 @@ export async function POST(req: NextRequest) {
         {
           alto: "", ancho: "", codBultoCli: "", codUnico: "",
           descripcion: refs, kilos: kilosEstimados,
-          largo: "", observaciones: "", orden: "1", referencia: `RD-${pedidoId}`, volumen: ""
+          largo: "", observaciones: "", orden: "1",
+          referencia: `RD-${pedidoId}`, volumen: ""
         }
       ],
       codDirecDestino: "",
       password: CEX_PASS,
       listaInformacionAdicional: [
         {
-          tipoEtiqueta: "1", // PDF Base64
+          tipoEtiqueta: "1",
           etiquetaPDF: "",
           creaRecogida: "S",
           fechaRecogida: "",
           horaDesdeRecogida: "09:00",
           horaHastaRecogida: "18:00",
           referenciaRecogida: `RD-${pedidoId}`,
+          codificacionUnicaB64: "1",      // decodificación simple
         }
       ]
     };
 
+    // Basic Auth con credenciales LDAP
     const authHeader = "Basic " + Buffer.from(`${CEX_USER}:${CEX_PASS}`).toString("base64");
 
     const resp = await fetch(CEX_URL, {
@@ -117,41 +121,45 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
+        "Authorization": authHeader,       // ← fix principal
       },
       body: JSON.stringify(body),
     });
 
     const rawText = await resp.text();
 
-    // Si CEX devuelve HTML es error de autenticación o endpoint incorrecto
     if (rawText.trim().startsWith("<")) {
-      console.error("CEX devolvió HTML — posible error de credenciales:", rawText.substring(0, 300));
-      return NextResponse.json({ error: "CEX devolvió HTML en lugar de JSON. Verificar credenciales y endpoint.", raw: rawText.substring(0, 300) }, { status: 400 });
+      console.error("CEX devolvió HTML:", rawText.substring(0, 300));
+      return NextResponse.json({
+        error: "CEX devolvió HTML. Error de autenticación o endpoint.",
+        raw: rawText.substring(0, 300)
+      }, { status: 400 });
     }
 
     const data = JSON.parse(rawText);
 
     if (data.codigoRetorno !== 0) {
       console.error("CEX error:", data);
-      return NextResponse.json({ error: data.mensajeRetorno || "Error CEX", code: data.codigoRetorno }, { status: 400 });
+      return NextResponse.json({
+        error: data.mensajeRetorno || "Error CEX",
+        code: data.codigoRetorno
+      }, { status: 400 });
     }
 
-    const numEnvio = data.datosResultado; // número de envío CEX
+    const numEnvio = data.datosResultado;
     const codUnico = data.listaBultos?.[0]?.codUnico || "";
     const numRecogida = data.numRecogida ? String(data.numRecogida) : null;
 
-    // Decodificar etiqueta PDF (doble base64 según docs CEX)
+    // Decodificar etiqueta PDF (codificacionUnicaB64=1 → una sola decodificación)
     let etiquetaUrl: string | null = null;
     const etiquetaRaw = data.etiqueta?.[0]?.etiqueta1 || data.etiqueta?.[0]?.etiqueta2 || null;
     if (etiquetaRaw && !etiquetaRaw.includes("no se ha generado")) {
       try {
-        // Doble decodificación según documentación CEX
-        const decoded1 = Buffer.from(etiquetaRaw, "base64").toString("binary");
-        const decoded2 = Buffer.from(decoded1, "binary");
+        const decoded = Buffer.from(etiquetaRaw, "base64");
         const path = `etiquetas-cex/${pedidoId}/${Date.now()}_etiqueta.pdf`;
         const { error: uploadErr } = await supabase.storage
           .from("FACTURAS")
-          .upload(path, decoded2, { contentType: "application/pdf" });
+          .upload(path, decoded, { contentType: "application/pdf" });
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
           etiquetaUrl = urlData.publicUrl;
@@ -161,7 +169,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Actualizar pedido en Supabase
     await supabase.from("pedidos").update({
       tracking: numEnvio,
       collection_ref_correos_express: numRecogida,
