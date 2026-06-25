@@ -710,6 +710,10 @@ export default function CheckoutPage() {
                 <p style={{ color: "#94a3b8", fontSize: 13, margin: "4px 0 0" }}>Pago seguro con Stripe</p>
               </button>
             </div>
+            <button onClick={finalizarCompra} disabled={!puedeConfirmar} style={{ width: "100%", marginTop: 16, background: puedeConfirmar ? "linear-gradient(135deg,#16a34a,#15803d)" : "rgba(255,255,255,0.08)", border: "none", padding: 18, borderRadius: 16, color: puedeConfirmar ? "white" : "#64748b", fontWeight: 900, fontSize: 17, opacity: puedeConfirmar ? 1 : 0.5, cursor: puedeConfirmar ? "pointer" : "not-allowed", boxShadow: puedeConfirmar ? "0 8px 24px rgba(22,163,74,0.3)" : "none" }}>
+              {cargando ? "PROCESANDO..." : !transporte ? "Elige transporte primero" : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
+            </button>
+            <p style={{ color: "#94a3b8", fontSize: 12, textAlign: "center", marginTop: 10 }}>El proveedor recibirá su albarán automáticamente</p>
           </Paso>
         </div>
       </section>
@@ -761,15 +765,11 @@ export default function CheckoutPage() {
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#94a3b8" }}><span>IVA (21%)</span><span>{iva.toFixed(2)}€</span></div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>TOTAL</span>
             <span style={{ fontSize: 36, fontWeight: 900, color: "#22c55e" }}>{total.toFixed(2)}€</span>
           </div>
-
-          <button onClick={finalizarCompra} disabled={!puedeConfirmar} style={{ width: "100%", background: puedeConfirmar ? "linear-gradient(135deg,#16a34a,#15803d)" : "rgba(255,255,255,0.08)", border: "none", padding: 18, borderRadius: 18, color: puedeConfirmar ? "white" : "#64748b", fontWeight: 900, fontSize: 16, opacity: puedeConfirmar ? 1 : 0.5, cursor: puedeConfirmar ? "pointer" : "not-allowed" }}>
-            {cargando ? "PROCESANDO..." : paso < 3 ? `Completar paso ${paso} primero` : !transporte ? "Elige transporte" : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
-          </button>
-          <p style={{ color: "#94a3b8", fontSize: 11, textAlign: "center", marginTop: 12 }}>El proveedor recibirá su albarán automáticamente</p>
+          <p style={{ color: "#94a3b8", fontSize: 11, textAlign: "center", marginTop: 12 }}>Completa los 3 pasos para confirmar el pedido</p>
         </div>
       </aside>
 
