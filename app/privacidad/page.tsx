@@ -27,7 +27,10 @@ export default function PrivacidadPage() {
           </Section>
 
           <Section title="5. DESTINATARIOS">
-            Sus datos no serán cedidos a terceros salvo a proveedores técnicos necesarios para el servicio: <strong>Supabase</strong> (base de datos, servidores en la UE), <strong>Vercel</strong> (hosting) y <strong>Resend</strong> (envío de emails). Todos cumplen con el RGPD. También podrán cederse cuando sea requerido por autoridades competentes.
+            Sus datos no serán cedidos a terceros salvo a los siguientes proveedores técnicos y de servicios necesarios para el funcionamiento de la plataforma, todos ellos conformes con el RGPD:<br /><br />
+            <strong>Proveedores técnicos:</strong> Supabase (base de datos, servidores en la UE), Vercel (hosting) y Resend (envío de emails).<br /><br />
+            <strong>Agencias de transporte:</strong> para la gestión de los envíos, se facilitan a las agencias contratadas los datos necesarios del remitente y destinatario (nombre, dirección, teléfono). Las agencias con las que operamos son: MRW, NACEX, SEUR, Correos Express, GLS, DHL y CTT Express. Cada una dispone de su propia política de privacidad.<br /><br />
+            También podrán cederse datos cuando sea requerido por autoridades competentes.
           </Section>
 
           <Section title="6. DERECHOS DEL USUARIO">
@@ -42,6 +45,7 @@ export default function PrivacidadPage() {
             <a href="/terminos" style={legalLink}>Términos y Condiciones</a>
             <a href="/cookies" style={legalLink}>Política de Cookies</a>
             <a href="/aviso-legal" style={legalLink}>Aviso Legal</a>
+            <a href="/devoluciones" style={legalLink}>Política de Devoluciones</a>
           </div>
         </div>
       </div>
