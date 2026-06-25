@@ -23,12 +23,10 @@ export default function Home() {
 
   useEffect(() => {
     async function checkSession() {
-      // Si venimos de un enlace de reset de contraseña, redirigir al formulario
       if (window.location.hash.includes("type=recovery")) {
         router.push("/auth/reset-password" + window.location.hash);
         return;
       }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: perfil } = await supabase.from("usuarios").select("tipo, activo").eq("id", user.id).single();
@@ -72,7 +70,6 @@ export default function Home() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#020617", color: "white", position: "relative", overflow: "hidden" }}>
-      {/* Fondo */}
       <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(37,99,235,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.07) 1px, transparent 1px)", backgroundSize: "60px 60px", pointerEvents: "none", zIndex: 1 }} />
       <div style={{ width: "600px", height: "600px", borderRadius: "999px", background: "rgba(37,99,235,0.22)", filter: "blur(160px)", position: "absolute", top: "-200px", left: "-200px", pointerEvents: "none", zIndex: 1 }} />
       <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.12)", filter: "blur(140px)", position: "absolute", bottom: "0", right: "-100px", pointerEvents: "none", zIndex: 1 }} />
@@ -124,10 +121,11 @@ export default function Home() {
               <button onClick={() => setMostrarReset(true)} style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 13, marginTop: 12, width: "100%", textAlign: "center" as const }}>¿Olvidaste tu contraseña?</button>
               <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap" as const, gap: 4, marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 {[
-                  { label: "Quiénes somos", href: "/quienes-somos" },
                   { label: "Privacidad", href: "/privacidad" },
                   { label: "Términos", href: "/terminos" },
                   { label: "Cookies", href: "/cookies" },
+                  { label: "Devoluciones", href: "/devoluciones" },
+                  { label: "Aviso Legal", href: "/aviso-legal" },
                 ].map(({ label, href }, i) => (
                   <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>·</span>}
@@ -164,7 +162,6 @@ export default function Home() {
           <p style={{ color: "#94a3b8", fontSize: m ? 14 : 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: m ? 16 : 24 }}>
-          {/* TALLER */}
           <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: m ? 24 : 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
             <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
@@ -180,8 +177,6 @@ export default function Home() {
             </div>
             <button onClick={() => router.push("/registro")} style={{ ...loginButton, marginBottom: 0, background: "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>Registrarme como taller →</button>
           </div>
-
-          {/* PROVEEDOR */}
           <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: m ? 24 : 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
             <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
@@ -301,9 +296,11 @@ export default function Home() {
           </div>
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Legal</h4>
+            <a href="/aviso-legal" style={footerLink}>Aviso legal</a>
             <a href="/privacidad" style={footerLink}>Política de privacidad</a>
             <a href="/terminos" style={footerLink}>Términos y condiciones</a>
             <a href="/cookies" style={footerLink}>Política de cookies</a>
+            <a href="/devoluciones" style={footerLink}>Política de devoluciones</a>
           </div>
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>

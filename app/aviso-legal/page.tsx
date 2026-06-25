@@ -9,35 +9,39 @@ export default function AvisoLegalPage() {
           <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 40 }}>Última actualización: Junio 2026</p>
 
           <Section title="1. DATOS IDENTIFICATIVOS">
-            En cumplimiento del artículo 10 de la Ley 34/2002 (LSSI-CE):<br /><br />
+            En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y del Comercio Electrónico (LSSI-CE):<br /><br />
             <strong>Titular:</strong> Vicente de Paco Cabeza<br />
             <strong>NIF:</strong> 77856096S<br />
             <strong>Domicilio:</strong> C/ Sola Nº16, 30430 Cehegín (Murcia), España<br />
             <strong>Email:</strong> info@recambio-directo.com<br />
             <strong>Teléfono:</strong> 744487895<br />
-            <strong>Web:</strong> www.recambio-directo.com
+            <strong>Web:</strong> www.recambio-directo.com<br /><br />
+            <strong>Actividad:</strong> Intermediarios del Comercio — Epígrafe IAE 631 Sección 1ª. La actividad consiste en poner en relación a compradores y vendedores de recambios de automoción entre profesionales del sector.
           </Section>
 
           <Section title="2. OBJETO">
-            Recambio Directo es una plataforma marketplace B2B especializada en la compraventa de recambios de automoción entre profesionales del sector. El acceso está reservado exclusivamente a empresas y profesionales autónomos del sector de la automoción.
+            Recambio Directo es una plataforma marketplace B2B especializada en la compraventa de recambios de automoción entre profesionales del sector. El acceso está reservado exclusivamente a empresas y profesionales autónomos del sector de la automoción legalmente constituidos en España.
+            <br /><br />
+            Recambio Directo no posee ninguno de los artículos en venta. La compraventa se realiza directamente entre usuarios (talleres y proveedores), por lo que Recambio Directo no se responsabiliza de la exactitud, veracidad o actualidad de los productos publicados por los usuarios.
           </Section>
 
           <Section title="3. PROPIEDAD INTELECTUAL">
-            Todos los contenidos de la plataforma (textos, imágenes, logotipos, diseño, código fuente) son propiedad de Vicente de Paco Cabeza o de terceros que han autorizado su uso. Queda prohibida su reproducción, distribución o comunicación pública sin autorización expresa.
+            Todos los contenidos de la plataforma (textos, imágenes, logotipos, diseño, código fuente) son propiedad de Vicente de Paco Cabeza o de terceros que han autorizado su uso. Queda expresamente prohibida su reproducción, distribución o comunicación pública sin autorización expresa y por escrito del titular.
           </Section>
 
           <Section title="4. RESPONSABILIDAD">
-            El titular no se hace responsable de los contenidos publicados por los usuarios, las transacciones realizadas entre talleres y proveedores, los daños derivados del uso incorrecto de la plataforma, ni la veracidad de los datos aportados por los usuarios en el registro.
+            El titular no se hace responsable de los contenidos publicados por los usuarios, las transacciones realizadas entre talleres y proveedores, los daños derivados del uso incorrecto de la plataforma, ni la veracidad de los datos aportados por los usuarios en el registro. Recambio Directo se reserva el derecho de retirar contenidos o cancelar cuentas que incumplan los presentes términos o la legislación vigente.
           </Section>
 
           <Section title="5. LEGISLACIÓN APLICABLE">
-            Las presentes condiciones se rigen por la legislación española. Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia, con renuncia expresa a cualquier otro fuero.
+            Las presentes condiciones se rigen por la legislación española, en particular por la Ley 34/2002 de Servicios de la Sociedad de la Información, la Ley 15/2009 del Contrato de Transporte Terrestre de Mercancías y el Reglamento General de Protección de Datos (RGPD). Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia, con renuncia expresa a cualquier otro fuero.
           </Section>
 
           <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, flexWrap: "wrap" as const }}>
             <a href="/terminos" style={legalLink}>Términos y Condiciones</a>
             <a href="/privacidad" style={legalLink}>Política de Privacidad</a>
             <a href="/cookies" style={legalLink}>Política de Cookies</a>
+            <a href="/devoluciones" style={legalLink}>Política de Devoluciones</a>
           </div>
         </div>
       </div>

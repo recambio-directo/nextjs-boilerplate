@@ -23,11 +23,11 @@ export default function TerminosPage() {
           </Section>
 
           <Section title="3. SUSCRIPCIÓN Y PRECIOS">
-            <strong>Periodo gratuito:</strong> Los primeros 2 meses desde el registro son completamente gratuitos, sin compromiso de permanencia.
+            <strong>Periodo gratuito:</strong> El primer mes desde el registro es completamente gratuito, sin compromiso de permanencia.
             <br /><br />
-            <strong>Suscripción mensual:</strong> A partir del tercer mes, el precio es de <strong>25€/mes + IVA</strong> por cuenta activa.
+            <strong>Suscripción mensual:</strong> A partir del segundo mes, el precio es de <strong>25€/mes + IVA</strong> por cuenta activa.
             <br /><br />
-            <strong>Cancelación:</strong> El usuario puede cancelar su suscripción en cualquier momento desde su panel de cuenta, sin penalización. La cancelación será efectiva al final del periodo en curso.
+            <strong>Cancelación:</strong> El usuario puede cancelar su suscripción en cualquier momento contactando con info@recambio-directo.com, sin penalización. La cancelación será efectiva al final del periodo en curso.
           </Section>
 
           <Section title="4. OBLIGACIONES DE LOS USUARIOS">
@@ -37,25 +37,36 @@ export default function TerminosPage() {
           </Section>
 
           <Section title="5. TRANSACCIONES Y PAGOS">
-            Recambio Directo actúa como intermediario entre talleres y proveedores. El pago puede realizarse mediante transferencia bancaria, RD Pago (crédito de plataforma) o tarjeta bancaria. Los gastos de transporte se facturan independientemente y no son reembolsables aunque se anule o devuelva la mercancía.
+            Recambio Directo actúa como intermediario entre talleres y proveedores. La relación comercial se establece directamente entre ambas partes. El pago puede realizarse mediante tarjeta bancaria o RD Pago (crédito de plataforma sujeto a activación). Los gastos de transporte se añaden al importe del pedido y no son reembolsables una vez gestionado el envío.
           </Section>
 
           <Section title="6. ANULACIÓN DE PEDIDOS">
-            Un pedido puede anularse antes de que haya sido enviado, indicando el motivo. Una vez en estado "enviado" o "entregado", deberá gestionarse directamente entre las partes.
+            Un pedido puede anularse antes de que haya sido enviado, indicando el motivo desde el panel de usuario. Una vez en estado "enviado" o "entregado", la anulación no es posible y cualquier incidencia deberá gestionarse directamente entre las partes según la política de devoluciones.
           </Section>
 
-          <Section title="7. LIMITACIÓN DE RESPONSABILIDAD">
-            Recambio Directo no se responsabiliza de la calidad o legalidad de las piezas publicadas, el incumplimiento de acuerdos entre usuarios, los daños derivados del uso de piezas adquiridas, ni las interrupciones del servicio por causas técnicas.
+          <Section title="7. DEVOLUCIONES E INCIDENCIAS">
+            <strong>Pieza incorrecta o no conforme:</strong> El proveedor es responsable de aceptar la devolución y reembolsar o reenviar la pieza correcta. Recambio Directo actuará como mediador si existe disputa entre las partes.
+            <br /><br />
+            <strong>Daños por transporte:</strong> La reclamación deberá gestionarse con la agencia de transporte correspondiente. El proveedor, como remitente, deberá iniciar dicha reclamación. Recambio Directo facilitará los datos del envío si fuera necesario.
+            <br /><br />
+            <strong>Error del comprador:</strong> Al tratarse de ventas entre profesionales (B2B), no aplica el derecho de desistimiento de 14 días previsto para consumidores. La devolución por error del comprador queda sujeta a la aceptación voluntaria del proveedor.
+            <br /><br />
+            Para cualquier incidencia puede contactar con info@recambio-directo.com.
           </Section>
 
-          <Section title="8. LEGISLACIÓN Y JURISDICCIÓN">
-            Estos términos se rigen por la legislación española. Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia.
+          <Section title="8. LIMITACIÓN DE RESPONSABILIDAD">
+            Recambio Directo no se responsabiliza de la calidad o legalidad de las piezas publicadas, el incumplimiento de acuerdos entre usuarios, los daños derivados del uso de piezas adquiridas, ni las interrupciones del servicio por causas técnicas ajenas a su control.
+          </Section>
+
+          <Section title="9. LEGISLACIÓN Y JURISDICCIÓN">
+            Estos términos se rigen por la legislación española. Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia, con renuncia expresa a cualquier otro fuero.
           </Section>
 
           <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, flexWrap: "wrap" as const }}>
             <a href="/privacidad" style={legalLink}>Política de Privacidad</a>
             <a href="/cookies" style={legalLink}>Política de Cookies</a>
             <a href="/aviso-legal" style={legalLink}>Aviso Legal</a>
+            <a href="/devoluciones" style={legalLink}>Política de Devoluciones</a>
           </div>
         </div>
       </div>
