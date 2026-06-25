@@ -13,7 +13,7 @@ export default function CookiesPage() {
           </Section>
 
           <Section title="2. COOKIES TÉCNICAS (NECESARIAS)">
-            Son imprescindibles para el funcionamiento de la plataforma. Sin ellas no podría iniciar sesión ni usar los servicios. No requieren su consentimiento.
+            Son imprescindibles para el funcionamiento de la plataforma. Sin ellas no podría iniciar sesión ni usar los servicios. No requieren su consentimiento según el artículo 22.2 de la LSSI.
           </Section>
 
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "20px", marginBottom: 32 }}>
@@ -23,6 +23,7 @@ export default function CookiesPage() {
             {[
               ["sb-auth-token", "Supabase", "Mantener la sesión iniciada", "Sesión"],
               ["sb-refresh-token", "Supabase", "Renovar la sesión automáticamente", "7 días"],
+              ["rd_notif_last_seen", "Propio", "Recordar notificaciones vistas", "Permanente"],
               ["_vercel_analytics", "Vercel", "Análisis de visitas anónimo", "1 año"],
             ].map(([cookie, prov, fin, dur]) => (
               <div key={cookie} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr 1fr", gap: 12, padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)", color: "#cbd5e1", fontSize: 13 }}>
@@ -38,10 +39,15 @@ export default function CookiesPage() {
             Puede configurar su navegador para bloquear o eliminar cookies desde la configuración de privacidad de cada navegador (Chrome, Firefox, Safari, Edge). Tenga en cuenta que bloquear las cookies técnicas puede impedir el correcto funcionamiento de la plataforma.
           </Section>
 
+          <Section title="4. CONTACTO">
+            Para cualquier consulta sobre el uso de cookies puede contactar con info@recambio-directo.com.
+          </Section>
+
           <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, flexWrap: "wrap" as const }}>
             <a href="/terminos" style={legalLink}>Términos y Condiciones</a>
             <a href="/privacidad" style={legalLink}>Política de Privacidad</a>
             <a href="/aviso-legal" style={legalLink}>Aviso Legal</a>
+            <a href="/devoluciones" style={legalLink}>Política de Devoluciones</a>
           </div>
         </div>
       </div>
