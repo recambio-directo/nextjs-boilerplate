@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = JSON.parse(rawText);
-    const shippingCode = data.shipping_code || data.code || data.id || "";
+    const shippingCode = data.shipping_data?.shipping_code || data.shipping_code || data.code || data.id || "";
 
     if (!shippingCode) {
       console.error("CTT no devolvió shipping_code:", data);
