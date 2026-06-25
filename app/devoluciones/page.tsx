@@ -24,6 +24,7 @@ export default function DevolucionesPage() {
           <Section title="3. DAÑOS POR TRANSPORTE">
             Si la pieza llega dañada como consecuencia del transporte:<br /><br />
             — El taller debe documentar los daños con fotografías en el momento de la recepción y notificarlo al proveedor en un plazo máximo de <strong>24 horas</strong>.<br />
+            — Es imprescindible hacer constar la incidencia en el albarán del transportista en el momento de la entrega. Sin esta anotación firmada por el transportista no se admitirán reclamaciones por daños visibles.<br />
             — La reclamación deberá gestionarse con la agencia de transporte correspondiente. El proveedor, como remitente del envío, es quien debe iniciar dicha reclamación.<br />
             — Las agencias de transporte con las que opera la plataforma son: MRW, NACEX, SEUR, Correos Express, GLS, DHL y CTT Express, cada una con sus propias condiciones de cobertura por siniestro.<br />
             — Recambio Directo facilitará los datos del envío que sean necesarios para la reclamación.
@@ -40,7 +41,28 @@ export default function DevolucionesPage() {
             Un pedido puede anularse sin coste desde el panel de usuario siempre que no haya pasado a estado "enviado". Una vez gestionado el envío por la agencia de transporte, no es posible la anulación y se aplicará esta política de devoluciones.
           </Section>
 
-          <Section title="6. CONTACTO PARA INCIDENCIAS">
+          <Section title="6. NORMAS DE EMBALAJE">
+            El proveedor es responsable de embalar correctamente la mercancía antes del envío. Un embalaje inadecuado puede anular cualquier reclamación al seguro de transporte. Se recomienda:<br /><br />
+            — Utilizar caja de cartón rígido en buen estado, sin defectos.<br />
+            — Proteger la pieza con al menos 5 cm de material amortiguador (espuma o papel de burbuja) por todos los lados.<br />
+            — Sellar correctamente todas las caras de la caja con cinta adhesiva resistente.<br />
+            — Señalizar el exterior con "FRÁGIL" cuando corresponda, especialmente en cristales, lunas, faros y materiales delicados.<br />
+            — Etiquetar correctamente cada bulto con la etiqueta generada por la plataforma.<br /><br />
+            Los daños derivados de un embalaje insuficiente son responsabilidad exclusiva del proveedor y no serán objeto de reclamación a la agencia de transporte.
+          </Section>
+
+          <Section title="7. MERCANCÍAS NO ADMITIDAS">
+            Queda expresamente prohibido el envío a través de la plataforma de las siguientes mercancías:<br /><br />
+            — Baterías de litio o plomo sin la documentación ADR correspondiente.<br />
+            — Airbags, pretensores y explosivos de cinturones.<br />
+            — Líquidos, aceites y sus derivados sin embalaje homologado.<br />
+            — Motores o cajas de cambio que contengan líquidos en su interior.<br />
+            — Mercancías peligrosas: inflamables, corrosivas, explosivas, tóxicas o radiactivas.<br />
+            — Cualquier artículo cuyo transporte esté prohibido o sometido a normativa especial.<br /><br />
+            El usuario que envíe mercancía prohibida será el único responsable de las consecuencias legales y económicas derivadas, quedando Recambio Directo y las agencias de transporte completamente exoneradas.
+          </Section>
+
+          <Section title="8. CONTACTO PARA INCIDENCIAS">
             Para cualquier incidencia relacionada con devoluciones o reclamaciones puede contactar con nuestro equipo en:<br /><br />
             <strong>Email:</strong> info@recambio-directo.com<br />
             <strong>Teléfono:</strong> 744487895<br /><br />
