@@ -1,7 +1,4 @@
 // app/api/anular-envio-agencia/route.ts
-// Anula la recogida/envío en la agencia cuando se anula un pedido
-// Llamado desde confirmarAnulacion() en los paneles
-
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -18,7 +15,7 @@ export async function POST(request: Request) {
 
     const { data: pedido } = await supabase
       .from("pedidos")
-      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, collection_ref_seur, collection_ref_correos_express, estado_envio")
+      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, tracking_ctt, collection_ref_seur, collection_ref_correos_express, estado_envio")
       .eq("id", pedidoId)
       .single();
 
@@ -101,15 +98,31 @@ export async function POST(request: Request) {
       });
     }
 
+    // ── CTT EXPRESS ──────────────────────────────────────────────────────────
+    if (agencia.includes("ctt") && pedido.tracking_ctt) {
+      const res = await fetch(`${baseUrl}/api/ctt/anular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shippingCode: pedido.tracking_ctt }),
+      });
+      const data = await res.json();
+      return Response.json({
+        ok: data.ok,
+        agencia: "CTT Express",
+        referencia: pedido.tracking_ctt,
+        mensaje: data.ok ? "Envío CTT Express anulado correctamente" : data.error,
+      });
+    }
+
+    // ── DHL (pendiente integración) ──────────────────────────────────────────
+    // Cuando lleguen las credenciales DHL, añadir aquí:
+    // if (agencia.includes("dhl") && pedido.tracking_dhl) { ... }
+
     // ── GLS (pendiente integración) ──────────────────────────────────────────
     // Cuando lleguen las credenciales GLS, añadir aquí:
     // if (agencia.includes("gls") && pedido.tracking_gls) { ... }
 
-    // ── CTT Express (pendiente integración) ─────────────────────────────────
-    // Cuando llegue la API CTT, añadir aquí:
-    // if (agencia.includes("ctt") && pedido.tracking_ctt) { ... }
-
-    // Sin agencia integrada (GLS, Mis Medios, etc.)
+    // Sin agencia integrada (GLS, DHL, Mis Medios, etc.)
     return Response.json({
       ok: true,
       agencia: agencia || "sin_agencia",

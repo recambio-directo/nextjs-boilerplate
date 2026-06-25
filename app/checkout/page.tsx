@@ -49,6 +49,8 @@ function calcularFechasEnvio(agencia: string) {
     : ag.includes("seur") ? "16:00"
     : ag.includes("gls") ? "15:00"
     : ag.includes("correos") ? "14:00"
+    : ag.includes("ctt") ? "15:00"
+    : ag.includes("dhl") ? "15:00"
     : "16:00";
 
   const horaCierreNum = parseInt(horaCierre);
@@ -62,6 +64,8 @@ function calcularFechasEnvio(agencia: string) {
     : ag.includes("seur") ? 1
     : ag.includes("gls") ? 2
     : ag.includes("correos") ? 2
+    : ag.includes("ctt") ? 1
+    : ag.includes("dhl") ? 1
     : 1;
 
   const entrega = sumarDiasHabiles(recogida, diasTransito);
@@ -158,11 +162,11 @@ export default function CheckoutPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW", "NACEX", "SEUR", "GLS", "Correos Express", "Mis Medios"]);
+  const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW", "NACEX", "SEUR", "GLS", "Correos Express", "CTT Express", "DHL", "Mis Medios"]);
 
   function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
     const esIsla = (cp: string) => cp.startsWith("35") || cp.startsWith("38") || cp.startsWith("51") || cp.startsWith("52");
-    const agencias: string[] = ["Mis Medios", "MRW", "Correos Express", "SEUR"];
+    const agencias: string[] = ["Mis Medios", "MRW", "Correos Express", "SEUR", "CTT Express", "DHL"];
     if (!esIsla(cpOrigen) && !esIsla(cpDestino)) agencias.push("GLS");
     return agencias;
   }
@@ -194,7 +198,7 @@ export default function CheckoutPage() {
       setCantidades(initCantidades);
 
       const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
-      let agenciasValidas = ["MRW", "SEUR", "GLS", "Correos Express", "Mis Medios"];
+      let agenciasValidas = ["MRW", "SEUR", "GLS", "Correos Express", "CTT Express", "DHL", "Mis Medios"];
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
         const cpOrigen = prov?.codigo_postal || "";
@@ -241,6 +245,8 @@ export default function CheckoutPage() {
     if (transporte === "SEUR") return 7.50;
     if (transporte === "GLS") return 6.50;
     if (transporte === "Correos Express") return 5.00;
+    if (transporte === "CTT Express") return 7.50;
+    if (transporte === "DHL") return 7.50;
     return 0;
   }
 
@@ -286,11 +292,11 @@ export default function CheckoutPage() {
       const { data: albaranUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranPath);
       const { data: etiquetaUrl } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
       const agLower = (transporte || "").toLowerCase();
-const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos");
-await supabase.from("pedidos").update({
-  albaran_url: albaranUrl.publicUrl,
-  ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }),
-}).eq("id", pedidoId);
+      const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos") || agLower.includes("ctt") || agLower.includes("dhl");
+      await supabase.from("pedidos").update({
+        albaran_url: albaranUrl.publicUrl,
+        ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }),
+      }).eq("id", pedidoId);
       return { albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: tieneEtiquetaAgencia ? null : etiquetaUrl.publicUrl };
     } catch (e) { console.error("Error generando PDFs:", e); return null; }
   }
@@ -353,7 +359,7 @@ await supabase.from("pedidos").update({
         grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha
       );
 
-      // MRW
+      // ── MRW ──────────────────────────────────────────────────────────────
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -377,7 +383,7 @@ await supabase.from("pedidos").update({
         } catch (mrwErr) { console.error("Error MRW:", mrwErr); }
       }
 
-      // NACEX
+      // ── NACEX ─────────────────────────────────────────────────────────────
       if (transporte === "NACEX" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -395,7 +401,7 @@ await supabase.from("pedidos").update({
         } catch (nacexErr) { console.error("Error NACEX:", nacexErr); }
       }
 
-      // SEUR
+      // ── SEUR ──────────────────────────────────────────────────────────────
       if (transporte === "SEUR" && pedidoInsertado?.id) {
         try {
           const provDireccionParts = proveedorDireccion.split(",");
@@ -403,17 +409,7 @@ await supabase.from("pedidos").update({
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
           const seurRes = await fetch("/api/seur/crear-envio", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              pedidoId: pedidoInsertado.id, pedidoCodigo: codigo,
-              remitenteNombre: nombreProveedor, remitenteCif: proveedorCif,
-              remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal,
-              remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono,
-              remitenteEmail: emailProveedor,
-              destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion,
-              destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad,
-              destinatarioTelefono: telefono, destinatarioEmail: user.email,
-              pesoKg: Math.max(1, grupo.productos.length * 2),
-            }),
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteCif: proveedorCif, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, remitenteEmail: emailProveedor, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }),
           });
           const seurData = await seurRes.json();
           if (seurData.ok && seurData.collectionRef) {
@@ -423,7 +419,7 @@ await supabase.from("pedidos").update({
         } catch (seurErr) { console.error("Error SEUR:", seurErr); }
       }
 
-      // CORREOS EXPRESS
+      // ── CORREOS EXPRESS ───────────────────────────────────────────────────
       if (transporte === "Correos Express" && pedidoInsertado?.id) {
         try {
           const cexRes = await fetch("/api/correos-express/crear-envio", {
@@ -432,28 +428,45 @@ await supabase.from("pedidos").update({
           });
           const cexData = await cexRes.json();
           if (cexData.ok && cexData.numEnvio) {
-            // tracking y collection_ref ya se guardan dentro del endpoint
-            await generarYGuardarPDFs(
-              pedidoInsertado.id, codigo, nombreProveedor, emailProveedor,
-              proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad,
-              proveedorCodigoPostal, proveedorProvincia, grupo.productos,
-              subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio
-            );
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio);
           } else { console.error("Correos Express error:", cexData.error); }
         } catch (cexErr) { console.error("Error Correos Express:", cexErr); }
+      }
+
+      // ── CTT EXPRESS ───────────────────────────────────────────────────────
+      if (transporte === "CTT Express" && pedidoInsertado?.id) {
+        try {
+          const cttRes = await fetch("/api/ctt/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id }),
+          });
+          const cttData = await cttRes.json();
+          if (cttData.ok && cttData.shippingCode) {
+            // tracking_ctt y etiqueta_envio_url ya se guardan dentro del endpoint
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
+          } else { console.error("CTT Express error:", cttData.error); }
+        } catch (cttErr) { console.error("Error CTT Express:", cttErr); }
+      }
+
+      // ── DHL (placeholder — completar cuando lleguen credenciales) ─────────
+      if (transporte === "DHL" && pedidoInsertado?.id) {
+        try {
+          const dhlRes = await fetch("/api/dhl/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id }),
+          });
+          const dhlData = await dhlRes.json();
+          if (dhlData.ok && dhlData.trackingNumber) {
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, dhlData.trackingNumber);
+          } else { console.error("DHL error:", dhlData.error); }
+        } catch (dhlErr) { console.error("Error DHL:", dhlErr); }
       }
 
       if (emailProveedor) {
         try {
           await fetch("/api/enviar-email", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor,
-              productos: grupo.productos, cliente: empresa, clienteEmail: user.email,
-              telefono, cif, direccion: direccionCompleta, agencia: transporte,
-              formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo,
-              codigo, fecha, pedidoId: pedidoInsertado?.id,
-            }),
+            body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }),
           });
         } catch (e) { console.error("Error email:", e); }
       }
@@ -475,12 +488,14 @@ await supabase.from("pedidos").update({
   }
 
   const todasOpciones = [
-    { key: "MRW",             color: "#E30613",                    label: "MRW 24H",          precio: 7.95 },
-    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX",          precio: 7.50 },
-    { key: "SEUR",            color: "#F5A800", textColor: "#1a1a1a", label: "SEUR 24",        precio: 7.50 },
-    { key: "GLS",             color: "#00467F",                    label: "GLS",               precio: 6.50 },
-    { key: "Correos Express", color: "#FFCC00", textColor: "#333",   label: "Correos Express", precio: 5.00 },
-    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)",       label: "Mis Medios",        precio: 0 },
+    { key: "MRW",             color: "#E30613",                      label: "MRW 24H",          precio: 7.95 },
+    { key: "NACEX",           color: "#FFD200", textColor: "#1a1a1a", label: "NACEX",            precio: 7.50 },
+    { key: "SEUR",            color: "#F5A800", textColor: "#1a1a1a", label: "SEUR 24",          precio: 7.50 },
+    { key: "GLS",             color: "#00467F",                      label: "GLS",               precio: 6.50 },
+    { key: "Correos Express", color: "#FFCC00", textColor: "#333",   label: "Correos Express",   precio: 5.00 },
+    { key: "CTT Express",     color: "#E2001A",                      label: "CTT Express",       precio: 7.50 },
+    { key: "DHL",             color: "#FFCC00", textColor: "#D40511", label: "DHL Express",      precio: 7.50 },
+    { key: "Mis Medios",      color: "rgba(139,92,246,0.5)",         label: "Mis Medios",        precio: 0 },
   ];
   const opciones = todasOpciones.filter(o => agenciasDisponibles.includes(o.key));
 
