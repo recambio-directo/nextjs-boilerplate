@@ -59,32 +59,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   function suscribirRealtime(uid: string) {
-    // Canal único por usuario para evitar duplicados entre pestañas
     const channelName = `taller-notif-${uid}-${Date.now()}`;
     const channel = supabase
       .channel(channelName)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, async (payload) => {
         const m = payload.new as any;
-        if (m.user_id === uid) return; // mensaje propio, ignorar
-        // Verificar que la conversación pertenece al usuario
+        if (m.user_id === uid) return;
         if (m.conversacion_id) {
           const { data: conv } = await supabase
             .from("conversaciones").select("id")
             .eq("id", m.conversacion_id)
             .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
             .maybeSingle();
-          if (!conv) return; // conversación no es del usuario
+          if (!conv) return;
         }
         const texto = (m.mensaje || "").substring(0, 60);
         agregarNotif({ id: m.id, tipo: "chat", texto: `💬 ${texto}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id });
-        // Sonido suave
         try { new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=").play(); } catch {}
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, (payload) => {
         const p = payload.new as any;
         const old = payload.old as any;
         if (p.cliente_id !== uid) return;
-        // Solo notificar si cambió el estado
         if (p.estado_envio === old?.estado_envio) return;
         const estadoLabel: Record<string, string> = {
           preparando: "🔧 en preparación",
@@ -101,7 +97,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   function agregarNotif(n: any) {
     setNotifs(prev => {
-      // Evitar duplicados por id
       if (prev.some(x => x.id === n.id)) return prev;
       return [n, ...prev].slice(0, 30);
     });
@@ -115,16 +110,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   async function cargarNotificaciones(uid: string) {
-    // Cooldown de 60s persistido en sessionStorage — sobrevive navegación atrás
-    const KEY = `rd_notif_last_${uid}`;
-    const ultimo = parseInt(sessionStorage.getItem(KEY) || "0");
-    const ahora = Date.now();
-    if (ahora - ultimo < 60000) return; // menos de 1 minuto → no recargar
-    sessionStorage.setItem(KEY, String(ahora));
-
-    // Guardar qué notificaciones ya habíamos visto antes
-    const VISTAS_KEY = `rd_notif_vistas_${uid}`;
-    const vistasAntes = new Set<string>(JSON.parse(sessionStorage.getItem(VISTAS_KEY) || "[]"));
+    // Timestamp de la última vez que el usuario abrió la campanita
+    // Persistido en localStorage para que sobreviva entre sesiones
+    const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
+    const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+    const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 24 * 60 * 60 * 1000); // si nunca, últimas 24h
 
     const notifsTotales: any[] = [];
 
@@ -132,6 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
     const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
     const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
+
     if (convIds.length > 0) {
       const { data: msgs } = await supabase
         .from("mensajes")
@@ -141,54 +132,66 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .or("leido.is.null,leido.eq.false")
         .order("created_at", { ascending: false })
         .limit(10);
-      (msgs || []).forEach(m => notifsTotales.push({
-        id: m.id, tipo: "chat",
-        texto: `💬 ${(m.mensaje || "").substring(0, 50)}${m.mensaje?.length > 50 ? "..." : ""}`,
-        leido: vistasAntes.has(String(m.id)), // leído si ya lo habíamos visto antes
-        created_at: m.created_at, conv_id: m.conversacion_id,
-      }));
+
+      (msgs || []).forEach(m => {
+        const esNuevo = new Date(m.created_at) > lastSeenDate;
+        notifsTotales.push({
+          id: m.id,
+          tipo: "chat",
+          texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`,
+          leido: !esNuevo, // nuevo = llegó después de la última vez que vimos la campanita
+          created_at: m.created_at,
+          conv_id: m.conversacion_id,
+        });
+      });
     }
 
-    // Pedidos con estado distinto a pendiente de los últimos 30 días
-    const hace30dias = new Date();
-    hace30dias.setDate(hace30dias.getDate() - 30);
+    // Pedidos con cambio de estado en las últimas 24h
+    const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const { data: pedidos } = await supabase
       .from("pedidos")
-      .select("id, codigo, estado_envio, created_at")
+      .select("id, codigo, estado_envio, created_at, updated_at")
       .eq("cliente_id", uid)
       .neq("estado_envio", "pendiente")
       .not("estado_envio", "is", null)
-      .gte("created_at", hace30dias.toISOString())
-      .order("created_at", { ascending: false })
+      .gte("updated_at", hace24h.toISOString())
+      .order("updated_at", { ascending: false })
       .limit(5);
+
     (pedidos || []).forEach(p => {
-      const estadoLabel: Record<string, string> = { preparando: "🔧 en preparación", enviado: "🚚 enviado", entregado: "✅ entregado", anulado: "❌ anulado" };
+      const estadoLabel: Record<string, string> = {
+        preparando: "🔧 en preparación",
+        enviado: "🚚 enviado",
+        entregado: "✅ entregado",
+        anulado: "❌ anulado",
+      };
+      const esNuevo = new Date(p.updated_at || p.created_at) > lastSeenDate;
       notifsTotales.push({
-        id: `ped-${p.id}`, tipo: "pedido",
+        id: `ped-${p.id}`,
+        tipo: "pedido",
         texto: `📦 Pedido ${p.codigo || `#${p.id}`} → ${estadoLabel[p.estado_envio] || p.estado_envio}`,
-        leido: true, // histórico → ya leído
-        created_at: p.created_at, pedido_id: p.id,
+        leido: !esNuevo,
+        created_at: p.updated_at || p.created_at,
+        pedido_id: p.id,
       });
     });
 
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
-
-    // Guardar IDs de todos los mensajes cargados como "vistos" para próximas recargas
-    const todosIds = notifsTotales.map(n => String(n.id));
-    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(todosIds));
   }
 
   async function marcarLeidas() {
-    setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
     const uid = userIdRef.current;
     if (!uid) return;
 
-    // Guardar todos los IDs actuales como vistos
-    const VISTAS_KEY = `rd_notif_vistas_${uid}`;
-    const idsActuales = notifs.map(n => String(n.id));
-    sessionStorage.setItem(VISTAS_KEY, JSON.stringify(idsActuales));
+    // Guardar el momento actual como "última vez visto"
+    const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
+    localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
 
+    // Marcar todas como leídas en el estado local
+    setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
+
+    // Marcar mensajes como leídos en BD
     const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
     if (convIds.length > 0) {
       await supabase.from("mensajes")
@@ -263,7 +266,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div style={{ position: "absolute", right: 0, top: 54, width: 340, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span style={{ fontWeight: 800, fontSize: 15 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "2px 8px", fontSize: 11, marginLeft: 8 }}>{noLeidas} nuevas</span>}</span>
-                    {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
+                    {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
                   </div>
                   {notifs.length === 0 ? (
                     <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 14 }}><p style={{ fontSize: 32, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
@@ -311,7 +314,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontWeight: 700 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "1px 8px", fontSize: 11, marginLeft: 6 }}>{noLeidas}</span>}</span>
             <div style={{ display: "flex", gap: 12 }}>
-              {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>}
+              {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>}
               <button onClick={() => setShowNotifs(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>
           </div>
