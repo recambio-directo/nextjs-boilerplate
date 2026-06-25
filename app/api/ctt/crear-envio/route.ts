@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       client_center_code:          CTT_CLIENT_CENTER,
       shipping_type_code:          "C24",
       client_bar_code:             "",
-      client_references:           [`RD-${pedido.codigo || pedidoId}`, ""],
+      client_references: [pedido.codigo || `RD-${pedidoId}`, ""],
       shipping_weight_declared:    kilos,
       item_count:                  1,
       sender_name:                 nomRte.substring(0, 40),
