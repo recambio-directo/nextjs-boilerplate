@@ -1,6 +1,4 @@
 // app/api/nacex/anular/route.ts
-// Anula un envío NACEX por su localizador (tracking_nacex)
-
 export async function POST(request: Request) {
   try {
     const { localizador } = await request.json();
@@ -8,23 +6,27 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Falta localizador" }, { status: 400 });
     }
 
-    const usuario = process.env.NACEX_USUARIO || "";
-    const password = process.env.NACEX_PASSWORD || "";
-    const baseUrl = "https://nacexapi.nacex.com/api_nacex.php";
+    const usuario = process.env.NACEX_USER || "";
+    const password = process.env.NACEX_PASS || "";
+    const baseUrl = "https://pda.nacex.com/nacex_ws/ws";
 
-    // NACEX usa el método anularEnvio — sin tilde en "metodo"
+    // NACEX: agencia y número de albarán vienen en el localizador como "agencia/numAlbaran"
+    const partes = localizador.split("/");
+    const agencia = partes[0] || "";
+    const numAlbaran = partes[1] || localizador;
+
     const params = new URLSearchParams({
-      metodo: "anularEnvio",
-      user: usuario,
-      pass: password,
-      ag: localizador.split("/")[0] || "",
-      num_alb: localizador.split("/")[1] || localizador,
+      method:    "anularEnvio",
+      user:      usuario,
+      pass:      password,
+      ag:        agencia,
+      num_alb:   numAlbaran,
     });
 
-    const res = await fetch(`${baseUrl}?${params.toString()}`, {
-      method: "GET",
-    });
+    const url = `${baseUrl}?${params.toString()}`;
+    console.log("NACEX anular URL:", url.replace(password, "***"));
 
+    const res = await fetch(url, { method: "GET" });
     const rawText = await res.text();
     console.log("NACEX anular response:", rawText.substring(0, 300));
 
