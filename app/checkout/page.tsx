@@ -298,7 +298,7 @@ export default function CheckoutPage() {
       const { data: albaranUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranPath);
       const { data: etiquetaUrl } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
       const agLower = (transporte || "").toLowerCase();
-      const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos") || agLower.includes("ctt") || agLower.includes("dhl");
+      const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos") || agLower.includes("ctt") || agLower.includes("dhl") || agLower.includes("gls");
       await supabase.from("pedidos").update({ albaran_url: albaranUrl.publicUrl, ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }) }).eq("id", pedidoId);
       return { albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: tieneEtiquetaAgencia ? null : etiquetaUrl.publicUrl };
     } catch (e) { console.error("Error generando PDFs:", e); return null; }
@@ -402,6 +402,21 @@ export default function CheckoutPage() {
           if (cttData.ok && cttData.shippingCode) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
         } catch (e) { console.error("Error CTT:", e); }
       }
+      // ── GLS ──────────────────────────────────────────────────────────────
+      if (transporte === "GLS" && pedidoInsertado?.id) {
+        try {
+          const glsRes = await fetch("/api/gls/crear-envio", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pedidoId: pedidoInsertado.id }),
+          });
+          const glsData = await glsRes.json();
+          if (glsData.ok && glsData.codbarras) {
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, glsData.codbarras);
+          } else { console.error("GLS error:", glsData.error || glsData.glsError); }
+        } catch (e) { console.error("Error GLS:", e); }
+      }
+
+      // ── DHL (placeholder — completar cuando lleguen credenciales) ─────────
       if (transporte === "DHL" && pedidoInsertado?.id) {
         try {
           const dhlRes = await fetch("/api/dhl/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
