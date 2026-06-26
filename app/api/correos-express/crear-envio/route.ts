@@ -1,3 +1,4 @@
+// app/api/correos-express/crear-envio/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -9,8 +10,8 @@ const supabase = createClient(
 const CEX_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionEnviok8s/json/grabacionEnvio";
 const CEX_USER = process.env.CEX_USUARIO!;
 const CEX_PASS = process.env.CEX_PASSWORD!;
-const CEX_SOLICITANTE = process.env.CEX_SOLICITANTE || ("I" + process.env.CEX_CODIGO_CLIENTE!); // IB15160001
-const CEX_CODIGO_CLIENTE = process.env.CEX_CODIGO_CLIENTE!; // B15160001
+const CEX_SOLICITANTE = process.env.CEX_SOLICITANTE || ("I" + process.env.CEX_CODIGO_CLIENTE!);
+const CEX_CODIGO_CLIENTE = process.env.CEX_CODIGO_CLIENTE!;
 const CEX_PRODUCTO = "63"; // Paq 24
 
 export async function POST(req: NextRequest) {
@@ -30,98 +31,145 @@ export async function POST(req: NextRequest) {
     const refs = productos.map((p: any) => p.referencia).join(", ").substring(0, 78);
     const kilosEstimados = Math.max(1, Math.ceil((productos.length * 0.5) * 10) / 10).toFixed(3);
 
-    // Datos del destinatario (taller comprador)
-    const nomDest = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
-    const dirDest = (pedido.direccion_envio || pedido.cliente_direccion || "VER PEDIDO").substring(0, 100);
-    const pobDest = (pedido.ciudad_envio || pedido.cliente_ciudad || "ESPAÑA").substring(0, 40);
-    const cpDest  = (pedido.cp_envio || pedido.cliente_cp || "28001").replace(/\D/g, "").substring(0, 5);
-    const tlfDest = (pedido.telefono_envio || pedido.cliente_telefono || "600000000").replace(/\D/g, "").substring(0, 15);
+    // ── Datos del PROVEEDOR (remitente) ──────────────────────────────────────
+    let nomRte   = "RECAMBIO DIRECTO";
+    let dirRte   = "C/ Sola, 16";
+    let pobRte   = "CEHEGIN";
+    let cpRte    = "30430";
+    let tlfRte   = "";
+    let emailRte = "info@recambio-directo.com";
+
+    const proveedorId = productos[0]?.proveedor_id || null;
+    if (proveedorId) {
+      const { data: prov } = await supabase
+        .from("usuarios")
+        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email")
+        .eq("id", proveedorId)
+        .single();
+      if (prov) {
+        nomRte   = (prov.nombre_empresa || nomRte).substring(0, 40);
+        dirRte   = prov.direccion || dirRte;
+        pobRte   = (prov.ciudad || pobRte).toUpperCase();
+        cpRte    = prov.codigo_postal || cpRte;
+        tlfRte   = (prov.telefono || "").replace(/\D/g, "").substring(0, 15);
+        emailRte = prov.email || emailRte;
+      }
+    }
+
+    // ── Datos del TALLER (destinatario) ──────────────────────────────────────
+    let nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
+    let dirDest   = "VER PEDIDO";
+    let pobDest   = "ESPAÑA";
+    let cpDest    = "28001";
+    let tlfDest   = "600000000";
     const emailDest = (pedido.cliente_email || "").substring(0, 75);
 
+    if (pedido.cliente_id) {
+      const { data: taller } = await supabase
+        .from("usuarios")
+        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
+        .eq("id", pedido.cliente_id)
+        .single();
+      if (taller) {
+        nomDest = (taller.nombre_empresa || nomDest).substring(0, 40);
+        dirDest = taller.direccion || dirDest;
+        pobDest = (taller.ciudad || pobDest).toUpperCase();
+        cpDest  = taller.codigo_postal || cpDest;
+        tlfDest = (taller.telefono || tlfDest).replace(/\D/g, "").substring(0, 15);
+      }
+    } else {
+      // Fallback: parsear el campo direccion del pedido "calle, ciudad"
+      const partes = (pedido.direccion || "").split(",");
+      dirDest = partes[0]?.trim() || dirDest;
+      pobDest = (partes[1]?.trim() || pobDest).toUpperCase();
+    }
+
+    cpDest = cpDest.replace(/\D/g, "").substring(0, 5) || "28001";
+
+    // ── Fecha ────────────────────────────────────────────────────────────────
     const fechaHoy = new Date();
-    const dd = String(fechaHoy.getDate()).padStart(2, "0");
-    const mm = String(fechaHoy.getMonth() + 1).padStart(2, "0");
+    const dd   = String(fechaHoy.getDate()).padStart(2, "0");
+    const mm   = String(fechaHoy.getMonth() + 1).padStart(2, "0");
     const yyyy = fechaHoy.getFullYear();
     const fechaStr = `${dd}${mm}${yyyy}`;
 
     const body = {
-      solicitante: CEX_SOLICITANTE,       // IB15160001
-      canalEntrada: "",
-      numEnvio: "",
-      ref: `RD-${pedido.codigo || pedidoId}`,
-      refCliente: String(pedidoId),
-      fecha: fechaStr,
-      codRte: CEX_CODIGO_CLIENTE,         // B15160001 (sin la I)
-      nomRte: "RECAMBIO DIRECTO",
-      nifRte: "",
-      dirRte: "C/ Sola, 16",
-      pobRte: "CEHEGIN",
-      codPosNacRte: "30430",
-      paisISORte: "ES",                   // obligatorio desde v03.17
-      codPosIntRte: "",
-      contacRte: "RECAMBIO DIRECTO",
-      telefRte: "",
-      emailRte: "",
-      codDest: "",
+      solicitante:      CEX_SOLICITANTE,
+      canalEntrada:     "",
+      numEnvio:         "",
+      ref:              pedido.codigo || `RD-${pedidoId}`,
+      refCliente:       String(pedidoId),
+      fecha:            fechaStr,
+      codRte:           CEX_CODIGO_CLIENTE,
+      nomRte,
+      nifRte:           "",
+      dirRte,
+      pobRte,
+      codPosNacRte:     cpRte,
+      paisISORte:       "ES",
+      codPosIntRte:     "",
+      contacRte:        nomRte,
+      telefRte:         tlfRte,
+      emailRte,
+      codDest:          "",
       nomDest,
-      nifDest: "",
+      nifDest:          "",
       dirDest,
       pobDest,
-      codPosNacDest: cpDest,
-      paisISODest: "",
-      codPosIntDest: "",
-      contacDest: nomDest,
-      telefDest: tlfDest,
+      codPosNacDest:    cpDest,
+      paisISODest:      "",
+      codPosIntDest:    "",
+      contacDest:       nomDest,
+      telefDest:        tlfDest,
       emailDest,
-      contacOtrs: "",
-      telefOtrs: "",
-      emailOtrs: "",
-      observac: `Pedido RD ${pedido.codigo || pedidoId}`,
-      numBultos: "1",
-      kilos: kilosEstimados,
-      volumen: "",
-      alto: "",
-      largo: "",
-      ancho: "",
-      producto: CEX_PRODUCTO,
-      portes: "P",
-      reembolso: "",
-      entrSabado: "",
-      seguro: "",
-      numEnvioVuelta: "",
+      contacOtrs:       "",
+      telefOtrs:        "",
+      emailOtrs:        "",
+      observac:         `Pedido ${pedido.codigo || pedidoId}`,
+      numBultos:        "1",
+      kilos:            kilosEstimados,
+      volumen:          "",
+      alto:             "",
+      largo:            "",
+      ancho:            "",
+      producto:         CEX_PRODUCTO,
+      portes:           "P",
+      reembolso:        "",
+      entrSabado:       "",
+      seguro:           "",
+      numEnvioVuelta:   "",
       listaBultos: [
         {
           alto: "", ancho: "", codBultoCli: "", codUnico: "",
           descripcion: refs, kilos: kilosEstimados,
           largo: "", observaciones: "", orden: "1",
-          referencia: `RD-${pedidoId}`, volumen: ""
+          referencia: pedido.codigo || `RD-${pedidoId}`, volumen: ""
         }
       ],
       codDirecDestino: "",
       password: CEX_PASS,
       listaInformacionAdicional: [
         {
-          tipoEtiqueta: "1",
-          etiquetaPDF: "",
-          creaRecogida: "S",
-          fechaRecogida: "",
-          horaDesdeRecogida: "09:00",
-          horaHastaRecogida: "18:00",
-          referenciaRecogida: `RD-${pedidoId}`,
-          codificacionUnicaB64: "1",      // decodificación simple
+          tipoEtiqueta:         "1",
+          etiquetaPDF:          "",
+          creaRecogida:         "S",
+          fechaRecogida:        "",
+          horaDesdeRecogida:    "09:00",
+          horaHastaRecogida:    "18:00",
+          referenciaRecogida:   pedido.codigo || `RD-${pedidoId}`,
+          codificacionUnicaB64: "1",
         }
       ]
     };
 
-    // Basic Auth con credenciales LDAP
     const authHeader = "Basic " + Buffer.from(`${CEX_USER}:${CEX_PASS}`).toString("base64");
 
     const resp = await fetch(CEX_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": authHeader,       // ← fix principal
+        "Content-Type":  "application/json",
+        "Accept":        "application/json",
+        "Authorization": authHeader,
       },
       body: JSON.stringify(body),
     });
@@ -146,11 +194,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const numEnvio = data.datosResultado;
-    const codUnico = data.listaBultos?.[0]?.codUnico || "";
+    const numEnvio    = data.datosResultado;
+    const codUnico    = data.listaBultos?.[0]?.codUnico || "";
     const numRecogida = data.numRecogida ? String(data.numRecogida) : null;
 
-    // Decodificar etiqueta PDF (codificacionUnicaB64=1 → una sola decodificación)
+    // Decodificar etiqueta PDF
     let etiquetaUrl: string | null = null;
     const etiquetaRaw = data.etiqueta?.[0]?.etiqueta1 || data.etiqueta?.[0]?.etiqueta2 || null;
     if (etiquetaRaw && !etiquetaRaw.includes("no se ha generado")) {
@@ -170,11 +218,11 @@ export async function POST(req: NextRequest) {
     }
 
     await supabase.from("pedidos").update({
-      tracking: numEnvio,
+      tracking:                       numEnvio,
       collection_ref_correos_express: numRecogida,
-      etiqueta_envio_url: etiquetaUrl,
-      estado_envio: "preparando",
-      agencia: "Correos Express",
+      etiqueta_envio_url:             etiquetaUrl,
+      estado_envio:                   "preparando",
+      agencia:                        "Correos Express",
     }).eq("id", pedidoId);
 
     return NextResponse.json({
