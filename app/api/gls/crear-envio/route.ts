@@ -147,6 +147,15 @@ export async function POST(req: NextRequest) {
     const codbarrasMatch = rawText.match(/codbarras="([^"]+)"/);
     const codbarras = codbarrasMatch?.[1] || null;
 
+    // Log específico para diagnóstico de etiqueta
+    const tieneEtiquetas = rawText.includes("<Etiquetas>");
+    const tieneEtiqueta  = rawText.includes("<Etiqueta ");
+    const posEtiquetas   = rawText.indexOf("<Etiquetas>");
+    console.log("GLS etiqueta diagnóstico — tieneEtiquetas:", tieneEtiquetas, "tieneEtiqueta:", tieneEtiqueta, "posición:", posEtiquetas);
+    if (posEtiquetas > 0) {
+      console.log("GLS etiqueta contenido:", rawText.substring(posEtiquetas, posEtiquetas + 200));
+    }
+
     if (!codbarras) {
       const errorMatch = rawText.match(/<Error[^>]*>([\s\S]*?)<\/Error>/);
       const retornoMatch = rawText.match(/return="([^"]+)"/);
