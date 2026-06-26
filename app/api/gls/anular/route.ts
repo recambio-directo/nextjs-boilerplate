@@ -9,20 +9,19 @@ export async function POST(req: NextRequest) {
     const { codbarras } = await req.json();
     if (!codbarras) return NextResponse.json({ error: "codbarras requerido" }, { status: 400 });
 
-    // GLS anula mediante delete_insert con el código a anular
+    // GLS usa el método "Anula" — no GrabaServicios
     const xml = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                  xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>
-    <GrabaServicios xmlns="http://www.asmred.com/">
+    <Anula xmlns="http://www.asmred.com/">
       <docIn>
         <Servicios uidcliente="${GLS_GUID}">
-          <Envio action="delete" codigoAnular="${codbarras}">
-          </Envio>
+          <Envio codbarras="${codbarras}" />
         </Servicios>
       </docIn>
-    </GrabaServicios>
+    </Anula>
   </soap12:Body>
 </soap12:Envelope>`;
 
@@ -33,21 +32,24 @@ export async function POST(req: NextRequest) {
     });
 
     const rawText = await res.text();
-    
+    console.log("GLS anular response completo:", rawText);
+
+    // Extraer retorno
     const retornoMatch = rawText.match(/return="([^"]+)"/);
     const retorno = retornoMatch?.[1] || null;
     const ok = retorno === "0";
-    const errorMatch = rawText.match(/<Error[^>]*>([\s\S]*?)<\/Error>/);
 
-    console.log("GLS anular — codbarras:", codbarras, "retorno:", retorno, "ok:", ok, "error:", errorMatch?.[1] || "ninguno");
-    console.log("GLS anular — raw completo:", rawText);
+    const errorMatch = rawText.match(/<Error[^>]*>([\s\S]*?)<\/Error>/);
+    const mensajeMatch = rawText.match(/<Mensaje[^>]*>([\s\S]*?)<\/Mensaje>/);
+
+    console.log("GLS anular — codbarras:", codbarras, "retorno:", retorno, "ok:", ok);
 
     return NextResponse.json({
       ok,
       codbarras,
       retorno,
-      glsError: errorMatch?.[1] || null,
-      rawResponse: rawText,
+      glsError: errorMatch?.[1] || mensajeMatch?.[1] || null,
+      rawResponse: rawText.substring(0, 500),
     });
 
   } catch (e: any) {
