@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const { data: pedido } = await supabase
       .from("pedidos")
-      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, tracking_ctt, collection_ref_seur, collection_ref_correos_express, estado_envio")
+      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, tracking_ctt, tracking_gls, collection_ref_seur, collection_ref_correos_express, estado_envio")
       .eq("id", pedidoId)
       .single();
 
@@ -114,15 +114,26 @@ export async function POST(request: Request) {
       });
     }
 
+    // ── GLS ──────────────────────────────────────────────────────────────────
+    if (agencia.includes("gls") && pedido.tracking_gls) {
+      const res = await fetch(`${baseUrl}/api/gls/anular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codbarras: pedido.tracking_gls }),
+      });
+      const data = await res.json();
+      return Response.json({
+        ok: data.ok,
+        agencia: "GLS",
+        referencia: pedido.tracking_gls,
+        mensaje: data.ok ? "Envío GLS anulado correctamente" : data.glsError || data.error,
+      });
+    }
+
     // ── DHL (pendiente integración) ──────────────────────────────────────────
-    // Cuando lleguen las credenciales DHL, añadir aquí:
     // if (agencia.includes("dhl") && pedido.tracking_dhl) { ... }
 
-    // ── GLS (pendiente integración) ──────────────────────────────────────────
-    // Cuando lleguen las credenciales GLS, añadir aquí:
-    // if (agencia.includes("gls") && pedido.tracking_gls) { ... }
-
-    // Sin agencia integrada (GLS, DHL, Mis Medios, etc.)
+    // Sin agencia integrada (DHL, Mis Medios, etc.)
     return Response.json({
       ok: true,
       agencia: agencia || "sin_agencia",

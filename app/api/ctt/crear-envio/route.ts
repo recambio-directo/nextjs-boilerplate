@@ -55,20 +55,22 @@ export async function POST(req: NextRequest) {
 
     if (error || !pedido) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
 
-    // Datos del proveedor (remitente)
-    let nomRte = "RECAMBIO DIRECTO";
-    let dirRte = "C/ Sola, 16";
-    let pobRte = "Cehegín";
-    let cpRte  = "30430";
-    let tlfRte = "744487895";
+    // Datos del proveedor (remitente) — proveedor_id está dentro del JSONB productos
+    let nomRte   = "RECAMBIO DIRECTO";
+    let dirRte   = "C/ Sola, 16";
+    let pobRte   = "Cehegín";
+    let cpRte    = "30430";
+    let tlfRte   = "744487895";
     let emailRte = "info@recambio-directo.com";
 
     const productos = pedido.productos || [];
-    if (productos.length > 0 && productos[0].proveedor_id) {
+    const proveedorId = productos[0]?.proveedor_id || null;
+
+    if (proveedorId) {
       const { data: prov } = await supabase
         .from("usuarios")
         .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email")
-        .eq("id", productos[0].proveedor_id)
+        .eq("id", proveedorId)
         .single();
       if (prov) {
         nomRte   = prov.nombre_empresa || nomRte;
@@ -80,13 +82,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Datos del taller (destinatario)
-    const nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
-    const dirDest   = (pedido.direccion_envio || pedido.cliente_direccion || "VER PEDIDO").substring(0, 100);
-    const pobDest   = (pedido.ciudad_envio || pedido.cliente_ciudad || "ESPAÑA").substring(0, 40);
-    const cpDest    = (pedido.cp_envio || pedido.cliente_cp || "28001").replace(/\D/g, "").substring(0, 10);
-    const tlfDest   = (pedido.telefono_envio || pedido.cliente_telefono || "600000000").replace(/\D/g, "");
+    // Datos del taller (destinatario) — buscar por cliente_id para datos completos
+    let nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
+    let dirDest   = "VER PEDIDO";
+    let pobDest   = "ESPAÑA";
+    let cpDest    = "28001";
+    let tlfDest   = "600000000";
     const emailDest = (pedido.cliente_email || "").substring(0, 75);
+
+    if (pedido.cliente_id) {
+      const { data: taller } = await supabase
+        .from("usuarios")
+        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
+        .eq("id", pedido.cliente_id)
+        .single();
+      if (taller) {
+        nomDest = (taller.nombre_empresa || nomDest).substring(0, 40);
+        dirDest = taller.direccion || dirDest;
+        pobDest = taller.ciudad || pobDest;
+        cpDest  = taller.codigo_postal || cpDest;
+        tlfDest = taller.telefono || tlfDest;
+      }
+    } else {
+      // Fallback: parsear el campo direccion del pedido "calle, ciudad"
+      const partes = (pedido.direccion || "").split(",");
+      dirDest = partes[0]?.trim() || dirDest;
+      pobDest = partes[1]?.trim() || pobDest;
+    }
+
+    dirDest = dirDest.substring(0, 100);
+    pobDest = pobDest.substring(0, 40);
+    cpDest  = cpDest.replace(/\D/g, "").substring(0, 10) || "28001";
+    tlfDest = tlfDest.replace(/\D/g, "");
 
     const fechaHoy = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const kilos = Math.max(1, productos.length * 2);
@@ -98,7 +125,7 @@ export async function POST(req: NextRequest) {
       client_center_code:          CTT_CLIENT_CENTER,
       shipping_type_code:          "C24",
       client_bar_code:             "",
-      client_references: [pedido.codigo || `RD-${pedidoId}`, ""],
+      client_references:           [pedido.codigo || `RD-${pedidoId}`, ""],
       shipping_weight_declared:    kilos,
       item_count:                  1,
       sender_name:                 nomRte.substring(0, 40),
