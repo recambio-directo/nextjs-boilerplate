@@ -33,20 +33,21 @@ export async function POST(req: NextRequest) {
     });
 
     const rawText = await res.text();
-    console.log("GLS anular response:", rawText.substring(0, 300));
-
+    
     const retornoMatch = rawText.match(/return="([^"]+)"/);
     const retorno = retornoMatch?.[1] || null;
     const ok = retorno === "0";
-
     const errorMatch = rawText.match(/<Error[^>]*>([\s\S]*?)<\/Error>/);
+
+    console.log("GLS anular — codbarras:", codbarras, "retorno:", retorno, "ok:", ok, "error:", errorMatch?.[1] || "ninguno");
+    console.log("GLS anular — raw completo:", rawText);
 
     return NextResponse.json({
       ok,
       codbarras,
       retorno,
       glsError: errorMatch?.[1] || null,
-      rawResponse: rawText.substring(0, 300),
+      rawResponse: rawText,
     });
 
   } catch (e: any) {
