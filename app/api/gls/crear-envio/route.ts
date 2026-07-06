@@ -179,13 +179,18 @@ export async function POST(req: NextRequest) {
     if (etiquetaBase64) {
       try {
         const pdfBuffer = Buffer.from(etiquetaBase64, "base64");
+        console.log("GLS pdfBuffer tamaño bytes:", pdfBuffer.length);
+        console.log("GLS pdfBuffer primeros bytes:", pdfBuffer.slice(0, 10).toString("hex"));
         const path = `etiquetas-gls/${pedidoId}/${Date.now()}_etiqueta.pdf`;
         const { error: uploadErr } = await supabase.storage
           .from("FACTURAS")
           .upload(path, pdfBuffer, { contentType: "application/pdf" });
-        if (!uploadErr) {
+        if (uploadErr) {
+          console.error("GLS upload error:", uploadErr);
+        } else {
           const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
           etiquetaUrl = urlData.publicUrl;
+          console.log("GLS etiqueta subida OK:", etiquetaUrl);
         }
       } catch (e) {
         console.error("Error decodificando etiqueta GLS:", e);
