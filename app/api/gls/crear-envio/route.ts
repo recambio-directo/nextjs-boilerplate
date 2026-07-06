@@ -168,10 +168,13 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Extraer etiqueta PDF en base64
+    // Extraer etiqueta PDF en base64 — viene dentro de <Etiqueta bulto="1">...</Etiqueta>
     let etiquetaUrl: string | null = null;
-    const etiquetaMatch = rawText.match(/<Etiquetas>([\s\S]*?)<\/Etiquetas>/);
-    const etiquetaBase64 = etiquetaMatch?.[1]?.trim() || null;
+    const etiquetaMatch = rawText.match(/<Etiqueta[^>]*>([\s\S]*?)<\/Etiqueta>/);
+    const etiquetaBase64Raw = etiquetaMatch?.[1] || null;
+    const etiquetaBase64 = etiquetaBase64Raw ? etiquetaBase64Raw.replace(/[\r\n\s]/g, "") : null;
+    console.log("GLS etiqueta base64 longitud:", etiquetaBase64?.length || 0);
+
 
     if (etiquetaBase64) {
       try {
