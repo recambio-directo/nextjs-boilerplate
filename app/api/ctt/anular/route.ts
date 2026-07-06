@@ -5,7 +5,7 @@ const CTT_CLIENT_ID     = process.env.CTT_CLIENT_ID!;
 const CTT_CLIENT_SECRET = process.env.CTT_CLIENT_SECRET!;
 const CTT_USER          = process.env.CTT_USER!;
 const CTT_PASSWORD      = process.env.CTT_PASSWORD!;
-const CTT_BASE_URL      = "https://api-test.cttexpress.com"; // cambiar a https://api.cttexpress.com en producción
+const CTT_BASE_URL      = "https://api.cttexpress.com"; // producción
 
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
