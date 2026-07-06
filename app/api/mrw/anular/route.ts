@@ -6,9 +6,9 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Falta numeroEnvio" }, { status: 400 });
     }
 
-    const usuario          = process.env.MRW_USUARIO           || "";
+    const usuario          = process.env.MRW_USERNAME          || "";
     const password         = process.env.MRW_PASSWORD           || "";
-    const codigoFranquicia = process.env.MRW_CODIGO_FRANQUICIA  || "";
+    const codigoFranquicia = process.env.MRW_FRANQUICIA         || "";
     const abonado          = process.env.MRW_ABONADO            || "";
     const departamento     = process.env.MRW_DEPARTAMENTO       || "";
     const targetUrl        = process.env.MRW_ENTORNO === "production"
