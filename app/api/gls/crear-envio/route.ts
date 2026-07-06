@@ -170,12 +170,19 @@ export async function POST(req: NextRequest) {
 
     // Extraer etiqueta PDF en base64 — viene dentro de <Etiqueta bulto="1">...</Etiqueta>
     let etiquetaUrl: string | null = null;
-    const etiquetaMatch = rawText.match(/<Etiqueta[^>]*>([\s\S]+)<\/Etiqueta>/);
-    const etiquetaBase64Raw = etiquetaMatch?.[1] || null;
-    console.log("GLS base64 raw longitud antes de replace:", etiquetaBase64Raw?.length || 0);
-    console.log("GLS base64 raw primeros 50 chars:", etiquetaBase64Raw?.substring(0, 50));
-    console.log("GLS base64 raw últimos 50 chars:", etiquetaBase64Raw?.substring((etiquetaBase64Raw?.length || 0) - 50));
-    const etiquetaBase64 = etiquetaBase64Raw ? etiquetaBase64Raw.replace(/[\r\n\s]/g, "").trim() : null;
+    // Extraer etiqueta PDF usando índices de string — más fiable que regex para base64 largo
+    let etiquetaBase64: string | null = null;
+    const tagOpen  = "<Etiqueta bulto=\"1\">";
+    const tagClose = "</Etiqueta>";
+    const idxOpen  = rawText.indexOf(tagOpen);
+    const idxClose = rawText.indexOf(tagClose, idxOpen);
+    if (idxOpen > -1 && idxClose > idxOpen) {
+      const raw = rawText.substring(idxOpen + tagOpen.length, idxClose);
+      etiquetaBase64 = raw.replace(/[\r\n\s]/g, "");
+    }
+    console.log("GLS base64 raw longitud antes de replace:", etiquetaBase64?.length || 0);
+    console.log("GLS base64 raw primeros 50 chars:", etiquetaBase64?.substring(0, 50));
+    console.log("GLS base64 raw últimos 50 chars:", etiquetaBase64?.substring((etiquetaBase64?.length || 0) - 50));
     console.log("GLS etiqueta base64 longitud:", etiquetaBase64?.length || 0);
 
 
