@@ -10,6 +10,17 @@ export default function Dashboard() {
   const [piezasTaller, setPiezasTaller] = useState<any[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [nombreEmpresa, setNombreEmpresa] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [creditoRD, setCreditoRD] = useState(0);
+  const [rdPagoActivo, setRdPagoActivo] = useState(false);
+  const [rdPagoSolicitado, setRdPagoSolicitado] = useState(false);
+  const [fechaRegistro, setFechaRegistro] = useState<string | null>(null);
+  const [solicitandoRD, setSolicitandoRD] = useState(false);
+  const [rdSolicitadoOk, setRdSolicitadoOk] = useState(false);
+  const [cif, setCif] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [iban, setIban] = useState("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -23,9 +34,18 @@ export default function Dashboard() {
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = "/"; return; }
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo").eq("id", user.id).single();
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo, credito_rd, rd_pago_activo, rd_pago_solicitado, fecha_registro, cif, telefono, iban").eq("id", user.id).single();
     if (!perfil || perfil.tipo !== "taller") { window.location.href = "/"; return; }
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
+    setUserId(user.id);
+    setUserEmail(user.email || null);
+    setCreditoRD(Number(perfil.credito_rd || 0));
+    setRdPagoActivo(!!perfil.rd_pago_activo);
+    setRdPagoSolicitado(!!perfil.rd_pago_solicitado);
+    setFechaRegistro(perfil.fecha_registro || null);
+    setCif(perfil.cif || "");
+    setTelefono(perfil.telefono || "");
+    setIban(perfil.iban || "");
 
     const { data } = await supabase.from("pedidos").select("*").eq("cliente_email", user.email).order("created_at", { ascending: false });
     if (data) {
@@ -40,6 +60,126 @@ export default function Dashboard() {
   async function cerrarSesion() {
     await supabase.auth.signOut();
     location.href = "/";
+  }
+
+  // Calcular requisitos RD Pago
+  function calcularRequisitos() {
+    const diasActivo = fechaRegistro
+      ? Math.floor((new Date().getTime() - new Date(fechaRegistro).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    const pedidoConTarjeta = pedidos.some(p => !p.anulado && (p.forma_pago === "tarjeta" || p.metodo_pago === "tarjeta" || p.estado_pago === "pagado"));
+    return {
+      diasActivo,
+      cumpleMes: diasActivo >= 30,
+      cumplePedido: pedidoConTarjeta,
+      cumpleTodo: diasActivo >= 30 && pedidoConTarjeta,
+    };
+  }
+
+  async function solicitarRDPago() {
+    if (!userId || !userEmail) return;
+    setSolicitandoRD(true);
+    try {
+      // Marcar solicitud en Supabase
+      await supabase.from("usuarios").update({ rd_pago_solicitado: true }).eq("id", userId);
+      setRdPagoSolicitado(true);
+
+      // Email a Vicente
+      await fetch("/api/send-rd-pago-solicitud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tallerNombre: nombreEmpresa,
+          tallerEmail: userEmail,
+          tallerCif: cif,
+          tallerTelefono: telefono,
+          tallerIban: iban,
+          pedidosTotales: pedidos.filter(p => !p.anulado).length,
+          facturacionTotal: facturacion,
+          diasActivo: calcularRequisitos().diasActivo,
+        }),
+      });
+
+      setRdSolicitadoOk(true);
+    } catch (e) {
+      console.error("Error solicitando RD Pago:", e);
+    }
+    setSolicitandoRD(false);
+  }
+
+  const req = calcularRequisitos();
+
+  // Bloque RD Pago
+  function BloqueRDPago() {
+    if (rdPagoActivo) {
+      return (
+        <div style={{ background: "linear-gradient(135deg,rgba(37,99,235,0.15),rgba(37,99,235,0.05))", border: "1px solid rgba(37,99,235,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>💳 RD PAGO ACTIVO</div>
+              <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 6 }}>Crédito disponible</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14 }}>Compra ahora y paga en 15 días sin recargos</p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontSize: isMobile ? 36 : 52, fontWeight: 900, color: creditoRD > 0 ? "#22c55e" : "#f87171", lineHeight: 1 }}>{creditoRD.toFixed(2)}€</p>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>disponibles</p>
+            </div>
+          </div>
+          {creditoRD <= 0 && (
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px", marginTop: 14 }}>
+              <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, margin: 0 }}>⚠️ Crédito agotado — contacta con Recambio Directo para renovar tu límite</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (rdPagoSolicitado || rdSolicitadoOk) {
+      return (
+        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+          <div style={{ display: "inline-block", background: "rgba(245,158,11,0.2)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>⏳ SOLICITUD EN REVISIÓN</div>
+          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>RD Pago — Pendiente de activación</h3>
+          <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6 }}>Tu solicitud ha sido recibida. Revisaremos tu cuenta y te notificaremos por email cuando esté activada.</p>
+        </div>
+      );
+    }
+
+    if (!req.cumpleTodo) {
+      return (
+        <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+          <div style={{ display: "inline-block", background: "rgba(255,255,255,0.05)", color: "#94a3b8", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>💳 RD PAGO</div>
+          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>Paga en 15 días sin recargos</h3>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 18 }}>Completa los siguientes requisitos para solicitar RD Pago:</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumpleMes ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumpleMes ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
+              <span style={{ fontSize: 20 }}>{req.cumpleMes ? "✅" : "⏳"}</span>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14, color: req.cumpleMes ? "#4ade80" : "white" }}>1 mes activo en la plataforma</p>
+                <p style={{ color: "#94a3b8", fontSize: 12 }}>{req.cumpleMes ? "Completado" : `${req.diasActivo} de 30 días`}</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumplePedido ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumplePedido ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
+              <span style={{ fontSize: 20 }}>{req.cumplePedido ? "✅" : "🛒"}</span>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14, color: req.cumplePedido ? "#4ade80" : "white" }}>Al menos 1 pedido pagado con tarjeta</p>
+                <p style={{ color: "#94a3b8", fontSize: 12 }}>{req.cumplePedido ? "Completado" : "Pendiente"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ background: "linear-gradient(135deg,rgba(22,163,74,0.1),rgba(22,163,74,0.03))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+        <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>✅ REQUISITOS CUMPLIDOS</div>
+        <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 8 }}>Solicitar RD Pago</h3>
+        <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>Ya puedes solicitar RD Pago. Con un crédito inicial de hasta <strong style={{ color: "white" }}>200€</strong>, compra ahora y paga en 15 días sin recargos.</p>
+        <button onClick={solicitarRDPago} disabled={solicitandoRD} style={{ background: solicitandoRD ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "16px 32px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: solicitandoRD ? "not-allowed" : "pointer", opacity: solicitandoRD ? 0.7 : 1 }}>
+          {solicitandoRD ? "Enviando solicitud..." : "💳 Solicitar RD Pago"}
+        </button>
+      </div>
+    );
   }
 
   const pedidosMes = pedidos.filter(p => {
@@ -66,19 +206,13 @@ export default function Dashboard() {
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
-
-      {/* HERO MÓVIL */}
       <div style={{ position: "relative", height: 180, background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", display: "flex", alignItems: "flex-end", padding: "20px 16px" }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.92))" }} />
         <div style={{ position: "relative", zIndex: 2 }}>
           <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>MARKETPLACE PROFESIONAL</p>
-          <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>
-            {nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido"}
-          </h1>
+          <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>{nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido"}</h1>
         </div>
       </div>
-
-      {/* STATS MÓVIL */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
         {[
           { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
@@ -92,8 +226,7 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-
-      {/* ACCESOS RÁPIDOS MÓVIL */}
+      <div style={{ padding: "16px 16px 0" }}><BloqueRDPago /></div>
       <div style={{ padding: "16px 16px 0" }}>
         <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 10 }}>ACCESOS RÁPIDOS</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -106,8 +239,6 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
-
-      {/* ACTIVIDAD RECIENTE MÓVIL */}
       {pedidos.length > 0 && (
         <div style={{ padding: "16px 16px 0" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -125,9 +256,7 @@ export default function Dashboard() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <p style={{ fontWeight: 900, fontSize: 16, color: "#22c55e" }}>{Number(pedido.total).toFixed(2)}€</p>
-                    <span style={{ background: est.bg, color: est.color, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
-                      {pedido.estado_envio || "pendiente"}
-                    </span>
+                    <span style={{ background: est.bg, color: est.color, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{pedido.estado_envio || "pendiente"}</span>
                   </div>
                 </Link>
               );
@@ -135,30 +264,20 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* CERRAR SESIÓN MÓVIL */}
       <div style={{ padding: "16px" }}>
-        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
-          Cerrar sesión
-        </button>
+        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Cerrar sesión</button>
       </div>
-
     </main>
   );
 
   /* ── DESKTOP ── */
   return (
     <main style={{ display: "flex", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
-
-      {/* SIDEBAR DESKTOP */}
       <aside style={{ width: 280, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "30px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between", backdropFilter: "blur(18px)", flexShrink: 0 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 40 }}>
             <div style={{ width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20 }}>RD</div>
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2>
-              <p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p>
-            </div>
+            <div><h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2><p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p></div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
@@ -170,9 +289,7 @@ export default function Dashboard() {
               { href: "/perfil", label: "👤 Mi Cuenta" },
               { href: "/chat", label: "💬 Chat" },
             ].map(({ href, label }) => (
-              <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>
-                {label}
-              </Link>
+              <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>{label}</Link>
             ))}
           </div>
         </div>
@@ -182,11 +299,7 @@ export default function Dashboard() {
           <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
         </div>
       </aside>
-
-      {/* CONTENT DESKTOP */}
       <section style={{ flex: 1, overflow: "hidden" }}>
-
-        {/* HERO DESKTOP */}
         <div style={{ height: 420, position: "relative", background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover", display: "flex", alignItems: "center", padding: 70 }}>
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))" }} />
           <div style={{ position: "relative", zIndex: 2 }}>
@@ -195,8 +308,6 @@ export default function Dashboard() {
             <p style={{ fontSize: 22, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 760 }}>Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.</p>
           </div>
         </div>
-
-        {/* STATS DESKTOP */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "40px 50px" }}>
           {[
             { label: "PEDIDOS MES", value: pedidosMes.length },
@@ -209,8 +320,8 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-
-        {/* ACCESOS RÁPIDOS DESKTOP */}
+        {/* RD PAGO */}
+        <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 40 }}>
           {[
             { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
@@ -223,8 +334,6 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
-
-        {/* ACTIVIDAD RECIENTE DESKTOP */}
         {pedidos.length > 0 && (
           <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 40, margin: "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
@@ -263,11 +372,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>
-          CERRAR SESIÓN
-        </button>
-
+        <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>CERRAR SESIÓN</button>
       </section>
     </main>
   );
