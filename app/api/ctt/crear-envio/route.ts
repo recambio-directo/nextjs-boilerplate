@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
         const labelData = JSON.parse(labelRaw);
         console.log("CTT etiqueta keys:", JSON.stringify(Object.keys(labelData)));
         if (Array.isArray(labelData)) console.log("CTT etiqueta array[0] keys:", JSON.stringify(Object.keys(labelData[0] || {})));
-        const base64 = labelData.labels?.[0]?.label_data || labelData.label_data || labelData[0]?.label_data || null;
+        const base64 = labelData.data?.[0]?.label || labelData.labels?.[0]?.label_data || labelData.label_data || null;
         console.log("CTT base64 longitud:", base64?.length || 0);
         if (base64) {
           const pdfBuffer = Buffer.from(base64, "base64");
