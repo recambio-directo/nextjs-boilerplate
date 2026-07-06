@@ -133,6 +133,8 @@ export default function ProveedorPage() {
   const [solicitandoFactura, setSolicitandoFactura] = useState<number | null>(null);
   const [anulandoPedido, setAnulandoPedido] = useState<number | null>(null);
   const [modalAnular, setModalAnular] = useState<any | null>(null);
+  const [modalContacto, setModalContacto] = useState<any | null>(null);
+  const [datosContacto, setDatosContacto] = useState<any | null>(null);
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
   const [horarioApertura, setHorarioApertura] = useState("09:00");
   const [horarioCierre, setHorarioCierre] = useState("18:00");
@@ -353,6 +355,15 @@ export default function ProveedorPage() {
   }
 
   function abrirModalAnular(pedido: Pedido) { setModalAnular(pedido); setMotivoSeleccionado(""); }
+  async function abrirContactoCliente(pedido: Pedido, e: React.MouseEvent) {
+  e.stopPropagation();
+  setModalContacto(pedido);
+  setDatosContacto(null);
+  if (pedido.cliente_id) {
+    const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", pedido.cliente_id).single();
+    setDatosContacto(data || null);
+  }
+}
 
   async function confirmarAnulacion() {
     if (!modalAnular || !motivoSeleccionado) return;
@@ -776,7 +787,13 @@ export default function ProveedorPage() {
                               <td style={tdStyle}><div style={{ color: pedido.anulado ? "#f87171" : "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div><div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>#{pedido.id}</div></td>
                               <td style={tdStyle}>{productos.slice(0, 2).map((p: any, i: number) => (<div key={i} style={{ fontSize: 13, marginBottom: 2 }}><strong>{p.referencia}</strong><span style={{ color: "#94a3b8", marginLeft: 6 }}>{p.descripcion}</span></div>))}{productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}</td>
                               <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900 }}>{Number(pedido.total).toFixed(2)}€</span></td>
-                              <td style={tdStyle}><div style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>{pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}</td>
+                              <td style={tdStyle}>
+  <button onClick={e => abrirContactoCliente(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+    <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>
+    {pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}
+    <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
+  </button>
+</td>
                               <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
                               <td style={tdStyle}><LogoAgencia agencia={agencia} /></td>
                               <td style={tdStyle}>
@@ -976,6 +993,44 @@ export default function ProveedorPage() {
         </section>
       </div>
 
+      {modalContacto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setModalContacto(null)}>
+          <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>👤 Datos de contacto</h2>
+              <button onClick={() => setModalContacto(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 12, padding: "6px 14px", marginBottom: 20, display: "inline-block" }}>
+              <span style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Pedido {modalContacto.codigo || "#" + modalContacto.id}</span>
+            </div>
+            {!datosContacto ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>Cargando datos...</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { label: "Empresa", value: datosContacto.nombre_empresa },
+                  { label: "CIF", value: datosContacto.cif },
+                  { label: "Email", value: datosContacto.email, href: `mailto:${datosContacto.email}` },
+                  { label: "Teléfono", value: datosContacto.telefono, href: `tel:${datosContacto.telefono}` },
+                  { label: "Dirección", value: datosContacto.direccion },
+                  { label: "Ciudad", value: datosContacto.ciudad },
+                  { label: "CP", value: datosContacto.codigo_postal },
+                ].filter(f => f.value).map(({ label, value, href }: any) => (
+                  <div key={label} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                    <span style={{ color: "#94a3b8", fontSize: 13, width: 80, flexShrink: 0 }}>{label}</span>
+                    {href ? (
+                      <a href={href} style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>{value}</a>
+                    ) : (
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{value}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setModalContacto(null)} style={{ width: "100%", marginTop: 24, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cerrar</button>
+          </div>
+        </div>
+      )}
       {modalAnular && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
