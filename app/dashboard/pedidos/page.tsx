@@ -67,6 +67,8 @@ export default function Pedidos() {
   const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
   const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [modalContacto, setModalContacto] = useState<any | null>(null);
+  const [datosContacto, setDatosContacto] = useState<any | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -115,6 +117,17 @@ export default function Pedidos() {
 
   function abrirModalAnular(pedido: any) { setModalAnular(pedido); setMotivoSeleccionado(""); }
 
+  async function abrirContactoProveedor(pedido: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    setModalContacto(pedido);
+    setDatosContacto(null);
+    const proveedor = getProveedorPedido(pedido);
+    if (proveedor.id) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", proveedor.id).single();
+      setDatosContacto(data || null);
+    }
+  }
+
   async function confirmarAnulacion() {
     if (!modalAnular || !motivoSeleccionado) return;
     const pedido = modalAnular;
@@ -122,7 +135,6 @@ export default function Pedidos() {
     setAnulando(pedido.id);
     await supabase.from("pedidos").update({ anulado: true, estado_envio: "anulado", motivo_anulacion: motivoSeleccionado }).eq("id", pedido.id);
 
-    // Anular recogida en la agencia automáticamente
     try {
       await fetch("/api/anular-envio-agencia", {
         method: "POST",
@@ -378,7 +390,13 @@ export default function Pedidos() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ color: "#94a3b8" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
+                    {!esVendedor ? (
+                      <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "underline dotted" }}>🏭 {contraparte.nombre}</span>
+                      </button>
+                    ) : (
+                      <span style={{ color: "#94a3b8" }}>🔧 {contraparte.nombre}</span>
+                    )}
                     {agencia && <LogoAgencia agencia={agencia} />}
                     {trackingInfo && <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {trackingInfo.tracking}</a>}
                     <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
@@ -433,7 +451,16 @@ export default function Pedidos() {
                     ))}
                     {productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
+                  <div>
+                    {!esVendedor ? (
+                      <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{contraparte.nombre}</div>
+                        <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
+                      </button>
+                    ) : (
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
+                    )}
+                  </div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
                   <div><LogoAgencia agencia={agencia} /></div>
                   <div onClick={e => e.stopPropagation()}>
@@ -473,6 +500,45 @@ export default function Pedidos() {
               </React.Fragment>
             );
           })}
+        </div>
+      )}
+
+      {modalContacto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setModalContacto(null)}>
+          <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>🏭 Datos del proveedor</h2>
+              <button onClick={() => setModalContacto(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "6px 14px", marginBottom: 20, display: "inline-block" }}>
+              <span style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Pedido {modalContacto.codigo || "#" + modalContacto.id}</span>
+            </div>
+            {!datosContacto ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>Cargando datos...</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "Empresa", value: datosContacto.nombre_empresa },
+                  { label: "CIF", value: datosContacto.cif },
+                  { label: "Email", value: datosContacto.email, href: `mailto:${datosContacto.email}` },
+                  { label: "Teléfono", value: datosContacto.telefono, href: `tel:${datosContacto.telefono}` },
+                  { label: "Dirección", value: datosContacto.direccion },
+                  { label: "Ciudad", value: datosContacto.ciudad },
+                  { label: "CP", value: datosContacto.codigo_postal },
+                ].filter(f => f.value).map(({ label, value, href }: any) => (
+                  <div key={label} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                    <span style={{ color: "#94a3b8", fontSize: 13, width: 80, flexShrink: 0 }}>{label}</span>
+                    {href ? (
+                      <a href={href} style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>{value}</a>
+                    ) : (
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{value}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setModalContacto(null)} style={{ width: "100%", marginTop: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cerrar</button>
+          </div>
         </div>
       )}
 
