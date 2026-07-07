@@ -356,14 +356,25 @@ export default function ProveedorPage() {
 
   function abrirModalAnular(pedido: Pedido) { setModalAnular(pedido); setMotivoSeleccionado(""); }
   async function abrirContactoCliente(pedido: Pedido, e: React.MouseEvent) {
-  e.stopPropagation();
-  setModalContacto(pedido);
-  setDatosContacto(null);
-  if (pedido.cliente_id) {
-    const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", pedido.cliente_id).single();
-    setDatosContacto(data || null);
+    e.stopPropagation();
+    setModalContacto(pedido);
+    setDatosContacto(null);
+    if (pedido.cliente_id) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", pedido.cliente_id).single();
+      setDatosContacto(data || null);
+    }
   }
-}
+
+  async function abrirContactoProveedor(pedido: Pedido, e: React.MouseEvent) {
+    e.stopPropagation();
+    setModalContacto(pedido);
+    setDatosContacto(null);
+    const proveedorId = (pedido.productos || [])[0]?.proveedor_id || null;
+    if (proveedorId) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", proveedorId).single();
+      setDatosContacto(data || null);
+    }
+  }
 
   async function confirmarAnulacion() {
     if (!modalAnular || !motivoSeleccionado) return;
@@ -788,11 +799,18 @@ export default function ProveedorPage() {
                               <td style={tdStyle}>{productos.slice(0, 2).map((p: any, i: number) => (<div key={i} style={{ fontSize: 13, marginBottom: 2 }}><strong>{p.referencia}</strong><span style={{ color: "#94a3b8", marginLeft: 6 }}>{p.descripcion}</span></div>))}{productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}</td>
                               <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900 }}>{Number(pedido.total).toFixed(2)}€</span></td>
                               <td style={tdStyle}>
-  <button onClick={e => abrirContactoCliente(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
-    <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>
-    {pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}
-    <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
-  </button>
+  {pestañaPedidos === "recibidos" ? (
+    <button onClick={e => abrirContactoCliente(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>
+      {pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}
+      <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
+    </button>
+  ) : (
+    <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{(pedido.productos || [])[0]?.proveedor_nombre || "-"}</div>
+      <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
+    </button>
+  )}
 </td>
                               <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
                               <td style={tdStyle}><LogoAgencia agencia={agencia} /></td>
