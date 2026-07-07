@@ -128,6 +128,16 @@ export default function Pedidos() {
     }
   }
 
+  async function abrirContactoCliente(pedido: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    setModalContacto(pedido);
+    setDatosContacto(null);
+    if (pedido.cliente_id) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", pedido.cliente_id).single();
+      setDatosContacto(data || null);
+    }
+  }
+
   async function confirmarAnulacion() {
     if (!modalAnular || !motivoSeleccionado) return;
     const pedido = modalAnular;
@@ -390,13 +400,9 @@ export default function Pedidos() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    {!esVendedor ? (
-                      <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "underline dotted" }}>🏭 {contraparte.nombre}</span>
-                      </button>
-                    ) : (
-                      <span style={{ color: "#94a3b8" }}>🔧 {contraparte.nombre}</span>
-                    )}
+                   <button onClick={e => esVendedor ? abrirContactoCliente(pedido, e) : abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 12, textDecoration: "underline dotted" }}>{esVendedor ? "🔧" : "🏭"} {contraparte.nombre}</span>
+                    </button>
                     {agencia && <LogoAgencia agencia={agencia} />}
                     {trackingInfo && <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: "#60a5fa", fontWeight: 700, textDecoration: "none" }}>🔍 {trackingInfo.tracking}</a>}
                     <span style={{ color: "#94a3b8" }}>{productos.length} ref{productos.length !== 1 ? "s" : ""}</span>
@@ -452,14 +458,10 @@ export default function Pedidos() {
                     {productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}
                   </div>
                   <div>
-                    {!esVendedor ? (
-                      <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{contraparte.nombre}</div>
-                        <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
-                      </button>
-                    ) : (
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{contraparte.nombre}</div>
-                    )}
+                    <button onClick={e => esVendedor ? abrirContactoCliente(pedido, e) : abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{contraparte.nombre}</div>
+                      <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
+                    </button>
                   </div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 16 }}>{fmt(pedido.total)}€</div>
                   <div><LogoAgencia agencia={agencia} /></div>
