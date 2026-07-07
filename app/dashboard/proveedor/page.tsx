@@ -92,6 +92,7 @@ function LogoAgencia({ agencia }: { agencia?: string }) {
   if (ag.includes("seur")) return <span style={{ background: "#F5A800", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>SEUR</span>;
   if (ag.includes("gls")) return <span style={{ background: "#00467F", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
   if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
+  if (ag.includes("ctt")) return <span style={{ background: "#E8E8E8", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>CTT</span>;
   if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>PROPIO</span>;
   return <span style={{ color: "#94a3b8" }}>{agencia || "-"}</span>;
 }
