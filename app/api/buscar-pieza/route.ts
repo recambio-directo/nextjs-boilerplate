@@ -35,7 +35,7 @@ interface EquivalenciaCache {
 // ============================================================
 
 function normalizar(referencia: string): string {
-  return referencia.toUpperCase().replace(/[\s\-_.]/g, "");
+  return referencia.toUpperCase().replace(/[\s\-_./]/g, "");
 }
 
 // ---------- CRUCES LOCALES (tabla cruces_referencias) ----------
