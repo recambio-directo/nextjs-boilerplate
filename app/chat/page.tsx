@@ -156,7 +156,8 @@ function ChatPageInner() {
           .neq("user_id", uid);
         // Limpiar cooldown para que al volver al dashboard recargue las notificaciones
         // y las encuentre ya como leídas en Supabase
-        sessionStorage.removeItem(`rd_notif_last_${uid}`);
+        localStorage.removeItem(`rd_notif_last_prov_${uid}`);
+localStorage.removeItem(`rd_notif_last_${uid}`);
       }
       return;
     }
