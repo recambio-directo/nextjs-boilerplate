@@ -251,8 +251,17 @@ export default function ProveedorPage() {
     const hace7dias = new Date();
     hace7dias.setDate(hace7dias.getDate() - 7);
     const { data: pedidos } = await supabase.from("pedidos").select("id, codigo, created_at, productos").gte("created_at", hace7dias.toISOString()).order("created_at", { ascending: false }).limit(50);
-    (pedidos || []).filter(p => (p.productos || []).some((pr: any) => pr.proveedor_id === uid)).slice(0, 5).forEach(p => {
-      notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", texto: `📦 Pedido ${p.codigo || `#${p.id}`} recibido`, leido: true, created_at: p.created_at });
+    const hace7diasPedidos = new Date();
+    hace7diasPedidos.setDate(hace7diasPedidos.getDate() - 7);
+    const { data: pedidosConDetalles } = await supabase.from("pedidos").select("id, codigo, created_at, productos, anulado, factura_url, motivo_anulacion").gte("created_at", hace7diasPedidos.toISOString()).order("created_at", { ascending: false }).limit(50);
+    (pedidosConDetalles || []).filter(p => (p.productos || []).some((pr: any) => pr.proveedor_id === uid)).slice(0, 10).forEach(p => {
+      if (p.anulado) {
+        notifsTotales.push({ id: `anu-${p.id}`, tipo: "anulacion", pedido_id: p.id, texto: `❌ Pedido ${p.codigo || `#${p.id}`} anulado`, leido: vistasAntes.has(`anu-${p.id}`), created_at: p.created_at });
+      } else if (p.factura_url) {
+        notifsTotales.push({ id: `fac-${p.id}`, tipo: "factura_solicitada", pedido_id: p.id, texto: `🧾 Factura solicitada — ${p.codigo || `#${p.id}`}`, leido: vistasAntes.has(`fac-${p.id}`), created_at: p.created_at });
+      } else {
+        notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", pedido_id: p.id, texto: `📦 Pedido ${p.codigo || `#${p.id}`} recibido`, leido: vistasAntes.has(`ped-${p.id}`), created_at: p.created_at });
+      }
     });
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
@@ -584,8 +593,22 @@ export default function ProveedorPage() {
                 ) : (
                   <div style={{ maxHeight: 380, overflowY: "auto" as const }}>
                     {notifs.slice(0, 20).map((n, i) => (
-                      <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (userId) localStorage.removeItem(`rd_notif_last_prov_${userId}`); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") setSeccion("pedidos"); }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
-                        <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
+                      <div key={`${n.id}-${i}`} onClick={() => {
+                        setShowNotifs(false);
+                        if (userId) localStorage.removeItem(`rd_notif_last_prov_${userId}`);
+                        if (n.tipo === "chat") {
+                          router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat");
+                        } else if (n.pedido_id) {
+                          setSeccion("pedidos");
+                          setPestañaPedidos("recibidos");
+                          setTimeout(() => setPedidoExpandido(n.pedido_id), 100);
+                        } else {
+                          setSeccion("pedidos");
+                        }
+                      }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
+                        <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>
+                          {n.tipo === "chat" ? "💬" : n.tipo === "anulacion" ? "❌" : n.tipo === "factura_solicitada" ? "🧾" : "📦"}
+                        </span>
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
                           <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 3 }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
