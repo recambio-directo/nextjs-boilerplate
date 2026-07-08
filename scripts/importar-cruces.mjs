@@ -21,7 +21,7 @@ import { resolve, basename } from 'node:path';
 // Config
 // ----------------------------------------------------------------
 const DIR = process.argv[2] ?? './datos-cruces';
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 500;
 
 const limpiar = (v) => (v ?? '').trim().replace(/^["']|["']$/g, '');
 const SUPABASE_URL = limpiar(process.env.NEXT_PUBLIC_SUPABASE_URL);
