@@ -80,7 +80,8 @@ function parsearFichero(ruta) {
 
   // Solo necesitamos estas 5 columnas
   if (idx.marcaIam === -1 || idx.refIam === -1 || idx.marcaOem === -1 || idx.refOemNorm === -1) {
-    throw new Error(`Cabecera inesperada en ${basename(ruta)}: ${lineas[0]}`);
+    console.log(`   ⚠️ Cabecera incompatible, saltando fichero`);
+    return [];
   }
 
   const filas = [];
