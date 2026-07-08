@@ -351,6 +351,35 @@ export default function ProveedorPage() {
     if (uploadError) { alert("Error al subir la factura: " + uploadError.message); setSubiendoFactura(null); return; }
     const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
     await supabase.from("pedidos").update({ factura_url: urlData.publicUrl, factura_nombre: file.name }).eq("id", pedidoId);
+
+    // Notificar al taller por email con la factura adjunta
+    try {
+      const { data: pedidoData } = await supabase.from("pedidos").select("codigo, total, created_at, cliente_email, cliente_nombre, cliente_id, productos").eq("id", pedidoId).single();
+      if (pedidoData?.cliente_email) {
+        let emailFacturasTaller = pedidoData.cliente_email;
+        if (pedidoData.cliente_id) {
+          const { data: tallerPerfil } = await supabase.from("usuarios").select("email_facturas").eq("id", pedidoData.cliente_id).single();
+          if (tallerPerfil?.email_facturas) emailFacturasTaller = tallerPerfil.email_facturas;
+        }
+        await fetch("/api/send-factura-subida", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pedidoCodigo: pedidoData.codigo || `#${pedidoId}`,
+            pedidoId,
+            pedidoTotal: pedidoData.total,
+            pedidoFecha: pedidoData.created_at,
+            clienteEmail: emailFacturasTaller,
+            clienteNombre: pedidoData.cliente_nombre || pedidoData.cliente_email,
+            proveedorNombre: nombreEmpresa,
+            facturaUrl: urlData.publicUrl,
+            facturaNombre: file.name,
+            productos: pedidoData.productos || [],
+          }),
+        });
+      }
+    } catch (e) { console.error("Error enviando email factura:", e); }
+
     setSubiendoFactura(null);
     cargarDatos();
   }
