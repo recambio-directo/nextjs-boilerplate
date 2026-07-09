@@ -190,6 +190,7 @@ async function main() {
     console.log(`   ${filas.length} cruces únicos parseados`);
     await subirFilas(filas, f);
     total += filas.length;
+    await new Promise(r => setTimeout(r, 2000));
   }
 
   console.log(`\n✅ Importación completada: ${total} cruces procesados.`);
