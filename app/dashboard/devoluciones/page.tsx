@@ -23,7 +23,14 @@ const TIPO_INFO: Record<string, { label: string; emoji: string }> = {
   otro: { label: "Otro motivo", emoji: "✍️" },
 };
 
-const AGENCIAS_DEVOLUCION = ["GLS", "Correos Express", "MRW", "NACEX", "SEUR", "CTT Express", "Medios propios"];
+const AGENCIAS = [
+  { key: "MRW", label: "MRW 24H", precio: 7.95, color: "#E30613", textColor: "#fff" },
+  { key: "NACEX", label: "NACEX", precio: 7.50, color: "#FFD200", textColor: "#1a1a1a" },
+  { key: "SEUR", label: "SEUR 24", precio: 7.50, color: "#F5A800", textColor: "#1a1a1a" },
+  { key: "GLS", label: "GLS", precio: 6.50, color: "#00467F", textColor: "#fff" },
+  { key: "Correos Express", label: "Correos Exp.", precio: 5.00, color: "#FFCC00", textColor: "#333" },
+  { key: "CTT Express", label: "CTT Express", precio: 7.50, color: "#E2001A", textColor: "#fff" },
+];
 
 const MOTIVOS_RECHAZO = [
   "⏱️ Fuera del plazo de devolución",
@@ -33,16 +40,8 @@ const MOTIVOS_RECHAZO = [
   "✍️ Otro (detallar por chat)",
 ];
 
-async function notificarDevolucion(evento: string, devolucion: any, extra: Record<string, any> = {}) {
-  try {
-    await fetch("/api/send-devolucion", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ evento, devolucion, ...extra }),
-    });
-  } catch (e) {
-    console.error("Error enviando notificación de devolución:", e);
-  }
+async function notificarDevolucion(evento: string, devolucion: any) {
+  try { await fetch("/api/send-devolucion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evento, devolucion }) }); } catch (e) { console.error("Error notificación devolución:", e); }
 }
 
 export default function Devoluciones() {
@@ -58,21 +57,16 @@ export default function Devoluciones() {
   const [procesando, setProcesando] = useState<number | null>(null);
   const [modalRechazo, setModalRechazo] = useState<any | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
-  const [envioAgencia, setEnvioAgencia] = useState("");
-  const [envioTracking, setEnvioTracking] = useState("");
+  const [agenciaSeleccionada, setAgenciaSeleccionada] = useState<string | null>(null);
+  const [creandoEnvio, setCreandoEnvio] = useState(false);
+  const [modalContacto, setModalContacto] = useState<any | null>(null);
+  const [datosContacto, setDatosContacto] = useState<any | null>(null);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  useEffect(() => { const check = () => setIsMobile(window.innerWidth < 768); check(); window.addEventListener("resize", check); return () => window.removeEventListener("resize", check); }, []);
 
   useEffect(() => {
     cargarDevoluciones();
-    const channel = supabase.channel("devoluciones-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "devoluciones" }, () => cargarDevoluciones())
-      .subscribe();
+    const channel = supabase.channel("devoluciones-realtime").on("postgres_changes", { event: "*", schema: "public", table: "devoluciones" }, () => cargarDevoluciones()).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -86,82 +80,77 @@ export default function Devoluciones() {
     setRecibidas(rec || []);
   }
 
-  function fmt(n: any) {
-    return Number(Number(n).toFixed(2)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function fmtFecha(f: string | null) {
-    return f ? new Date(f).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
-  }
+  function fmt(n: any) { return Number(Number(n).toFixed(2)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtFecha(f: string | null) { return f ? new Date(f).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null; }
 
   async function actualizarDevolucion(dev: any, cambios: Record<string, any>, evento: string) {
     setProcesando(dev.id);
     const { error } = await supabase.from("devoluciones").update({ ...cambios, updated_at: new Date().toISOString() }).eq("id", dev.id);
-    if (error) {
-      alert("Error al actualizar la devolución: " + error.message);
-      setProcesando(null);
-      return false;
-    }
+    if (error) { alert("Error: " + error.message); setProcesando(null); return false; }
     await notificarDevolucion(evento, { ...dev, ...cambios });
     setProcesando(null);
     cargarDevoluciones();
     return true;
   }
 
-  // ── Acciones del solicitante (pestaña Enviadas) ──
   async function cancelarDevolucion(dev: any) {
     if (!confirm(`¿Cancelar la solicitud de devolución ${dev.codigo}?`)) return;
     await actualizarDevolucion(dev, { estado: "cancelada" }, "cancelada");
   }
 
-  async function registrarEnvio(dev: any) {
-    if (!envioAgencia) { alert("Selecciona la agencia con la que envías la pieza"); return; }
-    const ok = await actualizarDevolucion(dev, {
-      estado: "en_transito",
-      agencia_devolucion: envioAgencia,
-      codigo_transporte: envioTracking || null,
-      fecha_envio: new Date().toISOString(),
-    }, "enviada");
-    if (ok) { setEnvioAgencia(""); setEnvioTracking(""); }
+  async function cerrarMutuoAcuerdo(dev: any) {
+    if (!confirm(`¿Cerrar la devolución ${dev.codigo} de mutuo acuerdo?\n\nLa devolución se marcará como finalizada.`)) return;
+    await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString(), motivo_texto: (dev.motivo_texto || "") + "\n[Cerrada de mutuo acuerdo entre las partes]" }, "finalizada");
   }
 
-  // ── Acciones del proveedor (pestaña Recibidas) ──
-  async function aceptarDevolucion(dev: any) {
-    await actualizarDevolucion(dev, { estado: "envio_pendiente", fecha_aceptada: new Date().toISOString() }, "aceptada");
+  async function crearEnvioAgencia(dev: any) {
+    if (!agenciaSeleccionada) { alert("Selecciona una agencia"); return; }
+    setCreandoEnvio(true);
+    try {
+      const res = await fetch("/api/devolucion/crear-envio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ devolucionId: dev.id, agencia: agenciaSeleccionada }),
+      });
+      const data = await res.json();
+      if (!data.ok) { alert("Error al crear el envío: " + (data.error || "Error desconocido")); setCreandoEnvio(false); return; }
+      alert(`✅ Envío creado con ${agenciaSeleccionada}.\n\nTracking: ${data.tracking || "—"}\n${data.etiquetaUrl ? "La etiqueta está disponible para descargar." : "Etiqueta pendiente."}`);
+      setAgenciaSeleccionada(null);
+      cargarDevoluciones();
+    } catch (e) { alert("Error de conexión al crear el envío"); }
+    setCreandoEnvio(false);
   }
 
+  // Proveedor actions (pestaña recibidas)
+  async function aceptarDevolucion(dev: any) { await actualizarDevolucion(dev, { estado: "envio_pendiente", fecha_aceptada: new Date().toISOString() }, "aceptada"); }
   async function confirmarRechazo() {
     if (!modalRechazo || !motivoRechazo) return;
-    const dev = modalRechazo;
     setModalRechazo(null);
-    await actualizarDevolucion(dev, { estado: "rechazada", motivo_rechazo: motivoRechazo, fecha_rechazada: new Date().toISOString() }, "rechazada");
+    await actualizarDevolucion(modalRechazo, { estado: "rechazada", motivo_rechazo: motivoRechazo, fecha_rechazada: new Date().toISOString() }, "rechazada");
     setMotivoRechazo("");
   }
-
-  async function marcarGestionExterna(dev: any) {
-    if (!confirm("¿Marcar como gestión externa? La devolución se gestionará fuera de la plataforma y quedará solo como registro.")) return;
-    await actualizarDevolucion(dev, { estado: "gestion_externa" }, "gestion_externa");
-  }
-
-  async function marcarRecibida(dev: any) {
-    await actualizarDevolucion(dev, { estado: "recibida", fecha_recibida: new Date().toISOString() }, "recibida");
-  }
-
-  async function finalizarDevolucion(dev: any) {
-    if (!confirm(`¿Finalizar la devolución ${dev.codigo}? Confirma que el abono al taller queda gestionado.`)) return;
-    await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString() }, "finalizada");
-  }
+  async function marcarGestionExterna(dev: any) { if (!confirm("¿Marcar como gestión externa?")) return; await actualizarDevolucion(dev, { estado: "gestion_externa" }, "gestion_externa"); }
+  async function marcarRecibida(dev: any) { await actualizarDevolucion(dev, { estado: "recibida", fecha_recibida: new Date().toISOString() }, "recibida"); }
+  async function finalizarDevolucion(dev: any) { if (!confirm(`¿Finalizar la devolución ${dev.codigo}?`)) return; await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString() }, "finalizada"); }
 
   async function abrirChat(dev: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const otroId = pestañaActiva === "enviadas" ? dev.proveedor_id : dev.solicitante_id;
-    if (!otroId) { alert("No se puede identificar el interlocutor"); return; }
-    const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", dev.pedido_id).maybeSingle();
-    if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
-    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: otroId, pedido_id: dev.pedido_id, referencia: `Devolución ${dev.codigo} — Pedido ${dev.pedido_codigo || "#" + dev.pedido_id}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
+    const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", dev.pedido_id).maybeSingle();
+    if (conv) { router.push(`/chat?conv=${conv.id}`); return; }
+    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: otroId, pedido_id: dev.pedido_id, referencia: `Devolución ${dev.codigo}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
     if (!error && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
-    else alert("Error al abrir el chat");
+  }
+
+  async function abrirContacto(dev: any) {
+    setModalContacto(dev);
+    setDatosContacto(null);
+    const otroId = pestañaActiva === "enviadas" ? dev.proveedor_id : dev.solicitante_id;
+    if (otroId) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", otroId).single();
+      setDatosContacto(data || null);
+    }
   }
 
   const devoluciones = pestañaActiva === "enviadas" ? enviadas : recibidas;
@@ -170,7 +159,7 @@ export default function Devoluciones() {
   const devolucionesFiltradas = devoluciones.filter(d => {
     if (busqueda) {
       const q = busqueda.toLowerCase();
-      if (!((d.codigo || "").toLowerCase().includes(q) || (d.pedido_codigo || "").toLowerCase().includes(q) || String(d.pedido_id).includes(q) || (d.referencia || "").toLowerCase().includes(q) || (d.descripcion || "").toLowerCase().includes(q) || (d.solicitante_nombre || "").toLowerCase().includes(q) || (d.proveedor_nombre || "").toLowerCase().includes(q))) return false;
+      if (!((d.codigo || "").toLowerCase().includes(q) || (d.pedido_codigo || "").toLowerCase().includes(q) || (d.referencia || "").toLowerCase().includes(q) || (d.solicitante_nombre || "").toLowerCase().includes(q) || (d.proveedor_nombre || "").toLowerCase().includes(q))) return false;
     }
     if (filtroEstado !== "todos" && d.estado !== filtroEstado) return false;
     return true;
@@ -211,6 +200,11 @@ export default function Devoluciones() {
     );
   }
 
+  // ¿Se puede cerrar de mutuo acuerdo? Solo si no se ha generado envío con agencia
+  function puedeCerrarMutuo(dev: any): boolean {
+    return ["iniciada", "envio_pendiente"].includes(dev.estado) && !dev.agencia_devolucion;
+  }
+
   function AccionesDevolucion({ dev }: { dev: any }) {
     const cargando = procesando === dev.id;
     return (
@@ -222,74 +216,74 @@ export default function Devoluciones() {
           </div>
         )}
         {dev.estado === "rechazada" && dev.motivo_rechazo && (
-          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
-            🚫 Rechazada: {dev.motivo_rechazo}
-          </div>
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>🚫 Rechazada: {dev.motivo_rechazo}</div>
         )}
+
+        {/* Etiqueta + tracking */}
         {dev.agencia_devolucion && (
           <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "10px 14px", fontSize: 13 }}>
             <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 11 }}>🚚 ENVÍO DE VUELTA: </span>
             <strong style={{ color: "#60a5fa" }}>{dev.agencia_devolucion}</strong>
             {dev.codigo_transporte && <span style={{ marginLeft: 8, fontFamily: "monospace", color: "white", fontWeight: 700 }}>{dev.codigo_transporte}</span>}
+            {dev.etiqueta_devolucion_url && (
+              <a href={dev.etiqueta_devolucion_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "6px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Descargar etiqueta</a>
+            )}
           </div>
         )}
+
         <Timeline dev={dev} />
 
-        {/* Formulario de envío — solicitante con devolución aceptada */}
-        {!esProveedor && dev.estado === "envio_pendiente" && (
+        {/* ── Selector de agencia — solicitante con devolución aceptada ── */}
+        {!esProveedor && dev.estado === "envio_pendiente" && !dev.agencia_devolucion && (
           <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 12, padding: "14px 16px" }}>
-            <p style={{ color: "#fbbf24", fontSize: 12, fontWeight: 800, marginBottom: 10 }}>📦 DEVOLUCIÓN ACEPTADA — Envía la pieza y registra el envío</p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <select value={envioAgencia} onChange={e => setEnvioAgencia(e.target.value)} style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", color: "white", padding: "10px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
-                <option value="">Agencia...</option>
-                {AGENCIAS_DEVOLUCION.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <input placeholder="Nº de seguimiento (opcional)" value={envioTracking} onChange={e => setEnvioTracking(e.target.value)} style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", color: "white", padding: "10px 12px", borderRadius: 10, fontSize: 13, minWidth: 200 }} />
-              <button onClick={() => registrarEnvio(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", border: "none", color: "white", padding: "10px 18px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>
-                {cargando ? "Guardando..." : "🚚 Marcar como enviada"}
-              </button>
+            <p style={{ color: "#fbbf24", fontSize: 12, fontWeight: 800, marginBottom: 10 }}>📦 DEVOLUCIÓN ACEPTADA — Elige cómo enviar la pieza de vuelta</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+              {AGENCIAS.map(({ key, label, precio, color, textColor }) => (
+                <button key={key} onClick={() => setAgenciaSeleccionada(key)} style={{ borderRadius: 12, padding: "10px 10px", cursor: "pointer", textAlign: "left", background: agenciaSeleccionada === key ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.03)", border: agenciaSeleccionada === key ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ background: color, color: textColor, fontWeight: 900, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>{label}</span>
+                    <span style={{ fontWeight: 900, fontSize: 13, color: agenciaSeleccionada === key ? "#60a5fa" : "white" }}>{precio.toFixed(2)}€</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 10, color: "#94a3b8" }}>Recogida en tu dirección</p>
+                </button>
+              ))}
             </div>
+            <button onClick={() => crearEnvioAgencia(dev)} disabled={!agenciaSeleccionada || creandoEnvio} style={{ width: "100%", background: agenciaSeleccionada ? "linear-gradient(135deg,#f59e0b,#d97706)" : "rgba(255,255,255,0.05)", border: "none", color: agenciaSeleccionada ? "white" : "#94a3b8", padding: "12px 18px", borderRadius: 10, fontWeight: 800, cursor: agenciaSeleccionada ? "pointer" : "not-allowed", fontSize: 14, opacity: creandoEnvio ? 0.7 : 1 }}>
+              {creandoEnvio ? "Creando envío..." : agenciaSeleccionada ? `🚚 Crear envío con ${agenciaSeleccionada}` : "Selecciona una agencia"}
+            </button>
+            <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>💡 Recibirás la etiqueta para pegarla en el paquete. La agencia recogerá en tu dirección.</p>
           </div>
         )}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => abrirChat(dev)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
+          <button onClick={() => abrirContacto(dev)} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#60a5fa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>👁 Ver contacto {esProveedor ? "taller" : "proveedor"}</button>
 
-          {/* Solicitante */}
-          {!esProveedor && dev.estado === "iniciada" && (
-            <button onClick={() => cancelarDevolucion(dev)} disabled={cargando} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>
-              {cargando ? "Cancelando..." : "❌ Cancelar solicitud"}
-            </button>
+          {/* Cerrar de mutuo acuerdo */}
+          {puedeCerrarMutuo(dev) && (
+            <button onClick={() => cerrarMutuoAcuerdo(dev)} disabled={cargando} style={{ background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.25)", color: "#4ade80", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>🤝 Cerrar de mutuo acuerdo</button>
           )}
 
-          {/* Proveedor / vendedor */}
+          {/* Solicitante: cancelar */}
+          {!esProveedor && dev.estado === "iniciada" && (
+            <button onClick={() => cancelarDevolucion(dev)} disabled={cargando} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Cancelando..." : "❌ Cancelar solicitud"}</button>
+          )}
+
+          {/* Proveedor actions */}
           {esProveedor && dev.estado === "iniciada" && (
             <>
-              <button onClick={() => aceptarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>
-                {cargando ? "Guardando..." : "✅ Aceptar devolución"}
-              </button>
-              <button onClick={() => { setModalRechazo(dev); setMotivoRechazo(""); }} disabled={cargando} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                🚫 Rechazar
-              </button>
-              <button onClick={() => marcarGestionExterna(dev)} disabled={cargando} style={{ background: "rgba(232,121,249,0.1)", border: "1px solid rgba(232,121,249,0.25)", color: "#e879f9", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                🔁 Gestión externa
-              </button>
+              <button onClick={() => aceptarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "✅ Aceptar"}</button>
+              <button onClick={() => { setModalRechazo(dev); setMotivoRechazo(""); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>🚫 Rechazar</button>
+              <button onClick={() => marcarGestionExterna(dev)} style={{ background: "rgba(232,121,249,0.1)", border: "1px solid rgba(232,121,249,0.25)", color: "#e879f9", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>🔁 Gestión externa</button>
             </>
           )}
           {esProveedor && dev.estado === "en_transito" && (
-            <button onClick={() => marcarRecibida(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>
-              {cargando ? "Guardando..." : "📥 Marcar como recibida"}
-            </button>
+            <button onClick={() => marcarRecibida(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "📥 Marcar como recibida"}</button>
           )}
           {esProveedor && dev.estado === "recibida" && (
-            <button onClick={() => finalizarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>
-              {cargando ? "Guardando..." : "🏁 Finalizar devolución"}
-            </button>
+            <button onClick={() => finalizarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "🏁 Finalizar"}</button>
           )}
         </div>
-        {esProveedor && dev.estado === "recibida" && (
-          <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>💡 Al finalizar confirmas que el abono al taller queda gestionado entre las partes.</p>
-        )}
       </div>
     );
   }
@@ -341,11 +335,9 @@ export default function Devoluciones() {
         <div style={{ background: "rgba(15,23,42,0.92)", padding: "60px 20px", borderRadius: 20, textAlign: "center" }}>
           <p style={{ fontSize: 48, marginBottom: 16 }}>🔄</p>
           <h2 style={{ fontSize: 22, fontWeight: 900 }}>{pestañaActiva === "enviadas" ? "No has solicitado devoluciones" : "No has recibido solicitudes de devolución"}</h2>
-          {pestañaActiva === "enviadas" && <p style={{ color: "#94a3b8", marginTop: 10, fontSize: 14 }}>Puedes solicitar una devolución desde tus pedidos entregados</p>}
           {pestañaActiva === "enviadas" && <button onClick={() => router.push("/dashboard/pedidos")} style={{ marginTop: 20, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "14px 28px", borderRadius: 14, fontWeight: 800, cursor: "pointer" }}>VER MIS PEDIDOS</button>}
         </div>
       )}
-
       {devolucionesFiltradas.length === 0 && devoluciones.length > 0 && (
         <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>Sin resultados para los filtros seleccionados</div>
       )}
@@ -358,7 +350,7 @@ export default function Devoluciones() {
             const tipo = TIPO_INFO[dev.tipo] || { label: dev.tipo, emoji: "•" };
             return (
               <div key={dev.id} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                <div onClick={() => { setExpandida(abierta ? null : dev.id); setEnvioAgencia(""); setEnvioTracking(""); }} style={{ padding: "14px 16px", cursor: "pointer" }}>
+                <div onClick={() => { setExpandida(abierta ? null : dev.id); setAgenciaSeleccionada(null); }} style={{ padding: "14px 16px", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
                       <p style={{ color: "#60a5fa", fontWeight: 800, fontSize: 14 }}>{dev.codigo}</p>
@@ -372,15 +364,10 @@ export default function Devoluciones() {
                   <div style={{ display: "flex", gap: 8, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ color: "#60a5fa", fontWeight: 700 }}>{dev.referencia}</span>
                     <span style={{ color: "#94a3b8" }}>{tipo.emoji} {tipo.label}</span>
-                    <span style={{ color: "#94a3b8" }}>{esProveedor ? `🔧 ${dev.solicitante_nombre || "-"}` : `🏭 ${dev.proveedor_nombre || "-"}`}</span>
                   </div>
                   <div style={{ marginTop: 6, textAlign: "right", color: "#64748b", fontSize: 11 }}>{abierta ? "▲ Cerrar" : "▼ Ver detalle"}</div>
                 </div>
-                {abierta && (
-                  <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", padding: "14px 16px" }}>
-                    <AccionesDevolucion dev={dev} />
-                  </div>
-                )}
+                {abierta && <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", padding: "14px 16px" }}><AccionesDevolucion dev={dev} /></div>}
               </div>
             );
           })}
@@ -390,35 +377,23 @@ export default function Devoluciones() {
       {/* DESKTOP */}
       {!isMobile && devolucionesFiltradas.length > 0 && (
         <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
-            {GRID_HEADERS.map(h => <div key={h}>{h}</div>)}
-          </div>
+          <div style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "12px 20px", background: "rgba(0,0,0,0.2)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>{GRID_HEADERS.map(h => <div key={h}>{h}</div>)}</div>
           {devolucionesFiltradas.map(dev => {
             const abierta = expandida === dev.id;
             const tipo = TIPO_INFO[dev.tipo] || { label: dev.tipo, emoji: "•" };
             return (
               <React.Fragment key={dev.id}>
-                <div onClick={() => { setExpandida(abierta ? null : dev.id); setEnvioAgencia(""); setEnvioTracking(""); }} style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: abierta ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
-                  <div>
-                    <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{dev.codigo}</div>
-                    <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{new Date(dev.created_at).toLocaleDateString("es-ES")}</div>
-                  </div>
+                <div onClick={() => { setExpandida(abierta ? null : dev.id); setAgenciaSeleccionada(null); }} style={{ display: "grid", gridTemplateColumns: GRID_COLS, gap: 12, padding: "14px 20px", borderTop: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: abierta ? "rgba(37,99,235,0.05)" : "transparent", alignItems: "center" }}>
+                  <div><div style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{dev.codigo}</div><div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{new Date(dev.created_at).toLocaleDateString("es-ES")}</div></div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8" }}>{dev.pedido_codigo || `#${dev.pedido_id}`}</div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "#60a5fa" }}>{dev.referencia || "-"}</div>
-                    <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{(dev.descripcion || "").substring(0, 28)}{(dev.descripcion || "").length > 28 ? "..." : ""}{dev.cantidad > 1 ? ` ×${dev.cantidad}` : ""}</div>
-                  </div>
+                  <div><div style={{ fontWeight: 700, fontSize: 13, color: "#60a5fa" }}>{dev.referencia || "-"}</div><div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>{(dev.descripcion || "").substring(0, 28)}{dev.cantidad > 1 ? ` ×${dev.cantidad}` : ""}</div></div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{esProveedor ? (dev.solicitante_nombre || "-") : (dev.proveedor_nombre || "-")}</div>
                   <div style={{ color: "#22c55e", fontWeight: 900, fontSize: 15 }}>{fmt(dev.importe)}€</div>
                   <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{tipo.emoji} {tipo.label}</div>
                   <div><BadgeEstado estado={dev.estado} /></div>
-                  <div><button onClick={e => { e.stopPropagation(); setExpandida(abierta ? null : dev.id); setEnvioAgencia(""); setEnvioTracking(""); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{abierta ? "▲ Cerrar" : "▼ Ver"}</button></div>
+                  <div><button onClick={e => { e.stopPropagation(); setExpandida(abierta ? null : dev.id); setAgenciaSeleccionada(null); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>{abierta ? "▲ Cerrar" : "▼ Ver"}</button></div>
                 </div>
-                {abierta && (
-                  <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb", padding: "20px 24px" }}>
-                    <AccionesDevolucion dev={dev} />
-                  </div>
-                )}
+                {abierta && <div style={{ borderTop: "1px solid rgba(37,99,235,0.2)", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb", padding: "20px 24px" }}><AccionesDevolucion dev={dev} /></div>}
               </React.Fragment>
             );
           })}
@@ -430,7 +405,7 @@ export default function Devoluciones() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#0f172a", borderRadius: 20, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }}>
             <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 8 }}>🚫 Rechazar devolución</h2>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Devolución <strong style={{ color: "white" }}>{modalRechazo.codigo}</strong> — {modalRechazo.referencia}</p>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Devolución <strong style={{ color: "white" }}>{modalRechazo.codigo}</strong></p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {MOTIVOS_RECHAZO.map(motivo => (
                 <button key={motivo} onClick={() => setMotivoRechazo(motivo)} style={{ padding: "12px 16px", borderRadius: 10, textAlign: "left", fontWeight: 700, fontSize: isMobile ? 13 : 14, cursor: "pointer", background: motivoRechazo === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoRechazo === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoRechazo === motivo ? "#f87171" : "white" }}>{motivo}</button>
@@ -440,6 +415,42 @@ export default function Devoluciones() {
               <button onClick={() => setModalRechazo(null)} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
               <button onClick={confirmarRechazo} disabled={!motivoRechazo} style={{ flex: 1, background: motivoRechazo ? "linear-gradient(135deg,#dc2626,#991b1b)" : "rgba(255,255,255,0.05)", border: "none", color: motivoRechazo ? "white" : "#94a3b8", padding: "12px", borderRadius: 12, cursor: motivoRechazo ? "pointer" : "not-allowed", fontWeight: 900 }}>Confirmar rechazo</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONTACTO */}
+      {modalContacto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setModalContacto(null)}>
+          <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>👤 Datos de contacto</h2>
+              <button onClick={() => setModalContacto(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "6px 14px", marginBottom: 20, display: "inline-block" }}>
+              <span style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Devolución {modalContacto.codigo}</span>
+            </div>
+            {!datosContacto ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>Cargando datos...</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "Empresa", value: datosContacto.nombre_empresa },
+                  { label: "CIF", value: datosContacto.cif },
+                  { label: "Email", value: datosContacto.email, href: `mailto:${datosContacto.email}` },
+                  { label: "Teléfono", value: datosContacto.telefono, href: `tel:${datosContacto.telefono}` },
+                  { label: "Dirección", value: datosContacto.direccion },
+                  { label: "Ciudad", value: datosContacto.ciudad },
+                  { label: "CP", value: datosContacto.codigo_postal },
+                ].filter(f => f.value).map(({ label, value, href }: any) => (
+                  <div key={label} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                    <span style={{ color: "#94a3b8", fontSize: 13, width: 80, flexShrink: 0 }}>{label}</span>
+                    {href ? <a href={href} style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>{value}</a> : <span style={{ fontWeight: 700, fontSize: 14 }}>{value}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setModalContacto(null)} style={{ width: "100%", marginTop: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cerrar</button>
           </div>
         </div>
       )}
