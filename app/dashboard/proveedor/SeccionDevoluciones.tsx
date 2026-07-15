@@ -1,8 +1,5 @@
 "use client";
 
-// SeccionDevoluciones.tsx — Panel del proveedor
-// ⚠️ Ajusta la ruta del import de supabase para que coincida con la que usa
-// el fichero del panel donde lo montes (p.ej. SeccionPedidos.tsx).
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
@@ -35,15 +32,7 @@ const MOTIVOS_RECHAZO = [
 ];
 
 async function notificarDevolucion(evento: string, devolucion: any) {
-  try {
-    await fetch("/api/send-devolucion", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ evento, devolucion }),
-    });
-  } catch (e) {
-    console.error("Error enviando notificación de devolución:", e);
-  }
+  try { await fetch("/api/send-devolucion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ evento, devolucion }) }); } catch (e) { console.error("Error notificación devolución:", e); }
 }
 
 export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: boolean }) {
@@ -54,12 +43,12 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
   const [procesando, setProcesando] = useState<number | null>(null);
   const [modalRechazo, setModalRechazo] = useState<any | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
+  const [modalContacto, setModalContacto] = useState<any | null>(null);
+  const [datosContacto, setDatosContacto] = useState<any | null>(null);
 
   useEffect(() => {
     cargarDevoluciones();
-    const channel = supabase.channel("devoluciones-proveedor-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "devoluciones" }, () => cargarDevoluciones())
-      .subscribe();
+    const channel = supabase.channel("devoluciones-proveedor-realtime").on("postgres_changes", { event: "*", schema: "public", table: "devoluciones" }, () => cargarDevoluciones()).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -70,57 +59,48 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
     setDevoluciones(data || []);
   }
 
-  function fmt(n: any) {
-    return Number(Number(n).toFixed(2)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  function fmt(n: any) { return Number(Number(n).toFixed(2)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   async function actualizarDevolucion(dev: any, cambios: Record<string, any>, evento: string) {
     setProcesando(dev.id);
     const { error } = await supabase.from("devoluciones").update({ ...cambios, updated_at: new Date().toISOString() }).eq("id", dev.id);
-    if (error) {
-      alert("Error al actualizar la devolución: " + error.message);
-      setProcesando(null);
-      return;
-    }
+    if (error) { alert("Error: " + error.message); setProcesando(null); return; }
     await notificarDevolucion(evento, { ...dev, ...cambios });
     setProcesando(null);
     cargarDevoluciones();
   }
 
-  async function aceptarDevolucion(dev: any) {
-    await actualizarDevolucion(dev, { estado: "envio_pendiente", fecha_aceptada: new Date().toISOString() }, "aceptada");
-  }
+  async function aceptarDevolucion(dev: any) { await actualizarDevolucion(dev, { estado: "envio_pendiente", fecha_aceptada: new Date().toISOString() }, "aceptada"); }
+  async function confirmarRechazo() { if (!modalRechazo || !motivoRechazo) return; const dev = modalRechazo; setModalRechazo(null); await actualizarDevolucion(dev, { estado: "rechazada", motivo_rechazo: motivoRechazo, fecha_rechazada: new Date().toISOString() }, "rechazada"); setMotivoRechazo(""); }
+  async function marcarGestionExterna(dev: any) { if (!confirm("¿Marcar como gestión externa?")) return; await actualizarDevolucion(dev, { estado: "gestion_externa" }, "gestion_externa"); }
+  async function marcarRecibida(dev: any) { await actualizarDevolucion(dev, { estado: "recibida", fecha_recibida: new Date().toISOString() }, "recibida"); }
+  async function finalizarDevolucion(dev: any) { if (!confirm(`¿Finalizar la devolución ${dev.codigo}?`)) return; await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString() }, "finalizada"); }
 
-  async function confirmarRechazo() {
-    if (!modalRechazo || !motivoRechazo) return;
-    const dev = modalRechazo;
-    setModalRechazo(null);
-    await actualizarDevolucion(dev, { estado: "rechazada", motivo_rechazo: motivoRechazo, fecha_rechazada: new Date().toISOString() }, "rechazada");
-    setMotivoRechazo("");
-  }
-
-  async function marcarGestionExterna(dev: any) {
-    if (!confirm("¿Marcar como gestión externa? La devolución se gestionará fuera de la plataforma y quedará solo como registro.")) return;
-    await actualizarDevolucion(dev, { estado: "gestion_externa" }, "gestion_externa");
-  }
-
-  async function marcarRecibida(dev: any) {
-    await actualizarDevolucion(dev, { estado: "recibida", fecha_recibida: new Date().toISOString() }, "recibida");
-  }
-
-  async function finalizarDevolucion(dev: any) {
-    if (!confirm(`¿Finalizar la devolución ${dev.codigo}? Confirma que el abono al taller queda gestionado.`)) return;
-    await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString() }, "finalizada");
+  async function cerrarMutuoAcuerdo(dev: any) {
+    if (!confirm(`¿Cerrar la devolución ${dev.codigo} de mutuo acuerdo?\n\nSe marcará como finalizada.`)) return;
+    await actualizarDevolucion(dev, { estado: "finalizada", fecha_finalizada: new Date().toISOString(), motivo_texto: (dev.motivo_texto || "") + "\n[Cerrada de mutuo acuerdo entre las partes]" }, "finalizada");
   }
 
   async function abrirChat(dev: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: convExistente } = await supabase.from("conversaciones").select("id").eq("pedido_id", dev.pedido_id).maybeSingle();
-    if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
-    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: dev.solicitante_id, pedido_id: dev.pedido_id, referencia: `Devolución ${dev.codigo} — Pedido ${dev.pedido_codigo || "#" + dev.pedido_id}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
+    const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", dev.pedido_id).maybeSingle();
+    if (conv) { router.push(`/chat?conv=${conv.id}`); return; }
+    const { data: nuevaConv, error } = await supabase.from("conversaciones").insert({ user1_id: user.id, user2_id: dev.solicitante_id, pedido_id: dev.pedido_id, referencia: `Devolución ${dev.codigo}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
     if (!error && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
-    else alert("Error al abrir el chat");
+  }
+
+  async function abrirContacto(dev: any) {
+    setModalContacto(dev);
+    setDatosContacto(null);
+    if (dev.solicitante_id) {
+      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", dev.solicitante_id).single();
+      setDatosContacto(data || null);
+    }
+  }
+
+  function puedeCerrarMutuo(dev: any): boolean {
+    return ["iniciada", "envio_pendiente"].includes(dev.estado) && !dev.agencia_devolucion;
   }
 
   const pendientes = devoluciones.filter(d => ["iniciada", "en_transito", "recibida"].includes(d.estado));
@@ -144,26 +124,17 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, margin: 0 }}>
           🔄 DEVOLUCIONES
-          {pendientes.length > 0 && (
-            <span style={{ marginLeft: 10, background: "linear-gradient(135deg,#dc2626,#991b1b)", color: "white", fontSize: 12, fontWeight: 900, padding: "3px 10px", borderRadius: 999, verticalAlign: "middle" }}>{pendientes.length}</span>
-          )}
+          {pendientes.length > 0 && <span style={{ marginLeft: 10, background: "linear-gradient(135deg,#dc2626,#991b1b)", color: "white", fontSize: 12, fontWeight: 900, padding: "3px 10px", borderRadius: 999, verticalAlign: "middle" }}>{pendientes.length}</span>}
         </h2>
         <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
-          {[
-            { key: "pendientes", label: `⚡ Pendientes (${contadores.pendientes})` },
-            { key: "todas", label: `Todas (${contadores.todas})` },
-            { key: "finalizada", label: `🏁 (${contadores.finalizada})` },
-            { key: "rechazada", label: `🚫 (${contadores.rechazada})` },
-          ].map(({ key, label }) => (
+          {[{ key: "pendientes", label: `⚡ Pendientes (${contadores.pendientes})` }, { key: "todas", label: `Todas (${contadores.todas})` }, { key: "finalizada", label: `🏁 (${contadores.finalizada || 0})` }, { key: "rechazada", label: `🚫 (${contadores.rechazada || 0})` }].map(({ key, label }) => (
             <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0, background: filtroEstado === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{label}</button>
           ))}
         </div>
       </div>
 
       {devolucionesFiltradas.length === 0 && (
-        <div style={{ padding: "30px 20px", textAlign: "center", color: "#94a3b8" }}>
-          {filtroEstado === "pendientes" ? "✅ No tienes devoluciones pendientes de gestionar" : "Sin devoluciones en este filtro"}
-        </div>
+        <div style={{ padding: "30px 20px", textAlign: "center", color: "#94a3b8" }}>{filtroEstado === "pendientes" ? "✅ No tienes devoluciones pendientes de gestionar" : "Sin devoluciones en este filtro"}</div>
       )}
 
       <div style={{ display: "grid", gap: 10 }}>
@@ -177,10 +148,7 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                   <div>
                     <p style={{ color: "#60a5fa", fontWeight: 800, fontSize: 14, margin: 0 }}>{dev.codigo} <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 12 }}>· Pedido {dev.pedido_codigo || `#${dev.pedido_id}`}</span></p>
-                    <p style={{ fontSize: 13, margin: 0, marginTop: 4 }}>
-                      <strong style={{ color: "#60a5fa" }}>{dev.referencia}</strong>
-                      <span style={{ color: "#94a3b8", marginLeft: 8 }}>{(dev.descripcion || "").substring(0, 32)}{dev.cantidad > 1 ? ` ×${dev.cantidad}` : ""}</span>
-                    </p>
+                    <p style={{ fontSize: 13, margin: 0, marginTop: 4 }}><strong style={{ color: "#60a5fa" }}>{dev.referencia}</strong><span style={{ color: "#94a3b8", marginLeft: 8 }}>{(dev.descripcion || "").substring(0, 32)}{dev.cantidad > 1 ? ` ×${dev.cantidad}` : ""}</span></p>
                     <p style={{ color: "#94a3b8", fontSize: 12, margin: 0, marginTop: 4 }}>🔧 {dev.solicitante_nombre || "-"} · {tipo.emoji} {tipo.label} · {new Date(dev.created_at).toLocaleDateString("es-ES")}</p>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -204,6 +172,9 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
                       <span style={{ color: "#94a3b8", fontWeight: 700, fontSize: 11 }}>🚚 ENVÍO DE VUELTA: </span>
                       <strong style={{ color: "#60a5fa" }}>{dev.agencia_devolucion}</strong>
                       {dev.codigo_transporte && <span style={{ marginLeft: 8, fontFamily: "monospace", color: "white", fontWeight: 700 }}>{dev.codigo_transporte}</span>}
+                      {dev.etiqueta_devolucion_url && (
+                        <a href={dev.etiqueta_devolucion_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "6px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Ver etiqueta</a>
+                      )}
                     </div>
                   )}
                   {dev.estado === "rechazada" && dev.motivo_rechazo && (
@@ -212,6 +183,12 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button onClick={() => abrirChat(dev)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
+                    <button onClick={() => abrirContacto(dev)} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#60a5fa", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>👁 Ver contacto taller</button>
+
+                    {puedeCerrarMutuo(dev) && (
+                      <button onClick={() => cerrarMutuoAcuerdo(dev)} disabled={cargando} style={{ background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.25)", color: "#4ade80", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>🤝 Cerrar de mutuo acuerdo</button>
+                    )}
+
                     {dev.estado === "iniciada" && (
                       <>
                         <button onClick={() => aceptarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "✅ Aceptar"}</button>
@@ -226,9 +203,7 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
                       <button onClick={() => finalizarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "🏁 Finalizar"}</button>
                     )}
                   </div>
-                  {dev.estado === "recibida" && (
-                    <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>💡 Al finalizar confirmas que el abono al taller queda gestionado entre las partes.</p>
-                  )}
+                  {dev.estado === "recibida" && <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>💡 Al finalizar confirmas que el abono al taller queda gestionado entre las partes.</p>}
                 </div>
               )}
             </div>
@@ -241,7 +216,7 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#0f172a", borderRadius: 20, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }}>
             <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 8 }}>🚫 Rechazar devolución</h2>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Devolución <strong style={{ color: "white" }}>{modalRechazo.codigo}</strong> — {modalRechazo.referencia}</p>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20 }}>Devolución <strong style={{ color: "white" }}>{modalRechazo.codigo}</strong></p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {MOTIVOS_RECHAZO.map(motivo => (
                 <button key={motivo} onClick={() => setMotivoRechazo(motivo)} style={{ padding: "12px 16px", borderRadius: 10, textAlign: "left", fontWeight: 700, fontSize: isMobile ? 13 : 14, cursor: "pointer", background: motivoRechazo === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoRechazo === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoRechazo === motivo ? "#f87171" : "white" }}>{motivo}</button>
@@ -251,6 +226,42 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
               <button onClick={() => setModalRechazo(null)} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
               <button onClick={confirmarRechazo} disabled={!motivoRechazo} style={{ flex: 1, background: motivoRechazo ? "linear-gradient(135deg,#dc2626,#991b1b)" : "rgba(255,255,255,0.05)", border: "none", color: motivoRechazo ? "white" : "#94a3b8", padding: "12px", borderRadius: 12, cursor: motivoRechazo ? "pointer" : "not-allowed", fontWeight: 900 }}>Confirmar rechazo</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONTACTO */}
+      {modalContacto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setModalContacto(null)}>
+          <div style={{ background: "#0f172a", borderRadius: 24, padding: "clamp(20px,4vw,36px)", width: "min(480px,92vw)", border: "1px solid rgba(255,255,255,0.1)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>🔧 Datos del taller</h2>
+              <button onClick={() => setModalContacto(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "6px 14px", marginBottom: 20, display: "inline-block" }}>
+              <span style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Devolución {modalContacto.codigo}</span>
+            </div>
+            {!datosContacto ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>Cargando datos...</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "Empresa", value: datosContacto.nombre_empresa },
+                  { label: "CIF", value: datosContacto.cif },
+                  { label: "Email", value: datosContacto.email, href: `mailto:${datosContacto.email}` },
+                  { label: "Teléfono", value: datosContacto.telefono, href: `tel:${datosContacto.telefono}` },
+                  { label: "Dirección", value: datosContacto.direccion },
+                  { label: "Ciudad", value: datosContacto.ciudad },
+                  { label: "CP", value: datosContacto.codigo_postal },
+                ].filter(f => f.value).map(({ label, value, href }: any) => (
+                  <div key={label} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                    <span style={{ color: "#94a3b8", fontSize: 13, width: 80, flexShrink: 0 }}>{label}</span>
+                    {href ? <a href={href} style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>{value}</a> : <span style={{ fontWeight: 700, fontSize: 14 }}>{value}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setModalContacto(null)} style={{ width: "100%", marginTop: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cerrar</button>
           </div>
         </div>
       )}
