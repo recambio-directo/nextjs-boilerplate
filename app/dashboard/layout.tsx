@@ -219,6 +219,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/buscar",  icon: "🔍", label: "Buscar" },
     { href: "/checkout",          icon: "🛒", label: "Cesta", badge: totalCesta },
     { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
+    { href: "/dashboard/devoluciones", icon: "🔄", label: "Devoluciones" },
     { href: "/perfil",            icon: "👤", label: "Cuenta" },
   ];
 
