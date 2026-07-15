@@ -4,6 +4,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import ModalSolicitarDevolucion from "./ModalSolicitarDevolucion";
 
 function getTrackingUrl(agencia: string, tracking: string): string {
   const ag = (agencia || "").toLowerCase();
@@ -70,6 +71,7 @@ export default function Pedidos() {
   const [isMobile, setIsMobile] = useState(false);
   const [modalContacto, setModalContacto] = useState<any | null>(null);
   const [datosContacto, setDatosContacto] = useState<any | null>(null);
+  const [modalDevolucion, setModalDevolucion] = useState<any | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -304,6 +306,10 @@ export default function Pedidos() {
         {!anulado && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
             <button onClick={() => abrirChat(pedido)} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>💬 Abrir chat</button>
+            {/* ── CAMBIO 3: Botón de devolución en pedidos entregados ── */}
+            {!esVendedor && pedido.estado_envio === "entregado" && (
+              <button onClick={() => setModalDevolucion(pedido)} style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>🔄 Solicitar devolución</button>
+            )}
             {puedeAnular && (
               <button onClick={() => abrirModalAnular(pedido)} disabled={anulando === pedido.id} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: anulando === pedido.id ? 0.7 : 1 }}>
                 {anulando === pedido.id ? "Anulando..." : "❌ Anular"}
@@ -564,6 +570,15 @@ export default function Pedidos() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── CAMBIO 4: Modal de solicitud de devolución ── */}
+      {modalDevolucion && (
+        <ModalSolicitarDevolucion
+          pedido={modalDevolucion}
+          onClose={() => setModalDevolucion(null)}
+          onCreated={() => router.push("/dashboard/devoluciones")}
+        />
       )}
     </main>
   );

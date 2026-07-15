@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import ImportarStock from "./ImportarStock";
+import SeccionDevoluciones from "./SeccionDevoluciones";
 
 type Pieza = {
   id: number;
@@ -116,7 +117,7 @@ export default function ProveedorPage() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [totalCesta, setTotalCesta] = useState(0);
-  const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "importar" | "horarios" | "exclusiones" | "cuenta">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "devoluciones" | "importar" | "horarios" | "exclusiones" | "cuenta">("dashboard");
   const [pestañaPedidos, setPestañaPedidos] = useState<"recibidos" | "realizados">("recibidos");
   const [pestañaAlmacen, setPestañaAlmacen] = useState<"todos" | "oem" | "iam">("todos");
   const [pedidosRecibidos, setPedidosRecibidos] = useState<Pedido[]>([]);
@@ -643,6 +644,7 @@ export default function ProveedorPage() {
               { key: "publicar",    label: "➕ Publicar Pieza" },
               { key: "importar",    label: "📥 Importar Excel" },
               { key: "pedidos",     label: "🛒 Pedidos" },
+              { key: "devoluciones", label: "🔄 Devoluciones" },
               { key: "horarios",    label: "🕐 Horarios" },
               { key: "exclusiones", label: "🚫 Exclusiones" },
               { key: "cuenta",      label: "👤 Mi Cuenta" },
@@ -956,6 +958,14 @@ export default function ProveedorPage() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+{seccion === "devoluciones" && (
+            <div>
+              <div style={badgeStyle}>GESTIÓN</div>
+              <h1 style={titleStyle}>DEVOLUCIONES</h1>
+              <p style={descStyle}>Gestiona las solicitudes de devolución de los talleres.</p>
+              <SeccionDevoluciones isMobile={false} />
             </div>
           )}
 
