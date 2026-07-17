@@ -1,12 +1,15 @@
 // app/api/devolucion/crear-envio/route.ts
 // Crea envío de devolución — INVERTIDO: remitente=taller, destinatario=proveedor
+// v2: envía etiqueta PDF adjunta al email del taller
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function getDatosUsuario(userId: string) {
   const { data } = await supabase
@@ -17,8 +20,28 @@ async function getDatosUsuario(userId: string) {
   return data;
 }
 
+// Tipo de resultado que incluye el buffer de la etiqueta para adjuntar al email
+type ResultadoEnvio = {
+  ok: boolean;
+  tracking?: string;
+  etiquetaUrl?: string | null;
+  etiquetaBuffer?: Buffer | null;
+  error?: string;
+  raw?: any;
+};
+
+// ── Subir etiqueta a Storage y devolver URL + buffer ─────────────────────────
+async function subirEtiqueta(base64: string, prefix: string, devId: number): Promise<{ url: string | null; buffer: Buffer }> {
+  const buf = Buffer.from(base64, "base64");
+  const path = `etiquetas-dev/${prefix}-${devId}-${Date.now()}.pdf`;
+  const { error } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
+  if (error) return { url: null, buffer: buf };
+  const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path);
+  return { url: u.publicUrl, buffer: buf };
+}
+
 // ── MRW ──────────────────────────────────────────────────────────────────────
-async function crearEnvioMRW(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioMRW(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const entorno = process.env.MRW_ENTORNO === "test"
     ? "https://sagec-test.mrw.es/MRWEnvio.asmx"
     : "https://sagec.mrw.es/MRWEnvio.asmx";
@@ -73,8 +96,8 @@ async function crearEnvioMRW(dev: any, remitente: any, destinatario: any) {
   const numeroEnvio = xmlText.match(/<NumeroEnvio>(.*?)<\/NumeroEnvio>/)?.[1]?.trim() || null;
   if (!numeroEnvio) return { ok: false, error: "MRW no devolvió número de envío", raw: xmlText.substring(0, 400) };
 
-  // Obtener etiqueta
   let etiquetaUrl: string | null = null;
+  let etiquetaBuffer: Buffer | null = null;
   try {
     const etiquetaXml = `<?xml version="1.0" encoding="utf-8"?>
 <Envelope xmlns="http://www.w3.org/2003/05/soap-envelope">
@@ -85,18 +108,17 @@ async function crearEnvioMRW(dev: any, remitente: any, destinatario: any) {
     const etText = await etRes.text();
     const base64 = etText.match(/<EtiquetaFile>([\s\S]*?)<\/EtiquetaFile>/)?.[1]?.trim();
     if (base64) {
-      const buf = Buffer.from(base64, "base64");
-      const path = `etiquetas-dev/mrw-${dev.id}-${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
-      if (!upErr) { const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path); etiquetaUrl = u.publicUrl; }
+      const result = await subirEtiqueta(base64, "mrw", dev.id);
+      etiquetaUrl = result.url;
+      etiquetaBuffer = result.buffer;
     }
   } catch (e) { console.error("Error etiqueta MRW dev:", e); }
 
-  return { ok: true, tracking: numeroEnvio, etiquetaUrl };
+  return { ok: true, tracking: numeroEnvio, etiquetaUrl, etiquetaBuffer };
 }
 
 // ── NACEX ─────────────────────────────────────────────────────────────────────
-async function crearEnvioNACEX(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioNACEX(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const baseUrl = "https://pda.nacex.com/nacex_ws/ws";
   const user = process.env.NACEX_USER || "";
   const pass = process.env.NACEX_PASS || "";
@@ -133,20 +155,20 @@ async function crearEnvioNACEX(dev: any, remitente: any, destinatario: any) {
     return { ok: false, error: "NACEX no devolvió localizador", raw: rawText.substring(0, 300) };
 
   let etiquetaUrl: string | null = null;
+  let etiquetaBuffer: Buffer | null = null;
   if (etiquetaB64) {
     try {
-      const buf = Buffer.from(etiquetaB64, "base64");
-      const path = `etiquetas-dev/nacex-${dev.id}-${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
-      if (!upErr) { const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path); etiquetaUrl = u.publicUrl; }
+      const result = await subirEtiqueta(etiquetaB64, "nacex", dev.id);
+      etiquetaUrl = result.url;
+      etiquetaBuffer = result.buffer;
     } catch (e) { console.error("Error etiqueta NACEX dev:", e); }
   }
 
-  return { ok: true, tracking: localizador, etiquetaUrl };
+  return { ok: true, tracking: localizador, etiquetaUrl, etiquetaBuffer };
 }
 
 // ── GLS ───────────────────────────────────────────────────────────────────────
-async function crearEnvioGLS(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioGLS(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const GLS_URL = "https://ws-customer.gls-spain.es/b2b.asmx";
   const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
 
@@ -181,6 +203,7 @@ async function crearEnvioGLS(dev: any, remitente: any, destinatario: any) {
   if (!codbarras) return { ok: false, error: "GLS no devolvió código", raw: rawText.substring(0, 400) };
 
   let etiquetaUrl: string | null = null;
+  let etiquetaBuffer: Buffer | null = null;
   const tagOpen = '<Etiqueta bulto="1">';
   const tagClose = "</Etiqueta>";
   const i1 = rawText.indexOf(tagOpen);
@@ -189,19 +212,18 @@ async function crearEnvioGLS(dev: any, remitente: any, destinatario: any) {
     const b64 = rawText.substring(i1 + tagOpen.length, i2).replace(/[\r\n\s]/g, "");
     if (b64) {
       try {
-        const buf = Buffer.from(b64, "base64");
-        const path = `etiquetas-dev/gls-${dev.id}-${Date.now()}.pdf`;
-        const { error: upErr } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
-        if (!upErr) { const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path); etiquetaUrl = u.publicUrl; }
+        const result = await subirEtiqueta(b64, "gls", dev.id);
+        etiquetaUrl = result.url;
+        etiquetaBuffer = result.buffer;
       } catch (e) { console.error("Error etiqueta GLS dev:", e); }
     }
   }
 
-  return { ok: true, tracking: codbarras, etiquetaUrl };
+  return { ok: true, tracking: codbarras, etiquetaUrl, etiquetaBuffer };
 }
 
 // ── CORREOS EXPRESS ───────────────────────────────────────────────────────────
-async function crearEnvioCEX(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioCEX(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const CEX_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionEnviok8s/json/grabacionEnvio";
   const CEX_USER = process.env.CEX_USUARIO!;
   const CEX_PASS = process.env.CEX_PASSWORD!;
@@ -250,21 +272,21 @@ async function crearEnvioCEX(dev: any, remitente: any, destinatario: any) {
 
   const numEnvio = data.datosResultado;
   let etiquetaUrl: string | null = null;
+  let etiquetaBuffer: Buffer | null = null;
   const etRaw = data.etiqueta?.[0]?.etiqueta1 || data.etiqueta?.[0]?.etiqueta2 || null;
   if (etRaw && !etRaw.includes("no se ha generado")) {
     try {
-      const buf = Buffer.from(etRaw, "base64");
-      const path = `etiquetas-dev/cex-${dev.id}-${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
-      if (!upErr) { const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path); etiquetaUrl = u.publicUrl; }
+      const result = await subirEtiqueta(etRaw, "cex", dev.id);
+      etiquetaUrl = result.url;
+      etiquetaBuffer = result.buffer;
     } catch (e) { console.error("Error etiqueta CEX dev:", e); }
   }
 
-  return { ok: true, tracking: numEnvio, etiquetaUrl };
+  return { ok: true, tracking: numEnvio, etiquetaUrl, etiquetaBuffer };
 }
 
 // ── CTT EXPRESS ───────────────────────────────────────────────────────────────
-async function crearEnvioCTT(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioCTT(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const CTT_CLIENT_ID = process.env.CTT_CLIENT_ID!;
   const CTT_CLIENT_SECRET = process.env.CTT_CLIENT_SECRET!;
   const CTT_USER = process.env.CTT_USER!;
@@ -272,7 +294,6 @@ async function crearEnvioCTT(dev: any, remitente: any, destinatario: any) {
   const CTT_CLIENT_CENTER = process.env.CTT_CLIENT_CENTER || "8032500001";
   const CTT_BASE_URL = "https://api.cttexpress.com";
 
-  // Token
   const tokenParams = new URLSearchParams({ client_id: CTT_CLIENT_ID, client_secret: CTT_CLIENT_SECRET, scope: "urn:com:ctt-express:integration-clients:scopes:common/ALL", grant_type: "client_credentials" });
   const tokenRes = await fetch(`${CTT_BASE_URL}/integrations/oauth2/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: tokenParams.toString() });
   if (!tokenRes.ok) return { ok: false, error: "CTT token error" };
@@ -311,25 +332,25 @@ async function crearEnvioCTT(dev: any, remitente: any, destinatario: any) {
   if (!shippingCode) return { ok: false, error: "CTT no devolvió código", raw: data };
 
   let etiquetaUrl: string | null = null;
+  let etiquetaBuffer: Buffer | null = null;
   try {
     const labelRes = await fetch(`${CTT_BASE_URL}/integrations/trf/labelling/v1.0/shippings/${shippingCode}/shipping-labels?label_type_code=PDF&model_type_code=SINGLE&label_offset=1`, { headers: { Authorization: `Bearer ${token}`, user_name: CTT_USER, password: CTT_PASSWORD } });
     if (labelRes.ok) {
       const labelData = JSON.parse(await labelRes.text());
       const b64 = labelData.data?.[0]?.label || labelData.labels?.[0]?.label_data || null;
       if (b64) {
-        const buf = Buffer.from(b64, "base64");
-        const path = `etiquetas-dev/ctt-${dev.id}-${Date.now()}.pdf`;
-        const { error: upErr } = await supabase.storage.from("FACTURAS").upload(path, buf, { contentType: "application/pdf" });
-        if (!upErr) { const { data: u } = supabase.storage.from("FACTURAS").getPublicUrl(path); etiquetaUrl = u.publicUrl; }
+        const result = await subirEtiqueta(b64, "ctt", dev.id);
+        etiquetaUrl = result.url;
+        etiquetaBuffer = result.buffer;
       }
     }
   } catch (e) { console.error("Error etiqueta CTT dev:", e); }
 
-  return { ok: true, tracking: shippingCode, etiquetaUrl };
+  return { ok: true, tracking: shippingCode, etiquetaUrl, etiquetaBuffer };
 }
 
 // ── SEUR ──────────────────────────────────────────────────────────────────────
-async function crearEnvioSEUR(dev: any, remitente: any, destinatario: any) {
+async function crearEnvioSEUR(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "https://www.recambio-directo.com"}/api/seur/crear-envio`, {
       method: "POST",
@@ -356,8 +377,19 @@ async function crearEnvioSEUR(dev: any, remitente: any, destinatario: any) {
     const data = await res.json();
     if (!data.ok) return { ok: false, error: data.error || "Error SEUR" };
 
-    let etiquetaUrl = data.etiquetaUrl || null;
-    return { ok: true, tracking: data.tracking || data.collectionRef || "", etiquetaUrl };
+    // Para SEUR intentar descargar la etiqueta si hay URL
+    let etiquetaBuffer: Buffer | null = null;
+    if (data.etiquetaUrl) {
+      try {
+        const etRes = await fetch(data.etiquetaUrl);
+        if (etRes.ok) {
+          const arrBuf = await etRes.arrayBuffer();
+          etiquetaBuffer = Buffer.from(arrBuf);
+        }
+      } catch (e) { console.error("Error descargando etiqueta SEUR:", e); }
+    }
+
+    return { ok: true, tracking: data.tracking || data.collectionRef || "", etiquetaUrl: data.etiquetaUrl || null, etiquetaBuffer };
   } catch (e: any) {
     return { ok: false, error: e.message };
   }
@@ -382,7 +414,7 @@ export async function POST(req: NextRequest) {
     const destinatario = await getDatosUsuario(dev.proveedor_id);
     if (!destinatario) return NextResponse.json({ error: "No se encontró el proveedor" }, { status: 404 });
 
-    let resultado: { ok: boolean; tracking?: string; etiquetaUrl?: string | null; error?: string; raw?: any };
+    let resultado: ResultadoEnvio;
 
     const ag = agencia.toLowerCase();
     if (ag.includes("mrw"))           resultado = await crearEnvioMRW(dev, remitente, destinatario);
@@ -408,7 +440,62 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     }).eq("id", devolucionId);
 
-    // Notificar
+    // ── EMAIL CON ETIQUETA ADJUNTA AL TALLER ─────────────────────────────────
+    const solicitanteEmail = dev.solicitante_email || remitente.email || "";
+    if (solicitanteEmail) {
+      try {
+        const attachments: any[] = [];
+        if (resultado.etiquetaBuffer) {
+          attachments.push({
+            filename: `etiqueta-devolucion-${dev.codigo}.pdf`,
+            content: resultado.etiquetaBuffer,
+          });
+        }
+
+        await resend.emails.send({
+          from: "Recambio Directo <info@recambio-directo.com>",
+          to: [solicitanteEmail],
+          subject: `🚚 Etiqueta de envío lista — Devolución ${dev.codigo}`,
+          attachments,
+          html: `
+            <div style="font-family:Arial;padding:30px;background:#f3f4f6;">
+              <div style="background:white;padding:32px;border-radius:12px;max-width:600px;margin:auto;">
+                <h1 style="color:#2563eb;font-size:24px;">🚚 Tu etiqueta de envío está lista</h1>
+                <p style="color:#374151;font-size:15px;line-height:1.7;">
+                  El envío de devolución <strong>${dev.codigo}</strong> ha sido creado con <strong>${agencia}</strong>.
+                  ${resultado.etiquetaBuffer ? "Encontrarás la etiqueta adjunta a este email en PDF." : ""}
+                </p>
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:20px 0;">
+                  <p style="margin:0 0 8px;font-size:14px;"><strong>Devolución:</strong> ${dev.codigo}</p>
+                  <p style="margin:0 0 8px;font-size:14px;"><strong>Pedido original:</strong> ${dev.pedido_codigo || `#${dev.pedido_id}`}</p>
+                  <p style="margin:0 0 8px;font-size:14px;"><strong>Referencia:</strong> ${dev.referencia || "-"}</p>
+                  <p style="margin:0 0 8px;font-size:14px;"><strong>Agencia:</strong> ${agencia}</p>
+                  <p style="margin:0;font-size:14px;"><strong>Tracking:</strong> ${resultado.tracking || "Pendiente"}</p>
+                </div>
+                <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin-bottom:20px;">
+                  <p style="margin:0;color:#92400e;font-size:13px;">
+                    📦 <strong>Imprime la etiqueta y pégala en el paquete.</strong> La agencia pasará a recogerlo en tu dirección.
+                  </p>
+                </div>
+                ${resultado.etiquetaUrl ? `
+                <div style="text-align:center;margin:24px 0;">
+                  <a href="${resultado.etiquetaUrl}" target="_blank"
+                    style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;">
+                    📄 Descargar etiqueta →
+                  </a>
+                </div>` : ""}
+                <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
+                <p style="color:#9ca3af;font-size:12px;text-align:center;">Recambio Directo · Marketplace B2B · España</p>
+              </div>
+            </div>
+          `,
+        });
+      } catch (emailErr) {
+        console.error("Error enviando email con etiqueta:", emailErr);
+      }
+    }
+
+    // Notificación general (campanita + email al proveedor)
     try {
       await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "https://www.recambio-directo.com"}/api/send-devolucion`, {
         method: "POST",
