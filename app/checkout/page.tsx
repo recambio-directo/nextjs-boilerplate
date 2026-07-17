@@ -613,7 +613,7 @@ export default function CheckoutPage() {
         </button>
 
       </div>
-      {mostrarStripe && <StripeCheckout total={total} metadata={{ empresa, clienteEmail }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
+      {mostrarStripe && <StripeCheckout total={total} metadata={{ cliente_nombre: empresa, cliente_email: clienteEmail, pedido_codigo: "RD-" + Date.now().toString().slice(-7) }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
     </main>
   );
 
@@ -788,7 +788,7 @@ export default function CheckoutPage() {
         </div>
       </aside>
 
-      {mostrarStripe && <StripeCheckout total={total} metadata={{ empresa, clienteEmail }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
+      {mostrarStripe && <StripeCheckout total={total} metadata={{ cliente_nombre: empresa, cliente_email: clienteEmail, pedido_codigo: "RD-" + Date.now().toString().slice(-7) }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
     </main>
   );
 }
