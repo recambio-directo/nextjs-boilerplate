@@ -200,7 +200,7 @@ export default function SeccionDevoluciones({ isMobile = false }: { isMobile?: b
                       <button onClick={() => marcarRecibida(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "📥 Marcar como recibida"}</button>
                     )}
                     {dev.estado === "recibida" && (
-                      <button onClick={() => finalizarDevolucion(dev)} disabled={cargando} style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "8px 16px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, opacity: cargando ? 0.7 : 1 }}>{cargando ? "Guardando..." : "🏁 Finalizar"}</button>
+                      <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#fbbf24", fontWeight: 700 }}>⏳ Pieza recibida — Pendiente de que el taller confirme el abono</div>
                     )}
                   </div>
                   {dev.estado === "recibida" && <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>💡 Al finalizar confirmas que el abono al taller queda gestionado entre las partes.</p>}
