@@ -202,6 +202,13 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
                       <button onClick={() => renovarCreditoRD(u)} disabled={renovandoCredito === u.id || Number(u.credito_rd_maximo || 0) <= 0} style={{ background: Number(u.credito_rd_maximo || 0) > 0 ? "rgba(22,163,74,0.2)" : "rgba(255,255,255,0.05)", color: Number(u.credito_rd_maximo || 0) > 0 ? "#4ade80" : "#475569", border: "none", padding: "6px 12px", borderRadius: 8, cursor: Number(u.credito_rd_maximo || 0) > 0 ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
                         {renovandoCredito === u.id ? "..." : "🔄 Renovar"}
                       </button>
+                      <button onClick={async () => {
+                        const nuevoEstado = !u.rd_pago_activo;
+                        await supabase.from("usuarios").update({ rd_pago_activo: nuevoEstado }).eq("id", u.id);
+                        setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, rd_pago_activo: nuevoEstado } : x));
+                      }} style={{ background: u.rd_pago_activo ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.05)", color: u.rd_pago_activo ? "#60a5fa" : "#475569", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
+                        {u.rd_pago_activo ? "✅ RD ON" : "⭕ RD OFF"}
+                      </button>
                       <button onClick={() => marcarMoroso(u)} disabled={marcandoMoroso === u.id || u.suscripcion === "moroso"} style={{ background: u.suscripcion === "moroso" ? "rgba(255,255,255,0.05)" : "rgba(239,68,68,0.15)", color: u.suscripcion === "moroso" ? "#475569" : "#f87171", border: "none", padding: "6px 12px", borderRadius: 8, cursor: u.suscripcion === "moroso" ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
                         {marcandoMoroso === u.id ? "..." : u.suscripcion === "moroso" ? "✓ Moroso" : "🚫 Moroso"}
                       </button>
