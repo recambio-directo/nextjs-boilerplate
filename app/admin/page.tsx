@@ -171,7 +171,7 @@ export default function AdminPage() {
 
       <section style={contentStyle}>
         {seccion === "dashboard"   && <SeccionDashboard usuarios={usuarios} pedidos={pedidos} setSeccion={setSeccion} />}
-        {seccion === "usuarios"    && <SeccionUsuarios usuarios={usuarios} setSeccion={setSeccion} setFtpProveedorId={setFtpProveedorId} toggleActivo={toggleActivo} cambiarSuscripcion={cambiarSuscripcion} eliminarUsuario={eliminarUsuario} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} />}
+        {seccion === "usuarios"    && <SeccionUsuarios usuarios={usuarios} setSeccion={setSeccion} setFtpProveedorId={setFtpProveedorId} toggleActivo={toggleActivo} cambiarSuscripcion={cambiarSuscripcion} eliminarUsuario={eliminarUsuario} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} setUsuarios={setUsuarios} />}
         {seccion === "cobros"      && <SeccionCobros usuarios={usuarios} pedidos={pedidos} cambiarSuscripcion={cambiarSuscripcion} />}
         {seccion === "facturacion" && <SeccionFacturacion usuarios={usuarios} pedidos={pedidos} />}
         {seccion === "financiero"  && <SeccionFinanciero usuarios={usuarios} pagosProveedores={pagosProveedores} cambiarSuscripcion={cambiarSuscripcion} setUsuarios={setUsuarios} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} marcarPagado={marcarPagado} generarRemesaPagos={generarRemesaPagos} pedidos={pedidos} />}

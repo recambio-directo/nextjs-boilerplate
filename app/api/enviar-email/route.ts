@@ -306,6 +306,26 @@ export async function POST(request: Request) {
       console.error("Error restando stock:", stockErr);
     }
 
+    // ── MAIL 4: ADMIN — Notificación nuevo pedido ────────────────────────────
+    try {
+      await fetch("https://www.recambio-directo.com/api/send-nuevo-pedido-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pedidoCodigo: codigo,
+          pedidoId,
+          pedidoTotal: total,
+          pedidoFecha: fecha,
+          clienteNombre: cliente,
+          clienteEmail,
+          proveedorNombre,
+          productos,
+          agencia,
+          formaPago,
+        }),
+      });
+    } catch (e) { console.error("Error notif admin:", e); }
+
     return Response.json({
       ok: true,
       mails: {

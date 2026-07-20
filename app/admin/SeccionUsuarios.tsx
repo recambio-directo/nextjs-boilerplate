@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { supabase } from "../lib/supabase";
 import { Usuario, SUSCRIPCION_LABELS, tipoBadge, subBadge, selectSub, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnAccion, btnFiltro, searchInput, filtrosBox } from "./types";
 
 type Props = {
@@ -9,12 +11,22 @@ type Props = {
   eliminarUsuario: (id: string) => void;
   setUsuarioEditando: (u: Usuario) => void;
   setNotasTemp: (n: string) => void;
+  setUsuarios: (fn: (prev: Usuario[]) => Usuario[]) => void;
 };
 
-export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorId, toggleActivo, cambiarSuscripcion, eliminarUsuario, setUsuarioEditando, setNotasTemp }: Props) {
-  const [busqueda, setBusqueda] = require("react").useState("");
-  const [filtroTipo, setFiltroTipo] = require("react").useState("todos");
-  const [filtroSub, setFiltroSub] = require("react").useState("todos");
+export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorId, toggleActivo, cambiarSuscripcion, eliminarUsuario, setUsuarioEditando, setNotasTemp, setUsuarios }: Props) {
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroSub, setFiltroSub] = useState("todos");
+  const [cambiandoTipo, setCambiandoTipo] = useState<string | null>(null);
+
+  async function cambiarTipo(id: string, nuevoTipo: string) {
+    if (!confirm(`¿Cambiar este usuario a ${nuevoTipo}? Esto afectará a su acceso en la plataforma.`)) return;
+    setCambiandoTipo(id);
+    await supabase.from("usuarios").update({ tipo: nuevoTipo }).eq("id", id);
+    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, tipo: nuevoTipo } : u));
+    setCambiandoTipo(null);
+  }
 
   const usuariosFiltrados = usuarios.filter(u => {
     if (filtroTipo !== "todos" && u.tipo !== filtroTipo) return false;
@@ -54,7 +66,20 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
                 </td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.cif || "-"}</td>
-                <td style={tdStyle}><span style={tipoBadge(u.tipo)}>{u.tipo}</span></td>
+                <td style={tdStyle}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={tipoBadge(u.tipo)}>{u.tipo}</span>
+                    <select
+                      value={u.tipo}
+                      disabled={cambiandoTipo === u.id}
+                      onChange={e => cambiarTipo(u.id, e.target.value)}
+                      style={{ background: "#020617", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 6px", fontSize: 11, cursor: "pointer", outline: "none" }}
+                    >
+                      <option value="taller">taller</option>
+                      <option value="proveedor">proveedor</option>
+                    </select>
+                  </div>
+                </td>
                 <td style={tdStyle}>
                   <select value={u.suscripcion} onChange={e => cambiarSuscripcion(u.id, e.target.value)} style={selectSub(u.suscripcion)}>
                     {Object.entries(SUSCRIPCION_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
