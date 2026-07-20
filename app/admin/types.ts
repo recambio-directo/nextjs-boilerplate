@@ -17,6 +17,7 @@ export type Usuario = {
   credito_rd?: number;
   credito_rd_maximo?: number;
   iban?: string;
+  ultimo_acceso?: string;
 };
 
 export type Pedido = {
