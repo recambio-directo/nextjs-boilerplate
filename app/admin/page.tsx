@@ -77,6 +77,11 @@ export default function AdminPage() {
   async function eliminarUsuario(id: string) {
     if (!confirm("¿Eliminar este usuario? Esta acción no se puede deshacer.")) return;
     await supabase.from("usuarios").delete().eq("id", id);
+    await fetch("/api/admin/eliminar-usuario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: id }),
+    });
     setUsuarios(prev => prev.filter(u => u.id !== id));
   }
 
