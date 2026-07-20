@@ -50,16 +50,31 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
       </div>
       <div style={tableContainer}>
         <table style={tableStyle}>
-          <thead><tr>{["CÓDIGO","CLIENTE","TOTAL","PAGO","AGENCIA","ESTADO","FECHA","ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr>{["CÓDIGO","COMPRADOR","VENDEDOR","TOTAL","PAGO","AGENCIA","ESTADO","FECHA","ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {pedidosPagina.length === 0 ? (
-              <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
+              <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
             ) : pedidosPagina.map(p => (
               <tr key={p.id} style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
-                <td style={tdStyle}><span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>{p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}</td>
-                <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.cliente_nombre||"-"}</div><div style={{ color: "#94a3b8", fontSize: 12 }}>{p.cliente_email}</div></td>
+                <td style={tdStyle}>
+                  <span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>
+                  {p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ fontWeight: 600 }}>{p.cliente_nombre||"-"}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 12 }}>{p.cliente_email}</div>
+                  {(p as any).cliente_telefono && <div style={{ color: "#60a5fa", fontSize: 12 }}>📞 {(p as any).cliente_telefono}</div>}
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ fontWeight: 600 }}>{(p.productos||[])[0]?.proveedor_nombre||"-"}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 11 }}>{(p.productos||[])[0]?.proveedor_id ? "ID: " + (p.productos||[])[0]?.proveedor_id.substring(0,8)+"..." : "-"}</div>
+                </td>
                 <td style={{ ...tdStyle, color: "#22c55e", fontWeight: 700 }}>{Number(p.total||0).toFixed(2)}€</td>
-                <td style={tdStyle}><span style={{ background: p.forma_pago==="rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago==="rd_pago" ? "#60a5fa" : "#a78bfa", padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{p.forma_pago==="rd_pago" ? "RD Pago" : "Tarjeta"}</span></td>
+                <td style={tdStyle}>
+                  <span style={{ background: p.forma_pago==="rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago==="rd_pago" ? "#60a5fa" : "#a78bfa", padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                    {p.forma_pago==="rd_pago" ? "RD Pago" : "Tarjeta"}
+                  </span>
+                </td>
                 <td style={tdStyle}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</span>
@@ -84,9 +99,18 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
                     </div>
                   </div>
                 </td>
-                <td style={tdStyle}><span style={{ color: p.estado_envio==="entregado" ? "#4ade80" : p.estado_envio==="enviado" ? "#a78bfa" : p.estado_envio==="preparando" ? "#60a5fa" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>{p.estado_envio==="entregado" ? "✅ Entregado" : p.estado_envio==="enviado" ? "🚚 Enviado" : p.estado_envio==="preparando" ? "🔧 Preparando" : "⏳ Pendiente"}</span></td>
+                <td style={tdStyle}>
+                  <span style={{ color: p.estado_envio==="entregado" ? "#4ade80" : p.estado_envio==="enviado" ? "#a78bfa" : p.estado_envio==="preparando" ? "#60a5fa" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>
+                    {p.estado_envio==="entregado" ? "✅ Entregado" : p.estado_envio==="enviado" ? "🚚 Enviado" : p.estado_envio==="preparando" ? "🔧 Preparando" : "⏳ Pendiente"}
+                  </span>
+                </td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
-                <td style={tdStyle}>{!p.anulado && p.estado_envio !== "entregado" && (<button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>)}{p.estado_envio==="entregado" && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅</span>}</td>
+                <td style={tdStyle}>
+                  {!p.anulado && p.estado_envio !== "entregado" && (
+                    <button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>
+                  )}
+                  {p.estado_envio==="entregado" && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅</span>}
+                </td>
               </tr>
             ))}
           </tbody>
