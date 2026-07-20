@@ -18,6 +18,7 @@ export type Usuario = {
   credito_rd_maximo?: number;
   iban?: string;
   ultimo_acceso?: string;
+  rd_pago_activo?: boolean;
 };
 
 export type Pedido = {
