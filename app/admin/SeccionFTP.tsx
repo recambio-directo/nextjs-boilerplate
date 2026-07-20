@@ -68,7 +68,29 @@ export default function SeccionFTP({ usuarios, ftpProveedorId, setFtpProveedorId
       <div style={seccionCard}>
         <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 20 }}>📋 Proveedores con FTP activo ({ftpActivos.length})</h2>
         {ftpActivos.length === 0 ? (<div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>🔄</p><p>Ningún proveedor tiene FTP activo todavía</p></div>) : (
-          <div style={tableContainer}><table style={tableStyle}><thead><tr>{["EMPRESA","EMAIL","USUARIO FTP","CARPETA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead><tbody>{ftpActivos.map(u => (<tr key={u.id} style={trStyle}><td style={tdStyle}><strong>{u.nombre_empresa||"-"}</strong></td><td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td><td style={tdStyle}><span style={{ fontFamily: "monospace", color: "#a78bfa", fontWeight: 700 }}>{u.ftp_usuario||"-"}</span></td><td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13, fontFamily: "monospace" }}>/catalogo</td><td style={tdStyle}><button onClick={() => { setFtpProveedorId(u.id); window.scrollTo(0,0); }} style={{ ...btnAccion, fontSize: 12 }}>🔑 Regenerar</button></td></tr>))}</tbody></table></div>
+          <div style={tableContainer}><table style={tableStyle}><thead><tr>{["EMPRESA","EMAIL","USUARIO FTP","ÚLTIMO PROCESO","RESULTADO","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead><tbody>{ftpActivos.map(u => (<tr key={u.id} style={trStyle}><td style={tdStyle}><strong>{u.nombre_empresa||"-"}</strong></td><td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td><td style={tdStyle}><span style={{ fontFamily: "monospace", color: "#a78bfa", fontWeight: 700 }}>{u.ftp_usuario||"-"}</span></td>
+<td style={tdStyle}>
+  {(u as any).ftp_ultimo_proceso ? (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#60a5fa" }}>{new Date((u as any).ftp_ultimo_proceso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+    </div>
+  ) : <span style={{ color: "#475569", fontSize: 12 }}>Nunca</span>}
+</td>
+<td style={tdStyle}>
+  {(u as any).ftp_ultimo_resultado ? (
+    <span style={{ fontSize: 11, color: (u as any).ftp_ultimo_resultado.startsWith("Error") ? "#f87171" : "#4ade80", fontWeight: 700 }}>
+      {(u as any).ftp_ultimo_resultado.startsWith("Error") ? "❌ " : "✅ "}
+      {(u as any).ftp_ultimo_resultado.substring(0, 60)}
+    </span>
+  ) : <span style={{ color: "#475569", fontSize: 12 }}>Sin datos</span>}
+</td>
+<td style={tdStyle}>
+  <div style={{ display: "flex", gap: 6 }}>
+    <button onClick={async () => { await fetch(`/api/ftp/procesar?admin=1&proveedor_id=${u.id}`); alert("Procesamiento iniciado"); }} style={{ background: "rgba(22,163,74,0.2)", border: "none", color: "#4ade80", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>▶ Procesar</button>
+    <button onClick={() => { setFtpProveedorId(u.id); window.scrollTo(0,0); }} style={{ ...btnAccion, fontSize: 12 }}>🔑 Regenerar</button>
+  </div>
+</td>
+            </tr>))}</tbody></table></div>
         )}
       </div>
       {proveedoresFTP.filter(u => !u.ftp_activo).length > 0 && (
