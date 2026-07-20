@@ -93,6 +93,7 @@ export default function Pedidos() {
     if (!user) return;
     setUserId(user.id);
     setUserEmail(user.email || null);
+    await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", user.id);
     const { data: realizados } = await supabase.from("pedidos").select("*").eq("cliente_id", user.id).order("id", { ascending: false });
     setPedidosRealizados(realizados || []);
     const { data: todos } = await supabase.from("pedidos").select("*").order("id", { ascending: false });

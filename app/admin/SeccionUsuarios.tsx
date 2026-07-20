@@ -55,7 +55,7 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
       </div>
       <div style={tableContainer}>
         <table style={tableStyle}>
-          <thead><tr>{["EMPRESA", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "FTP", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr>{["EMPRESA", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {usuariosFiltrados.map(u => (
               <tr key={u.id} style={{ ...trStyle, opacity: u.activo ? 1 : 0.5 }}>
@@ -84,6 +84,18 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
                   <select value={u.suscripcion} onChange={e => cambiarSuscripcion(u.id, e.target.value)} style={selectSub(u.suscripcion)}>
                     {Object.entries(SUSCRIPCION_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
+                </td>
+                <td style={tdStyle}>
+                  {u.ultimo_acceso ? (
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: (() => { const dias = Math.floor((Date.now() - new Date(u.ultimo_acceso).getTime()) / 86400000); return dias === 0 ? "#4ade80" : dias <= 3 ? "#60a5fa" : dias <= 7 ? "#fbbf24" : "#f87171"; })() }}>
+                        {(() => { const dias = Math.floor((Date.now() - new Date(u.ultimo_acceso).getTime()) / 86400000); return dias === 0 ? "🟢 Hoy" : dias === 1 ? "🔵 Ayer" : dias <= 7 ? `🟡 Hace ${dias} días` : `🔴 Hace ${dias} días`; })()}
+                      </div>
+                      <div style={{ color: "#64748b", fontSize: 11 }}>{new Date(u.ultimo_acceso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+                    </div>
+                  ) : (
+                    <span style={{ color: "#475569", fontSize: 12 }}>Sin datos</span>
+                  )}
                 </td>
                 <td style={tdStyle}>
                   {u.ftp_activo ? (

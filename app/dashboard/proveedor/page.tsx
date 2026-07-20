@@ -276,6 +276,7 @@ export default function ProveedorPage() {
     const currentUserId = user.id;
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
+    await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", currentUserId);
     const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
