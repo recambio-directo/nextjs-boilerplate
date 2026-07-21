@@ -73,11 +73,11 @@ function fmtFecha(fecha: Date): string {
 }
 
 const TODAS_OPCIONES = [
-  { key: "MRW",             label: "MRW 24H",        precio: 7.95,  color: "#E30613", textColor: "#fff" },
+  { key: "MRW",             label: "MRW 24H",        precio: 7.50,  color: "#E30613", textColor: "#fff" },
   { key: "NACEX",           label: "NACEX",           precio: 7.50,  color: "#FFD200", textColor: "#1a1a1a" },
   { key: "SEUR",            label: "SEUR 24",         precio: 7.50,  color: "#F5A800", textColor: "#1a1a1a" },
-  { key: "GLS",             label: "GLS",             precio: 6.50,  color: "#00467F", textColor: "#fff" },
-  { key: "Correos Express", label: "Correos Exp.",    precio: 5.00,  color: "#FFCC00", textColor: "#333" },
+  { key: "GLS",             label: "GLS",             precio: 7.50,  color: "#00467F", textColor: "#fff" },
+  { key: "Correos Express", label: "Correos Exp.",    precio: 7.50,  color: "#FFCC00", textColor: "#333" },
   { key: "CTT Express",     label: "CTT Express",     precio: 7.50,  color: "#E2001A", textColor: "#fff" },
   { key: "DHL",             label: "DHL Express",     precio: 7.50,  color: "#FFCC00", textColor: "#D40511" },
   { key: "Mis Medios",      label: "Mis Medios",      precio: 0,     color: "#7c3aed", textColor: "#fff" },
@@ -253,11 +253,11 @@ export default function CheckoutPage() {
 
   function getPrecioTransporte(): number {
     if (!transporte || transporte === "Mis Medios") return 0;
-    if (transporte === "MRW") return 7.95;
+    if (transporte === "MRW") return 7.50;
     if (transporte === "NACEX") return 7.50;
     if (transporte === "SEUR") return 7.50;
-    if (transporte === "GLS") return 6.50;
-    if (transporte === "Correos Express") return 5.00;
+    if (transporte === "GLS") return 7.50;
+    if (transporte === "Correos Express") return 7.50;
     if (transporte === "CTT Express") return 7.50;
     if (transporte === "DHL") return 7.50;
     return 0;
