@@ -24,6 +24,7 @@ async function consultarAgencia(cp: string, poblacion: string): Promise<boolean>
     // Formato esperado: codigo_agencia|nombre|direccion|telefono|...
     // Si no hay código de agencia reconocible, asumimos sin cobertura.
     const codigoAgencia = partes[0]?.trim();
+    console.log("NACEX disponibilidad respuesta:", rawText.substring(0, 200), "| codigo:", codigoAgencia);
     return Boolean(codigoAgencia) && /^[A-Za-z0-9]+$/.test(codigoAgencia) && codigoAgencia.length <= 6;
   } catch (e) {
     console.error("Error consultando agencia NACEX:", e);
