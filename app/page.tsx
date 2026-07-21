@@ -122,7 +122,7 @@ export default function Home() {
           {[
             { icon: "🔍", title: "Búsqueda instantánea de referencias OEM e IAM", desc: "Filtra por tipo, marca o referencia exacta. Precios en tiempo real sin necesidad de llamar. Compatible con referencias de todas las marcas.", color: "#2563eb" },
             { icon: "📦", title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
-            { icon: "🚚", title: "Logística integrada con GLS, MRW, NACEX y SEUR", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { icon: "🚚", title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
             { icon: "🔒", title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
           ].map(({ icon, title, desc, color }) => (
             <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -155,8 +155,8 @@ export default function Home() {
         <div className="landing-agencias" style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, padding: "32px 48px", display: "flex", alignItems: "center", gap: 32 }}>
           <div style={{ fontSize: 36, flexShrink: 0 }}>🚚</div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con GLS, MRW, NACEX, SEUR, Correos Express y CTT</h3>
-            <p style={{ color: "#94a3b8", fontSize: 15, margin: 0, lineHeight: 1.6 }}>Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España.</p>
+            <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con las principales agencias de transporte nacionales</h3>
+            <p style={{ color: "#94a3b8", fontSize: 15, margin: 0, lineHeight: 1.6 }}>Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España. Trabajamos con las agencias líderes del mercado para garantizar la mejor cobertura en cada envío.</p>
           </div>
           <div style={{ flexShrink: 0, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 20px", textAlign: "center" as const }}>
             <p style={{ color: "#60a5fa", fontWeight: 900, fontSize: 22, margin: 0 }}>24-48h</p>
@@ -176,7 +176,7 @@ export default function Home() {
             { q: "¿Cuánto cuesta Recambio Directo?", a: "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." },
             { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
             { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
-            { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con GLS, MRW, NACEX, SEUR, Correos Express y CTT Express. La etiqueta de envío se genera automáticamente al crear el pedido." },
+            { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
             { q: "¿Puedo controlar quién ve mis precios?", a: "Sí. Los proveedores pueden excluir talleres concretos o códigos postales específicos para que no vean su catálogo ni sus precios." },
             { q: "¿Cómo funciona RD Pago?", a: "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." },
           ].map(({ q, a }) => (
