@@ -541,6 +541,7 @@ export default function CheckoutPage() {
         >
           {!transporte && <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 10 }}>Selecciona una agencia para continuar</p>}
           <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
+          <p style={{ color: "#475569", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>* Precio orientativo para envíos hasta 3kg. Las agencias pueden cobrar el porte real según peso y volumen.</p>
         </Paso>
 
         {/* PASO 3: Forma de pago */}
@@ -700,6 +701,7 @@ export default function CheckoutPage() {
           >
             {!transporte && <p style={{ color: "#f59e0b", fontSize: 13, marginBottom: 14 }}>⚠️ Selecciona una agencia para continuar</p>}
             <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
+            <p style={{ color: "#475569", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>* Precio orientativo para envíos hasta 3kg. Las agencias se reservan el derecho a cobrar el porte real según el peso y volumen del envío. Las diferencias serán repercutidas al comprador mediante factura separada.</p>
           </Paso>
 
           {/* PASO 3 desktop */}
