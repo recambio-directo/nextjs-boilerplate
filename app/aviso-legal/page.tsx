@@ -33,7 +33,15 @@ export default function AvisoLegalPage() {
             El titular no se hace responsable de los contenidos publicados por los usuarios, las transacciones realizadas entre talleres y proveedores, los daños derivados del uso incorrecto de la plataforma, ni la veracidad de los datos aportados por los usuarios en el registro. Recambio Directo se reserva el derecho de retirar contenidos o cancelar cuentas que incumplan los presentes términos o la legislación vigente.
           </Section>
 
-          <Section title="5. LEGISLACIÓN APLICABLE">
+          <Section title="5. PORTES Y TRANSPORTE">
+            El precio de transporte mostrado durante el proceso de compra es orientativo y corresponde a envíos de hasta 3 kg en ruta peninsular estándar. Las agencias de transporte se reservan el derecho a recalcular el coste del porte en función del peso real, peso volumétrico y distancia del envío una vez procesado en sus instalaciones.
+            <br /><br />
+            En caso de que el coste real del porte sea superior al mostrado en el checkout, la diferencia será repercutida al comprador mediante factura separada emitida por Recambio Directo. El comprador acepta esta condición al completar el proceso de compra.
+            <br /><br />
+            Se recomienda indicar el peso aproximado real del envío para evitar cargos adicionales. El factor de cubicaje aplicado por las agencias es de 167 kg/m³ para envíos terrestres.
+          </Section>
+
+          <Section title="6. LEGISLACIÓN APLICABLE">
             Las presentes condiciones se rigen por la legislación española, en particular por la Ley 34/2002 de Servicios de la Sociedad de la Información, la Ley 15/2009 del Contrato de Transporte Terrestre de Mercancías y el Reglamento General de Protección de Datos (RGPD). Para cualquier controversia, las partes se someten a los Juzgados y Tribunales de Murcia, con renuncia expresa a cualquier otro fuero.
           </Section>
 
