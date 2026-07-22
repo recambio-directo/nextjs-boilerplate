@@ -158,6 +158,7 @@ export default function CheckoutPage() {
   const [clienteEmail, setClienteEmail] = useState("");
   const [productos, setProductos] = useState<Producto[]>([]);
   const [transporte, setTransporte] = useState<string | null>(null);
+  const [pesoKg, setPesoKg] = useState<number>(1);
   const [formaPago, setFormaPago] = useState<"rd_pago" | "tarjeta">("tarjeta");
   const [creditoRD, setCreditoRD] = useState(0);
   const [cargando, setCargando] = useState(false);
@@ -347,7 +348,7 @@ export default function CheckoutPage() {
         proveedorDireccion = prov?.direccion || ""; proveedorCiudad = prov?.ciudad || "";
         proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
       }
-      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
+      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, peso_kg: pesoKg, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
@@ -532,7 +533,7 @@ export default function CheckoutPage() {
           resumen={
             transporte ? (
               <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, fontWeight: 800 }}>{transporte}</span>
+                <span style={{ fontSize: 13, fontWeight: 800 }}>{transporte} · {pesoKg}kg</span>
                 <span style={{ fontSize: 13, color: "#22c55e", fontWeight: 700 }}>{transporte === "Mis Medios" ? "Gratis" : `${getPrecioTransporte().toFixed(2)}€`}</span>
               </div>
             ) : undefined
@@ -540,6 +541,30 @@ export default function CheckoutPage() {
           onContinuar={transporte ? () => setPaso(3) : undefined} labelContinuar="Continuar al pago →"
         >
           {!transporte && <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 10 }}>Selecciona una agencia para continuar</p>}
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6, fontWeight: 700 }}>
+              Peso del paquete (kg)
+            </label>
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={pesoKg}
+              onChange={(e) => setPesoKg(Math.max(0.1, Number(e.target.value)))}
+              style={{
+                width: "100%", background: "#020617", color: "white",
+                border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+                padding: "10px 12px", fontSize: 14, outline: "none",
+                boxSizing: "border-box" as const,
+              }}
+              placeholder="Ej: 2.5"
+            />
+            <p style={{ color: "#475569", fontSize: 11, marginTop: 4 }}>
+              Indica el peso real del envío para calcular el precio correcto de cada agencia.
+            </p>
+          </div>
+
           <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
           <p style={{ color: "#475569", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>* Precio orientativo para envíos hasta 3kg. Las agencias pueden cobrar el porte real según peso y volumen.</p>
         </Paso>
@@ -689,7 +714,7 @@ export default function CheckoutPage() {
             resumen={
               transporte ? (
                 <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 14, fontWeight: 800 }}>{transporte}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800 }}>{transporte} · {pesoKg}kg</span>
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                     <span style={{ fontSize: 14, color: "#22c55e", fontWeight: 700 }}>{transporte === "Mis Medios" ? "Gratis" : `${getPrecioTransporte().toFixed(2)}€`}</span>
                     <button onClick={() => setPaso(2)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#60a5fa", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cambiar</button>
@@ -700,6 +725,30 @@ export default function CheckoutPage() {
             onContinuar={transporte ? () => setPaso(3) : undefined} labelContinuar="Continuar al pago →"
           >
             {!transporte && <p style={{ color: "#f59e0b", fontSize: 13, marginBottom: 14 }}>⚠️ Selecciona una agencia para continuar</p>}
+
+            <div style={{ marginBottom: 14, maxWidth: 260 }}>
+              <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6, fontWeight: 700 }}>
+                Peso del paquete (kg)
+              </label>
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={pesoKg}
+                onChange={(e) => setPesoKg(Math.max(0.1, Number(e.target.value)))}
+                style={{
+                  width: "100%", background: "#020617", color: "white",
+                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+                  padding: "10px 14px", fontSize: 14, outline: "none",
+                  boxSizing: "border-box" as const,
+                }}
+                placeholder="Ej: 2.5"
+              />
+              <p style={{ color: "#475569", fontSize: 11, marginTop: 4 }}>
+                Indica el peso real del envío para calcular el precio correcto de cada agencia.
+              </p>
+            </div>
+
             <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
             <p style={{ color: "#475569", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>* Precio orientativo para envíos hasta 3kg. Las agencias se reservan el derecho a cobrar el porte real según el peso y volumen del envío. Las diferencias serán repercutidas al comprador mediante factura separada.</p>
           </Paso>
