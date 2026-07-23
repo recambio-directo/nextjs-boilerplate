@@ -36,6 +36,7 @@ export default function Dashboard() {
     if (!user) { window.location.href = "/"; return; }
     const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo, credito_rd, rd_pago_activo, rd_pago_solicitado, fecha_registro, cif, telefono, iban").eq("id", user.id).single();
     if (!perfil || perfil.tipo !== "taller") { window.location.href = "/"; return; }
+    await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", user.id);
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     setUserId(user.id);
     setUserEmail(user.email || null);
