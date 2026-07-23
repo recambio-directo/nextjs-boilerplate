@@ -150,6 +150,7 @@ export default function ProveedorPage() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [emailPerfil, setEmailPerfil] = useState("");
   const [emailFacturas, setEmailFacturas] = useState("");
+  const [iban, setIban] = useState("");
   const [guardandoEmailFacturas, setGuardandoEmailFacturas] = useState(false);
   const [emailFacturasGuardado, setEmailFacturasGuardado] = useState(false);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
@@ -277,13 +278,14 @@ export default function ProveedorPage() {
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
     await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", currentUserId);
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas").eq("id", currentUserId).single();
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
     if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
     if (perfil?.horario_cierre) setHorarioCierre(perfil.horario_cierre);
     if (perfil?.dias_apertura?.length) setDiasApertura(perfil.dias_apertura);
     if (perfil?.email_facturas) setEmailFacturas(perfil.email_facturas);
+    if (perfil?.iban) setIban(perfil.iban);
     const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
     setTotalPiezas(count || 0);
     const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).eq("tipo", "OEM");
@@ -1044,6 +1046,15 @@ export default function ProveedorPage() {
               <h1 style={titleStyle}>MI CUENTA</h1>
               <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>
               <div style={{ maxWidth: 600 }}>
+                <div style={{ ...formCard, border: "1px solid rgba(22,163,74,0.3)", marginBottom: 20 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>🏦 Número de cuenta (IBAN)</h2>
+                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Necesario para recibir los pagos de tus pedidos a los 7 días de la entrega.</p>
+                  <input type="text" placeholder="ES12 1234 5678 9012 3456 7890" value={iban} onChange={e => setIban(e.target.value.toUpperCase())} style={{ ...formInput, borderColor: iban ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.1)", fontFamily: "monospace" }} maxLength={34} />
+                  {iban && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ IBAN guardado</p>}
+                  <button onClick={async () => { if (!userId) return; await supabase.from("usuarios").update({ iban: iban.trim().replace(/\s/g, "").toUpperCase() || null }).eq("id", userId); alert("✅ IBAN guardado correctamente"); }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
+                    Guardar IBAN
+                  </button>
+                </div>
                 <div style={{ ...formCard, border: "1px solid rgba(37,99,235,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📧 Email para facturas</h2>
                   <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí.</p>
