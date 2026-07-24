@@ -514,12 +514,13 @@ export default function CheckoutPage() {
         proveedorDireccion = prov?.direccion || ""; proveedorCiudad = prov?.ciudad || "";
         proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
       }
-      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: grupo.productos };
+      const productosConCantidad = grupo.productos.map(p => ({ ...p, cantidad: cantidades[p.referencia] || 1 }));
+      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: productosConCantidad };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
       await descontarStock(provId, grupo.productos, cantidades);
-      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
@@ -532,7 +533,7 @@ export default function CheckoutPage() {
           const clienteCP = clienteExtra?.codigo_postal || "";
           const mrwRes = await fetch("/api/mrw/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: provCP, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: clienteCP, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const mrwData = await mrwRes.json();
-          if (mrwData.ok && mrwData.numeroEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, mrwData.numeroEnvio, mrwData.numeroSolicitud);
+          if (mrwData.ok && mrwData.numeroEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, mrwData.numeroEnvio, mrwData.numeroSolicitud);
         } catch (e) { console.error("Error MRW:", e); }
       }
       if (transporte === "NACEX" && pedidoInsertado?.id) {
@@ -542,7 +543,7 @@ export default function CheckoutPage() {
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
           const nacexRes = await fetch("/api/nacex/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const nacexData = await nacexRes.json();
-          if (nacexData.ok && nacexData.localizador) { await supabase.from("pedidos").update({ tracking_nacex: nacexData.localizador, codigo_postal_destino: codigoPostal }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, nacexData.localizador); }
+          if (nacexData.ok && nacexData.localizador) { await supabase.from("pedidos").update({ tracking_nacex: nacexData.localizador, codigo_postal_destino: codigoPostal }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, nacexData.localizador); }
         } catch (e) { console.error("Error NACEX:", e); }
       }
       if (transporte === "SEUR" && pedidoInsertado?.id) {
@@ -552,21 +553,21 @@ export default function CheckoutPage() {
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
           const seurRes = await fetch("/api/seur/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteCif: proveedorCif, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, remitenteEmail: emailProveedor, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const seurData = await seurRes.json();
-          if (seurData.ok && seurData.collectionRef) { await supabase.from("pedidos").update({ tracking_seur: seurData.tracking, collection_ref_seur: seurData.collectionRef }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, seurData.tracking); }
+          if (seurData.ok && seurData.collectionRef) { await supabase.from("pedidos").update({ tracking_seur: seurData.tracking, collection_ref_seur: seurData.collectionRef }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, seurData.tracking); }
         } catch (e) { console.error("Error SEUR:", e); }
       }
       if (transporte === "Correos Express" && pedidoInsertado?.id) {
         try {
           const cexRes = await fetch("/api/correos-express/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const cexData = await cexRes.json();
-          if (cexData.ok && cexData.numEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio);
+          if (cexData.ok && cexData.numEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio);
         } catch (e) { console.error("Error CEX:", e); }
       }
       if (transporte === "CTT Express" && pedidoInsertado?.id) {
         try {
           const cttRes = await fetch("/api/ctt/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const cttData = await cttRes.json();
-          if (cttData.ok && cttData.shippingCode) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
+          if (cttData.ok && cttData.shippingCode) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
         } catch (e) { console.error("Error CTT:", e); }
       }
       // ── GLS ──────────────────────────────────────────────────────────────
@@ -578,7 +579,7 @@ export default function CheckoutPage() {
           });
           const glsData = await glsRes.json();
           if (glsData.ok && glsData.codbarras) {
-            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, glsData.codbarras);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, glsData.codbarras);
           } else { console.error("GLS error:", glsData.error || glsData.glsError); }
         } catch (e) { console.error("Error GLS:", e); }
       }
@@ -588,7 +589,7 @@ export default function CheckoutPage() {
         try {
           const dhlRes = await fetch("/api/dhl/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const dhlData = await dhlRes.json();
-          if (dhlData.ok && dhlData.trackingNumber) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, grupo.productos, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, dhlData.trackingNumber);
+          if (dhlData.ok && dhlData.trackingNumber) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, dhlData.trackingNumber);
         } catch (e) { console.error("Error DHL:", e); }
       }
       if (emailProveedor) {
