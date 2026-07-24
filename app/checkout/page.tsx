@@ -90,15 +90,41 @@ function calcularTramoPorPeso(pesoKg: number): TramoPesoId {
 }
 
 const TODAS_OPCIONES = [
-  { key: "MRW",             label: "MRW 24H",        precio: 7.50,  color: "#E30613", textColor: "#fff" },
-  { key: "NACEX",           label: "NACEX",           precio: 7.50,  color: "#FFD200", textColor: "#1a1a1a" },
-  { key: "SEUR",            label: "SEUR 24",         precio: 7.50,  color: "#F5A800", textColor: "#1a1a1a" },
-  { key: "GLS",             label: "GLS",             precio: 7.50,  color: "#00467F", textColor: "#fff" },
-  { key: "Correos Express", label: "Correos Exp.",    precio: 7.50,  color: "#FFCC00", textColor: "#333" },
-  { key: "CTT Express",     label: "CTT Express",     precio: 7.50,  color: "#E2001A", textColor: "#fff" },
-  { key: "DHL",             label: "DHL Express",     precio: 7.50,  color: "#FFCC00", textColor: "#D40511" },
-  { key: "Mis Medios",      label: "Mis Medios",      precio: 0,     color: "#7c3aed", textColor: "#fff" },
+  { key: "MRW",             label: "MRW 24H",        color: "#E30613", textColor: "#fff" },
+  { key: "NACEX",           label: "NACEX",           color: "#FFD200", textColor: "#1a1a1a" },
+  { key: "SEUR",            label: "SEUR 24",         color: "#F5A800", textColor: "#1a1a1a" },
+  { key: "GLS",             label: "GLS",             color: "#00467F", textColor: "#fff" },
+  { key: "Correos Express", label: "Correos Exp.",    color: "#FFCC00", textColor: "#333" },
+  { key: "CTT Express",     label: "CTT Express",     color: "#E2001A", textColor: "#fff" },
+  { key: "DHL",             label: "DHL Express",     color: "#FFCC00", textColor: "#D40511" },
+  { key: "Mis Medios",      label: "Mis Medios",      color: "#7c3aed", textColor: "#fff" },
 ];
+
+// ── Tipo de resultado que devolverá el motor de cálculo real ──────────────────
+type PrecioAgencia = {
+  key: string;
+  precio: number; // ya con margen incluido
+};
+
+// ── PLACEHOLDER del motor de cálculo. ────────────────────────────────────────
+// El día que tengamos las 6 agencias con su lógica cerrada, se sustituye el
+// contenido de esta función por la llamada real (API de cada agencia / tablas
+// en Supabase + zona CP↔CP + margen). El resto del checkout no necesita tocarse.
+async function calcularPreciosAgencias(
+  pesoKg: number,
+  cpOrigen: string,
+  cpDestino: string,
+  agenciasDisponibles: string[]
+): Promise<PrecioAgencia[]> {
+  // Simula un pequeño delay de red, como tendría la llamada real
+  await new Promise(r => setTimeout(r, 400));
+
+  return agenciasDisponibles
+    .filter(key => key !== "Mis Medios")
+    .map(key => ({ key, precio: 7.5 }))
+    .concat([{ key: "Mis Medios", precio: 0 }])
+    .filter(p => agenciasDisponibles.includes(p.key));
+}
 
 // ── Selector visual de peso (chips por tramo + modo preciso con slider) ───────
 function SelectorPeso({ pesoKg, tramoPeso, onChange, compacto }: {
@@ -121,7 +147,7 @@ function SelectorPeso({ pesoKg, tramoPeso, onChange, compacto }: {
   }
 
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <label style={{ fontSize: 13, color: "#94a3b8", fontWeight: 700 }}>Peso del paquete</label>
         <button onClick={() => setModoPreciso(m => !m)} style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>
@@ -180,19 +206,34 @@ function SelectorPeso({ pesoKg, tramoPeso, onChange, compacto }: {
   );
 }
 
-// ── Selector de agencias en GRID 2 columnas ───────────────────────────────────
-function GridTransporte({ opciones, transporte, setTransporte }: { opciones: typeof TODAS_OPCIONES; transporte: string | null; setTransporte: (v: string) => void }) {
+// ── Selector de agencias en GRID 2 columnas, con precios ya calculados ────────
+function GridTransporte({ opciones, precios, transporte, setTransporte, cargandoPrecios }: {
+  opciones: typeof TODAS_OPCIONES;
+  precios: PrecioAgencia[];
+  transporte: string | null;
+  setTransporte: (v: string) => void;
+  cargandoPrecios: boolean;
+}) {
+  if (cargandoPrecios) {
+    return (
+      <div style={{ padding: "30px 0", textAlign: "center" as const, color: "#94a3b8", fontSize: 13 }}>
+        Calculando precios en cada agencia…
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {opciones.map(({ key, label, precio, color, textColor }) => {
+      {opciones.map(({ key, label, color, textColor }) => {
         const sel = transporte === key;
         const esMisMedios = key === "Mis Medios";
+        const precioAgencia = precios.find(p => p.key === key)?.precio ?? 0;
         const { recogida, entrega, recogidaHoy } = calcularFechasEnvio(key);
         return (
           <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 12, padding: "10px 10px", cursor: "pointer", textAlign: "left" as const, background: sel ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.03)", border: sel ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white", display: "flex", flexDirection: "column" as const, gap: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ background: color, color: textColor, fontWeight: 900, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>{label}</span>
-              <span style={{ fontWeight: 900, fontSize: 13, color: sel ? "#60a5fa" : esMisMedios ? "#4ade80" : "white" }}>{esMisMedios ? "Gratis" : `${precio.toFixed(2)}€`}</span>
+              <span style={{ fontWeight: 900, fontSize: 13, color: sel ? "#60a5fa" : esMisMedios ? "#4ade80" : "white" }}>{esMisMedios ? "Gratis" : `${precioAgencia.toFixed(2)}€`}</span>
             </div>
             {!esMisMedios ? (
               <>
@@ -212,10 +253,10 @@ function GridTransporte({ opciones, transporte, setTransporte }: { opciones: typ
 }
 
 // ── Acordeón paso ─────────────────────────────────────────────────────────────
-function Paso({ numero, titulo, icono, activo, completado, resumen, children, onContinuar, labelContinuar }: {
+function Paso({ numero, titulo, icono, activo, completado, resumen, children, onContinuar, labelContinuar, continuarDeshabilitado }: {
   numero: number; titulo: string; icono: string; activo: boolean; completado: boolean;
   resumen?: React.ReactNode; children?: React.ReactNode;
-  onContinuar?: () => void; labelContinuar?: string;
+  onContinuar?: () => void; labelContinuar?: string; continuarDeshabilitado?: boolean;
 }) {
   return (
     <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 16, border: activo ? "2px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.06)", overflow: "hidden", opacity: !activo && !completado ? 0.5 : 1 }}>
@@ -233,7 +274,7 @@ function Paso({ numero, titulo, icono, activo, completado, resumen, children, on
         <div style={{ padding: "0 16px 16px" }}>
           {children}
           {onContinuar && (
-            <button onClick={onContinuar} style={{ width: "100%", marginTop: 14, padding: "13px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 12, color: "white", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+            <button onClick={onContinuar} disabled={continuarDeshabilitado} style={{ width: "100%", marginTop: 14, padding: "13px", background: continuarDeshabilitado ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 12, color: continuarDeshabilitado ? "#64748b" : "white", fontWeight: 800, fontSize: 14, cursor: continuarDeshabilitado ? "not-allowed" : "pointer" }}>
               {labelContinuar || "Continuar →"}
             </button>
           )}
@@ -244,7 +285,7 @@ function Paso({ numero, titulo, icono, activo, completado, resumen, children, on
 }
 
 export default function CheckoutPage() {
-  const [paso, setPaso] = useState<1 | 2 | 3>(1);
+  const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1);
   const [empresa, setEmpresa] = useState("");
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -257,6 +298,9 @@ export default function CheckoutPage() {
   const [transporte, setTransporte] = useState<string | null>(null);
   const [pesoKg, setPesoKg] = useState<number>(3.5);
   const [tramoPeso, setTramoPeso] = useState<TramoPesoId>("2-5");
+  const [pesoConfirmado, setPesoConfirmado] = useState(false);
+  const [preciosAgencias, setPreciosAgencias] = useState<PrecioAgencia[]>([]);
+  const [cargandoPrecios, setCargandoPrecios] = useState(false);
   const [formaPago, setFormaPago] = useState<"rd_pago" | "tarjeta">("tarjeta");
   const [creditoRD, setCreditoRD] = useState(0);
   const [cargando, setCargando] = useState(false);
@@ -285,6 +329,32 @@ export default function CheckoutPage() {
   function handleCambioPeso(peso: number, tramo: TramoPesoId) {
     setPesoKg(peso);
     setTramoPeso(tramo);
+    // si el usuario retoca el peso tras haberlo confirmado, invalidamos el
+    // cálculo anterior para forzar que se recalcule al reentrar al paso 3
+    if (pesoConfirmado) {
+      setPesoConfirmado(false);
+      setTransporte(null);
+    }
+  }
+
+  async function confirmarPesoYContinuar() {
+    setPesoConfirmado(true);
+    setPaso(3);
+    setCargandoPrecios(true);
+    try {
+      // CP origen: por simplicidad se usa el del primer proveedor de la cesta.
+      // Si hay varios proveedores, el motor real deberá calcular por grupo.
+      const primerProveedorId = productos[0]?.proveedor_id;
+      let cpOrigen = "";
+      if (primerProveedorId) {
+        const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", primerProveedorId).single();
+        cpOrigen = prov?.codigo_postal || "";
+      }
+      const resultado = await calcularPreciosAgencias(pesoKg, cpOrigen, codigoPostal, agenciasDisponibles);
+      setPreciosAgencias(resultado);
+    } finally {
+      setCargandoPrecios(false);
+    }
   }
 
   function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
@@ -357,14 +427,7 @@ export default function CheckoutPage() {
 
   function getPrecioTransporte(): number {
     if (!transporte || transporte === "Mis Medios") return 0;
-    if (transporte === "MRW") return 7.50;
-    if (transporte === "NACEX") return 7.50;
-    if (transporte === "SEUR") return 7.50;
-    if (transporte === "GLS") return 7.50;
-    if (transporte === "Correos Express") return 7.50;
-    if (transporte === "CTT Express") return 7.50;
-    if (transporte === "DHL") return 7.50;
-    return 0;
+    return preciosAgencias.find(p => p.key === transporte)?.precio ?? 0;
   }
 
   const subtotal = productos.reduce((acc, item) => acc + (Number(item.precio) + Number(item.impuesto || 0)) * (cantidades[item.referencia] || 1), 0);
@@ -582,15 +645,15 @@ export default function CheckoutPage() {
 
       {/* Stepper indicador */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 20, gap: 0 }}>
-        {[{ n: 1, label: "Entrega" }, { n: 2, label: "Transporte" }, { n: 3, label: "Pago" }].map(({ n, label }, i) => (
+        {[{ n: 1, label: "Entrega" }, { n: 2, label: "Peso" }, { n: 3, label: "Transporte" }, { n: 4, label: "Pago" }].map(({ n, label }, i) => (
           <React.Fragment key={n}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flex: 1 }}>
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: paso > n ? "rgba(22,163,74,0.2)" : paso === n ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.05)", border: paso > n ? "1px solid rgba(22,163,74,0.5)" : paso === n ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: paso > n ? "#4ade80" : paso === n ? "#60a5fa" : "#475569" }}>{paso > n ? "✓" : n}</span>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", background: paso > n ? "rgba(22,163,74,0.2)" : paso === n ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.05)", border: paso > n ? "1px solid rgba(22,163,74,0.5)" : paso === n ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: paso > n ? "#4ade80" : paso === n ? "#60a5fa" : "#475569" }}>{paso > n ? "✓" : n}</span>
               </div>
-              <span style={{ fontSize: 10, color: paso === n ? "#60a5fa" : paso > n ? "#4ade80" : "#475569", fontWeight: 700 }}>{label}</span>
+              <span style={{ fontSize: 9, color: paso === n ? "#60a5fa" : paso > n ? "#4ade80" : "#475569", fontWeight: 700 }}>{label}</span>
             </div>
-            {i < 2 && <div style={{ flex: 1, height: 1, background: paso > n + 1 ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.08)", marginBottom: 14 }} />}
+            {i < 3 && <div style={{ flex: 1, height: 1, background: paso > n + 1 ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.08)", marginBottom: 14 }} />}
           </React.Fragment>
         ))}
       </div>
@@ -605,7 +668,7 @@ export default function CheckoutPage() {
               <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{direccion}{ciudad ? `, ${ciudad}` : ""}</p>
             </div>
           }
-          onContinuar={() => setPaso(2)} labelContinuar="Continuar al transporte →"
+          onContinuar={() => setPaso(2)} labelContinuar="Continuar al peso →"
         >
           {!editandoDatos ? (
             <div>
@@ -631,28 +694,38 @@ export default function CheckoutPage() {
           )}
         </Paso>
 
-        {/* PASO 2: Transporte */}
-        <Paso numero={2} titulo="Transporte" icono="🚚" activo={paso === 2} completado={paso > 2}
+        {/* PASO 2: Peso del envío */}
+        <Paso numero={2} titulo="Peso del envío" icono="⚖️" activo={paso === 2} completado={paso > 2}
+          resumen={
+            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>{pesoKg.toFixed(1)} kg</span>
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>Tramo {TRAMOS_PESO.find(t => t.id === tramoPeso)?.label}</span>
+            </div>
+          }
+          onContinuar={confirmarPesoYContinuar} labelContinuar="Calcular precios →"
+        >
+          <SelectorPeso pesoKg={pesoKg} tramoPeso={tramoPeso} onChange={handleCambioPeso} compacto={true} />
+        </Paso>
+
+        {/* PASO 3: Transporte */}
+        <Paso numero={3} titulo="Transporte" icono="🚚" activo={paso === 3} completado={paso > 3}
           resumen={
             transporte ? (
               <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 13, fontWeight: 800 }}>{transporte} · {pesoKg.toFixed(1)}kg</span>
+                <span style={{ fontSize: 13, fontWeight: 800 }}>{transporte}</span>
                 <span style={{ fontSize: 13, color: "#22c55e", fontWeight: 700 }}>{transporte === "Mis Medios" ? "Gratis" : `${getPrecioTransporte().toFixed(2)}€`}</span>
               </div>
             ) : undefined
           }
-          onContinuar={transporte ? () => setPaso(3) : undefined} labelContinuar="Continuar al pago →"
+          onContinuar={transporte ? () => setPaso(4) : undefined} labelContinuar="Continuar al pago →"
         >
-          {!transporte && <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 10 }}>Selecciona una agencia para continuar</p>}
-
-          <SelectorPeso pesoKg={pesoKg} tramoPeso={tramoPeso} onChange={handleCambioPeso} compacto={true} />
-
-          <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
-          <p style={{ color: "#475569", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>* Precio orientativo. Las agencias pueden cobrar el porte real según peso y volumen.</p>
+          {!transporte && !cargandoPrecios && <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 10 }}>Selecciona una agencia para continuar</p>}
+          <GridTransporte opciones={opciones} precios={preciosAgencias} transporte={transporte} setTransporte={setTransporte} cargandoPrecios={cargandoPrecios} />
+          <p style={{ color: "#475569", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>* Precio calculado para {pesoKg.toFixed(1)}kg. Las agencias pueden cobrar el porte real si el peso o volumen no coinciden con lo declarado.</p>
         </Paso>
 
-        {/* PASO 3: Forma de pago */}
-        <Paso numero={3} titulo="Forma de pago" icono="💳" activo={paso === 3} completado={false}
+        {/* PASO 4: Forma de pago */}
+        <Paso numero={4} titulo="Forma de pago" icono="💳" activo={paso === 4} completado={false}
           resumen={undefined}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 2 }}>
@@ -717,7 +790,7 @@ export default function CheckoutPage() {
 
         {/* Botón confirmar */}
         <button onClick={finalizarCompra} disabled={!puedeConfirmar} style={{ width: "100%", background: puedeConfirmar ? "linear-gradient(135deg,#16a34a,#15803d)" : "rgba(255,255,255,0.08)", border: "none", color: puedeConfirmar ? "white" : "#64748b", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 16, cursor: puedeConfirmar ? "pointer" : "not-allowed", marginTop: 4 }}>
-          {cargando ? "PROCESANDO..." : paso < 3 ? `Completar paso ${paso} primero` : !transporte ? "Elige transporte" : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
+          {cargando ? "PROCESANDO..." : paso < 4 ? `Completar paso ${paso} primero` : !transporte ? "Elige transporte" : numProveedores > 1 ? `CONFIRMAR ${numProveedores} PEDIDOS` : "CONFIRMAR PEDIDO"}
         </button>
 
       </div>
@@ -735,7 +808,7 @@ export default function CheckoutPage() {
 
         {/* Stepper desktop */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: 32, gap: 0 }}>
-          {[{ n: 1, label: "Datos de entrega" }, { n: 2, label: "Transporte" }, { n: 3, label: "Forma de pago" }].map(({ n, label }, i) => (
+          {[{ n: 1, label: "Datos de entrega" }, { n: 2, label: "Peso" }, { n: 3, label: "Transporte" }, { n: 4, label: "Forma de pago" }].map(({ n, label }, i) => (
             <React.Fragment key={n}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                 <div style={{ width: 32, height: 32, borderRadius: "50%", background: paso > n ? "rgba(22,163,74,0.2)" : paso === n ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.05)", border: paso > n ? "1px solid rgba(22,163,74,0.5)" : paso === n ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -743,7 +816,7 @@ export default function CheckoutPage() {
                 </div>
                 <span style={{ fontSize: 14, fontWeight: paso === n ? 800 : 500, color: paso === n ? "white" : paso > n ? "#4ade80" : "#94a3b8" }}>{label}</span>
               </div>
-              {i < 2 && <div style={{ flex: 1, height: 1, background: paso > n + 1 ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.08)", margin: "0 16px 0 0" }} />}
+              {i < 3 && <div style={{ flex: 1, height: 1, background: paso > n + 1 ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.08)", margin: "0 16px 0 0" }} />}
             </React.Fragment>
           ))}
         </div>
@@ -761,7 +834,7 @@ export default function CheckoutPage() {
                 <button onClick={() => setPaso(1)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#60a5fa", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Editar</button>
               </div>
             }
-            onContinuar={() => setPaso(2)} labelContinuar="Continuar al transporte →"
+            onContinuar={() => setPaso(2)} labelContinuar="Continuar al peso →"
           >
             {!editandoDatos ? (
               <div>
@@ -791,33 +864,43 @@ export default function CheckoutPage() {
             )}
           </Paso>
 
-          {/* PASO 2 desktop */}
-          <Paso numero={2} titulo="Transporte" icono="🚚" activo={paso === 2} completado={paso > 2}
+          {/* PASO 2 desktop: Peso */}
+          <Paso numero={2} titulo="Peso del envío" icono="⚖️" activo={paso === 2} completado={paso > 2}
+            resumen={
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 14, fontWeight: 800 }}>{pesoKg.toFixed(1)} kg — Tramo {TRAMOS_PESO.find(t => t.id === tramoPeso)?.label}</span>
+                <button onClick={() => setPaso(2)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#60a5fa", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cambiar</button>
+              </div>
+            }
+            onContinuar={confirmarPesoYContinuar} labelContinuar="Calcular precios →"
+          >
+            <div style={{ maxWidth: 420 }}>
+              <SelectorPeso pesoKg={pesoKg} tramoPeso={tramoPeso} onChange={handleCambioPeso} compacto={false} />
+            </div>
+          </Paso>
+
+          {/* PASO 3 desktop: Transporte */}
+          <Paso numero={3} titulo="Transporte" icono="🚚" activo={paso === 3} completado={paso > 3}
             resumen={
               transporte ? (
                 <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 14, fontWeight: 800 }}>{transporte} · {pesoKg.toFixed(1)}kg</span>
+                  <span style={{ fontSize: 14, fontWeight: 800 }}>{transporte}</span>
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                     <span style={{ fontSize: 14, color: "#22c55e", fontWeight: 700 }}>{transporte === "Mis Medios" ? "Gratis" : `${getPrecioTransporte().toFixed(2)}€`}</span>
-                    <button onClick={() => setPaso(2)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#60a5fa", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cambiar</button>
+                    <button onClick={() => setPaso(3)} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#60a5fa", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Cambiar</button>
                   </div>
                 </div>
               ) : undefined
             }
-            onContinuar={transporte ? () => setPaso(3) : undefined} labelContinuar="Continuar al pago →"
+            onContinuar={transporte ? () => setPaso(4) : undefined} labelContinuar="Continuar al pago →"
           >
-            {!transporte && <p style={{ color: "#f59e0b", fontSize: 13, marginBottom: 14 }}>⚠️ Selecciona una agencia para continuar</p>}
-
-            <div style={{ maxWidth: 420 }}>
-              <SelectorPeso pesoKg={pesoKg} tramoPeso={tramoPeso} onChange={handleCambioPeso} compacto={false} />
-            </div>
-
-            <GridTransporte opciones={opciones} transporte={transporte} setTransporte={setTransporte} />
-            <p style={{ color: "#475569", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>* Precio orientativo. Las agencias se reservan el derecho a cobrar el porte real según el peso y volumen del envío. Las diferencias serán repercutidas al comprador mediante factura separada.</p>
+            {!transporte && !cargandoPrecios && <p style={{ color: "#f59e0b", fontSize: 13, marginBottom: 14 }}>⚠️ Selecciona una agencia para continuar</p>}
+            <GridTransporte opciones={opciones} precios={preciosAgencias} transporte={transporte} setTransporte={setTransporte} cargandoPrecios={cargandoPrecios} />
+            <p style={{ color: "#475569", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>* Precio calculado para {pesoKg.toFixed(1)}kg. Las agencias se reservan el derecho a cobrar el porte real según el peso y volumen del envío. Las diferencias serán repercutidas al comprador mediante factura separada.</p>
           </Paso>
 
-          {/* PASO 3 desktop */}
-          <Paso numero={3} titulo="Forma de pago" icono="💳" activo={paso === 3} completado={false}>
+          {/* PASO 4 desktop: Forma de pago */}
+          <Paso numero={4} titulo="Forma de pago" icono="💳" activo={paso === 4} completado={false}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 2 }}>
               {rdPagoActivo && (
                 <button onClick={() => setFormaPago("rd_pago")} style={{ padding: "16px 18px", borderRadius: 14, textAlign: "left" as const, cursor: "pointer", background: formaPago === "rd_pago" ? "rgba(37,99,235,0.15)" : "rgba(255,255,255,0.04)", border: formaPago === "rd_pago" ? "2px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>
@@ -898,7 +981,7 @@ export default function CheckoutPage() {
             <span style={{ fontSize: 15, fontWeight: 700 }}>TOTAL</span>
             <span style={{ fontSize: 36, fontWeight: 900, color: "#22c55e" }}>{total.toFixed(2)}€</span>
           </div>
-          <p style={{ color: "#94a3b8", fontSize: 11, textAlign: "center", marginTop: 12 }}>Completa los 3 pasos para confirmar el pedido</p>
+          <p style={{ color: "#94a3b8", fontSize: 11, textAlign: "center", marginTop: 12 }}>Completa los 4 pasos para confirmar el pedido</p>
         </div>
       </aside>
 
