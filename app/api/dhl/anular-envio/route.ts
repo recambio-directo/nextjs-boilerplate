@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const DHL_USER = process.env.DHL_USER!;
 const DHL_KEY = process.env.DHL_KEY!;
@@ -19,16 +25,19 @@ async function getToken(): Promise<string | null> {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const tracking = req.nextUrl.searchParams.get("tracking");
-    if (!tracking) return NextResponse.json({ ok: false, error: "tracking requerido" }, { status: 400 });
+    const { pedidoId } = await req.json();
+    if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
+
+    const { data: pedido } = await supabase.from("pedidos").select("tracking_dhl").eq("id", pedidoId).single();
+    if (!(pedido as any)?.tracking_dhl) return NextResponse.json({ ok: false, error: "Sin tracking DHL" });
 
     const token = await getToken();
     if (!token) return NextResponse.json({ ok: false, error: "Error autenticación DHL" }, { status: 500 });
 
     const res = await fetch(
-      `${DHL_BASE}/track?id=${tracking}&idioma=es&show=both`,
+      `${DHL_BASE}/shipment?Year=0&Tracking=${(pedido as any).tracking_dhl}&Action=DELETE`,
       {
         method: "GET",
         headers: {
@@ -38,16 +47,19 @@ export async function GET(req: NextRequest) {
       }
     );
 
+    const text = await res.text().catch(() => "");
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return NextResponse.json({ ok: false, error: err.Message || "Error tracking DHL" }, { status: 500 });
+      let err: any = {};
+      try { err = JSON.parse(text); } catch {}
+      return NextResponse.json({ ok: false, error: err.Message || text || "Error anulando DHL" }, { status: 500 });
     }
 
-    const data = await res.json();
-    return NextResponse.json({ ok: true, data });
+    await supabase.from("pedidos").update({ tracking_dhl: null, etiqueta_envio_url: null }).eq("id", pedidoId);
+
+    return NextResponse.json({ ok: true });
 
   } catch (e: any) {
-    console.error("Error DHL tracking:", e);
+    console.error("Error DHL anular-envio:", e);
     return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
   }
 }
