@@ -56,6 +56,7 @@ type Producto = {
   producto?: string;
   precio: number;
   impuesto?: number;
+  cantidad?: number;
 };
 
 export type AlbaranProps = {
@@ -185,14 +186,14 @@ export function AlbaranPDF({
           const precioTotal = Number(p.precio) + Number(p.impuesto || 0);
           return (
             <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-              <Text style={styles.colUdVal}>1</Text>
+              <Text style={styles.colUdVal}>{p.cantidad || 1}</Text>
               <Text style={styles.colRefVal}>{p.referencia}</Text>
               <Text style={styles.colDescVal}>
                 {p.descripcion || p.producto || "-"}
                 {p.impuesto && Number(p.impuesto) > 0 ? " (inc. imp/casco " + Number(p.impuesto).toFixed(2) + "EUR)" : ""}
               </Text>
               <Text style={styles.colPrecioVal}>{precioTotal.toFixed(2)} EUR</Text>
-              <Text style={styles.colNetoVal}>{precioTotal.toFixed(2)} EUR</Text>
+              <Text style={styles.colNetoVal}>{(precioTotal * (p.cantidad || 1)).toFixed(2)} EUR</Text>
             </View>
           );
         })}
