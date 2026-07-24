@@ -29,9 +29,9 @@ export async function POST(request: Request) {
     // Productos con referencia Y descripción
     const productosHtml = (productos || []).map((p: any) =>
       `<tr>
-        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#0b1736;border-bottom:1px solid #f3f4f6;">${p.referencia || "-"}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#0b1736;border-bottom:1px solid #f3f4f6;">${p.referencia || "-"}${p.cantidad && p.cantidad > 1 ? ` <span style="color:#2563eb">×${p.cantidad}</span>` : ""}</td>
         <td style="padding:8px 12px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${p.descripcion || p.producto || "-"}</td>
-        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#16a34a;border-bottom:1px solid #f3f4f6;text-align:right;">${Number(p.precio).toFixed(2)}€</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#16a34a;border-bottom:1px solid #f3f4f6;text-align:right;">${((Number(p.precio)) * (p.cantidad || 1)).toFixed(2)}€</td>
       </tr>`
     ).join("");
 

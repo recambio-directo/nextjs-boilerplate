@@ -130,8 +130,8 @@ export async function POST(request: Request) {
               <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
               ${(productos || []).map((p: any) => `
                 <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">
-                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""}</span>
-                  <span style="color:#16a34a;font-weight:700">${(Number(p.precio) + Number(p.impuesto || 0)).toFixed(2)}€</span>
+                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""} ${p.cantidad && p.cantidad > 1 ? `<span style="color:#2563eb;font-weight:700">×${p.cantidad}</span>` : ""}</span>
+                  <span style="color:#16a34a;font-weight:700">${((Number(p.precio) + Number(p.impuesto || 0)) * (p.cantidad || 1)).toFixed(2)}€</span>
                 </div>
               `).join("")}
               <div style="text-align:right;margin-top:12px;font-size:14px">
@@ -186,8 +186,8 @@ export async function POST(request: Request) {
               <p style="font-weight:700;color:#0b1736;margin:0 0 10px;font-size:13px">📦 REFERENCIAS</p>
               ${(productos || []).map((p: any) => `
                 <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px">
-                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""}</span>
-                  <span style="color:#16a34a;font-weight:700">${(Number(p.precio) + Number(p.impuesto || 0)).toFixed(2)}€</span>
+                  <span><strong style="color:#0b1736">${p.referencia}</strong> — ${p.descripcion || ""} ${p.cantidad && p.cantidad > 1 ? `<span style="color:#2563eb;font-weight:700">×${p.cantidad}</span>` : ""}</span>
+                  <span style="color:#16a34a;font-weight:700">${((Number(p.precio) + Number(p.impuesto || 0)) * (p.cantidad || 1)).toFixed(2)}€</span>
                 </div>
               `).join("")}
               <div style="text-align:right;margin-top:12px;font-size:14px">
