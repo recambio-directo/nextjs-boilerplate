@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
           "accept": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ Accounts: DHL_CUSTOMER, Report: "", OnlyDayReport: 0 }),
+        body: JSON.stringify({ Accounts: "ALL", Report: "", OnlyDayReport: 0 }),
       });
       const endDayText = await endDayRes.text();
       console.log("DHL End of Day:", endDayRes.status, endDayText.substring(0, 100));
