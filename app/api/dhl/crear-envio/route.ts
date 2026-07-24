@@ -124,7 +124,9 @@ export async function POST(req: NextRequest) {
     // Guardar tracking en pedido
     await supabase.from("pedidos").update({
       tracking_dhl: shipData.Tracking,
-      etiqueta_dhl_label: shipData.Label, // base64
+      tracking: shipData.Tracking,
+      estado_envio: "preparando",
+      agencia: "DHL",
     }).eq("id", pedidoId);
 
     // Convertir etiqueta base64 a URL guardada en Storage
@@ -142,11 +144,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const trackingUrl = `https://www.dhlparcel.es/es/envio/${shipData.Tracking}`;
+
     return NextResponse.json({
       ok: true,
       trackingNumber: shipData.Tracking,
       lp: shipData.LP?.[0] || null,
       etiquetaUrl,
+      trackingUrl,
     });
 
   } catch (e: any) {
