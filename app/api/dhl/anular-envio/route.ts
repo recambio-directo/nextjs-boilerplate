@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
     const token = await getToken();
     if (!token) return NextResponse.json({ ok: false, error: "Error autenticación DHL" }, { status: 500 });
 
+    const year = new Date().getFullYear().toString().slice(-1);
     const res = await fetch(
-      `${DHL_BASE}/shipment?Year=0&Tracking=${(pedido as any).tracking_dhl}&Action=DELETE`,
+      `${DHL_BASE}/shipment?Year=${year}&Tracking=${(pedido as any).tracking_dhl}&Action=DELETE`,
       {
         method: "GET",
         headers: {
