@@ -69,6 +69,7 @@ function getTrackingUrl(agencia: string, tracking: string): string {
   if (ag.includes("seur")) return `https://www.seur.com/es/particular/herramientas/localizador-de-envios.html?referencia=${tracking}`;
   if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
   if (ag.includes("correos")) return `https://www.correos.es/es/es/herramientas/localizador/envios/detalle?codigoEnvio=${tracking}`;
+  if (ag.includes("dhl")) return `https://www.dhlparcel.es/es/particular/herramientas/seguimiento-de-envios.html?tracking=${tracking}`;
   return `https://www.google.com/search?q=tracking+${agencia}+${tracking}`;
 }
 
@@ -94,6 +95,7 @@ function LogoAgencia({ agencia }: { agencia?: string }) {
   if (ag.includes("gls")) return <span style={{ background: "#00467F", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
   if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
   if (ag.includes("ctt")) return <span style={{ background: "#E8E8E8", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>CTT</span>;
+  if (ag.includes("dhl")) return <span style={{ background: "#FFCC00", color: "#D40511", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>DHL</span>;
   if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>PROPIO</span>;
   return <span style={{ color: "#94a3b8" }}>{agencia || "-"}</span>;
 }
