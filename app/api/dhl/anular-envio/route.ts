@@ -48,15 +48,17 @@ export async function POST(req: NextRequest) {
     );
 
     const text = await res.text().catch(() => "");
-    if (!res.ok) {
-      let err: any = {};
-      try { err = JSON.parse(text); } catch {}
-      return NextResponse.json({ ok: false, error: err.Message || text || "Error anulando DHL" }, { status: 500 });
+    console.log("DHL DELETE status:", res.status, "body:", text.substring(0, 300));
+
+    // DHL devuelve 200 con body vacío cuando la anulación es correcta
+    if (res.status === 200) {
+      await supabase.from("pedidos").update({ tracking_dhl: null, etiqueta_envio_url: null }).eq("id", pedidoId);
+      return NextResponse.json({ ok: true, message: "Envío DHL anulado" });
     }
 
-    await supabase.from("pedidos").update({ tracking_dhl: null, etiqueta_envio_url: null }).eq("id", pedidoId);
-
-    return NextResponse.json({ ok: true });
+    let err: any = {};
+    try { err = JSON.parse(text); } catch {}
+    return NextResponse.json({ ok: false, error: err.Message || text || `Error DHL status ${res.status}`, status: res.status }, { status: 500 });
 
   } catch (e: any) {
     console.error("Error DHL anular-envio:", e);
