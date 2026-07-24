@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const { data: pedido } = await supabase
       .from("pedidos")
-      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, tracking_ctt, tracking_gls, collection_ref_seur, collection_ref_correos_express, estado_envio")
+      .select("agencia, transporte, tracking, tracking_nacex, tracking_seur, tracking_ctt, tracking_gls, tracking_dhl, collection_ref_seur, collection_ref_correos_express, estado_envio")
       .eq("id", pedidoId)
       .single();
 
@@ -130,8 +130,21 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── DHL (pendiente integración) ──────────────────────────────────────────
-    // if (agencia.includes("dhl") && pedido.tracking_dhl) { ... }
+    // ── DHL ──────────────────────────────────────────────────────────────────
+    if (agencia.includes("dhl") && pedido.tracking_dhl) {
+      const res = await fetch(`${baseUrl}/api/dhl/anular-envio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId }),
+      });
+      const data = await res.json();
+      return Response.json({
+        ok: data.ok,
+        agencia: "DHL",
+        referencia: pedido.tracking_dhl,
+        mensaje: data.ok ? "Envío DHL anulado correctamente" : data.error,
+      });
+    }
 
     // Sin agencia integrada (DHL, Mis Medios, etc.)
     return Response.json({
