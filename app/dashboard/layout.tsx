@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   function suscribirCesta(uid: string) {
     const channel = supabase
-      .channel(`cesta-${uid}`)
+      .channel(`cesta-${uid}-${Date.now()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cesta", filter: `user_id=eq.${uid}` },
         () => cargarCesta(uid)
       )
