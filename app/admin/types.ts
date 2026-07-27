@@ -40,6 +40,8 @@ export type Pedido = {
   agencia?: string;
   transporte?: string;
   direccion?: string;
+  albaran_url?: string;
+  etiqueta_envio_url?: string;
 };
 
 export type PagoProveedor = {
