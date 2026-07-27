@@ -146,22 +146,7 @@ export async function POST(req: NextRequest) {
 
     const trackingUrl = `https://www.dhlparcel.es/es/envio/${shipData.Tracking}`;
 
-    // End of Day — transmitir envío a DHL inmediatamente
-    try {
-      const endDayRes = await fetch(`${DHL_BASE}/endday`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "accept": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ Accounts: DHL_CUSTOMER, Report: "PDF", OnlyDayReport: 0 }),
-      });
-      const endDayText = await endDayRes.text();
-      console.log("DHL End of Day:", endDayRes.status, endDayText.substring(0, 100));
-    } catch (e) {
-      console.error("DHL End of Day error (no crítico):", e);
-    }
+    
 
     return NextResponse.json({
       ok: true,
