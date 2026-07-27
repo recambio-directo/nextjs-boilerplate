@@ -29,7 +29,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     iniciar();
+    const interval = setInterval(() => cargarCesta(), 3000);
     return () => {
+      clearInterval(interval);
       if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, []);
