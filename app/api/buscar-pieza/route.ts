@@ -160,16 +160,21 @@ async function guardarCache(
 
 async function buscarEnPiezasPublicadas(
   referencias: string[],
-  tipo: "OEM" | "IAM"
+  tipo: "OEM" | "IAM",
+  proveedoresExcluidos: string[] = []
 ): Promise<PiezaPublicada[]> {
   if (referencias.length === 0) return [];
   const referenciasNormalizadas = referencias.map(normalizar);
-  const { data, error } = await supabase
+  let query = supabase
     .from("piezas_publicadas")
     .select("*")
     .in("referencia_normalizada", referenciasNormalizadas)
     .eq("tipo", tipo)
     .order("precio", { ascending: true });
+  if (proveedoresExcluidos.length > 0) {
+    query = query.not("proveedor_id", "in", `(${proveedoresExcluidos.join(",")})`);
+  }
+  const { data, error } = await query;
   if (error) {
     console.error("Error buscando en piezas_publicadas:", error);
     return [];
@@ -178,18 +183,23 @@ async function buscarEnPiezasPublicadas(
 }
 
 async function buscarStockIAM(
-  equivalencias: { articulo_no: string; marca: string }[]
+  equivalencias: { articulo_no: string; marca: string }[],
+  proveedoresExcluidos: string[] = []
 ): Promise<PiezaPublicada[]> {
   if (equivalencias.length === 0) return [];
   const referenciasNormalizadas = Array.from(
     new Set(equivalencias.map((e) => normalizar(e.articulo_no)))
   );
-  const { data, error } = await supabase
+  let query = supabase
     .from("piezas_publicadas")
     .select("*")
     .in("referencia_normalizada", referenciasNormalizadas)
     .eq("tipo", "IAM")
     .order("precio", { ascending: true });
+  if (proveedoresExcluidos.length > 0) {
+    query = query.not("proveedor_id", "in", `(${proveedoresExcluidos.join(",")})`);
+  }
+  const { data, error } = await query;
   if (error) {
     console.error("Error buscando stock IAM:", error);
     return [];
@@ -233,9 +243,30 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   // -----------------------------------------------------------
+  // OBTENER EXCLUSIONES
+  // -----------------------------------------------------------
+  const cpCliente = searchParams.get("cp") || "";
+  const emailCliente = searchParams.get("email") || "";
+  let proveedoresExcluidos: string[] = [];
+
+  if (cpCliente || emailCliente) {
+    const { data: exclusiones } = await supabase
+      .from("exclusiones_proveedor")
+      .select("proveedor_id, tipo, valor");
+    if (exclusiones && exclusiones.length > 0) {
+      proveedoresExcluidos = exclusiones
+        .filter((exc: any) =>
+          (exc.tipo === "cp" && cpCliente && exc.valor === cpCliente) ||
+          (exc.tipo === "cliente" && emailCliente && exc.valor === emailCliente)
+        )
+        .map((exc: any) => exc.proveedor_id);
+    }
+  }
+
+  // -----------------------------------------------------------
   // PASO 2: Stock OEM directo
   // -----------------------------------------------------------
-  const stockOEM = await buscarEnPiezasPublicadas([referenciaBuscada], "OEM");
+  const stockOEM = await buscarEnPiezasPublicadas([referenciaBuscada], "OEM", proveedoresExcluidos);
 
   // -----------------------------------------------------------
   // PASO 3: Equivalencias IAM
@@ -306,10 +337,11 @@ export async function GET(request: NextRequest) {
   // PASO 4: Buscar stock IAM real en piezas_publicadas
   // -----------------------------------------------------------
   const stockIAMPorEquivalencia = await buscarStockIAM(
-    equivalenciasIAM.map((e) => ({ articulo_no: e.articulo_no, marca: e.marca }))
+    equivalenciasIAM.map((e) => ({ articulo_no: e.articulo_no, marca: e.marca })),
+    proveedoresExcluidos
   );
 
-  const stockIAMDirecto = await buscarEnPiezasPublicadas([referenciaBuscada], "IAM");
+  const stockIAMDirecto = await buscarEnPiezasPublicadas([referenciaBuscada], "IAM", proveedoresExcluidos);
 
   const idsYaIncluidos = new Set(stockIAMPorEquivalencia.map((p) => p.id));
   const stockIAM = [
