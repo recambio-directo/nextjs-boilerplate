@@ -519,8 +519,9 @@ export default function CheckoutPage() {
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
-      await descontarStock(provId, grupo.productos, cantidades);
-      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+      // Lanzar en background sin await — no bloqueamos la redirección
+      descontarStock(provId, grupo.productos, cantidades);
+      if (pedidoInsertado?.id) generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
@@ -593,8 +594,8 @@ export default function CheckoutPage() {
         } catch (e) { console.error("Error DHL:", e); }
       }
       if (emailProveedor) {
-        try { await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }); }
-        catch (e) { console.error("Error email:", e); }
+        // Fire and forget — no bloqueamos
+        fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }).catch(e => console.error("Error email:", e));
       }
     }
     await supabase.from("cesta").delete().eq("user_id", user.id);
@@ -604,6 +605,7 @@ export default function CheckoutPage() {
       setCreditoRD(nuevoCreditoRD);
       if (nuevoCreditoRD === 0) { try { await fetch("/api/send-credito-agotado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteEmail: user.email, clienteNombre: empresa }) }); } catch (e) { console.error(e); } }
     }
+    // Redirigir inmediatamente sin esperar emails ni PDFs
     const { data: perfilTipo } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
     if (perfilTipo?.tipo === "proveedor") window.location.href = "/dashboard/proveedor";
     else window.location.href = "/dashboard/pedidos";
