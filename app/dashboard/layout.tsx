@@ -29,9 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     iniciar();
-    const interval = setInterval(() => cargarCesta(), 5000);
     return () => {
-      clearInterval(interval);
       if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, []);
@@ -52,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUserId(user.id);
     userIdRef.current = user.id;
     cargarCesta(user.id);
+    suscribirCesta(user.id);
     await cargarNotificaciones(user.id);
     const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
     if (perfil?.tipo) setTipoUsuario(perfil.tipo);
@@ -107,6 +106,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!id) return;
     const { data } = await supabase.from("cesta").select("id").eq("user_id", id);
     setTotalCesta(data?.length || 0);
+  }
+
+  function suscribirCesta(uid: string) {
+    const channel = supabase
+      .channel(`cesta-${uid}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cesta", filter: `user_id=eq.${uid}` },
+        () => cargarCesta(uid)
+      )
+      .subscribe();
+    return channel;
   }
 
   async function cargarNotificaciones(uid: string) {
