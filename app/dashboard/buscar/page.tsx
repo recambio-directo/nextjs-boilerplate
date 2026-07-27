@@ -93,7 +93,11 @@ function BuscarPageInner() {
     if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setLoadingCruce(false); return; }
     setLoadingCruce(true);
     try {
-      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}`);
+      const { data: { user: userBuscar } } = await supabase.auth.getUser();
+      const { data: perfilBuscar } = userBuscar ? await supabase.from("usuarios").select("codigo_postal, email").eq("id", userBuscar.id).single() : { data: null };
+      const cpParam = perfilBuscar?.codigo_postal ? `&cp=${encodeURIComponent(perfilBuscar.codigo_postal)}` : "";
+      const emailParam = perfilBuscar?.email ? `&email=${encodeURIComponent(perfilBuscar.email)}` : "";
+      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}${cpParam}${emailParam}`);
       if (!res.ok) {
         console.error("Error llamando a /api/buscar-pieza:", res.status);
         setStockOEM([]); setStockIAM([]);
