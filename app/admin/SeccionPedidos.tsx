@@ -184,25 +184,7 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
                 <td style={tdStyle}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</span>
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <select
-                        value={agenciaTemp[p.id] ?? ""}
-                        onChange={e => setAgenciaTemp(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        style={{ background: "#020617", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 6px", fontSize: 11, cursor: "pointer", outline: "none" }}
-                      >
-                        <option value="">Cambiar...</option>
-                        {AGENCIAS.map(a => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                      {agenciaTemp[p.id] && (
-                        <button
-                          onClick={() => guardarAgencia(p.id)}
-                          disabled={cambiandoAgencia === p.id}
-                          style={{ background: "rgba(22,163,74,0.2)", border: "none", color: "#4ade80", padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 11 }}
-                        >
-                          {cambiandoAgencia === p.id ? "..." : "✓"}
-                        </button>
-                      )}
-                    </div>
+                  
                   </div>
                 </td>
                 <td style={tdStyle}>
