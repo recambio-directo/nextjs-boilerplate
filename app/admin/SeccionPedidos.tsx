@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Pedido, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnFiltro, btnPagina, searchInput } from "./types";
 
@@ -14,6 +14,10 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
   const [paginaPedidos, setPaginaPedidos] = useState(1);
   const [cambiandoAgencia, setCambiandoAgencia] = useState<number | null>(null);
   const [agenciaTemp, setAgenciaTemp] = useState<Record<number, string>>({});
+  const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
+  const [cambiandoAgenciaCompleto, setCambiandoAgenciaCompleto] = useState<number | null>(null);
+  const [reenviandoEmail, setReenviandoEmail] = useState<number | null>(null);
+  const [msgAccion, setMsgAccion] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const PEDIDOS_POR_PAGINA = 20;
 
   const pedidosFiltrados = pedidos.filter(p => {
@@ -37,6 +41,107 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
     cargarDatos();
   }
 
+  async function cambiarAgenciaCompleto(pedido: Pedido, nuevaAgencia: string) {
+    setCambiandoAgenciaCompleto(pedido.id);
+    setMsgAccion(null);
+    try {
+      // 1. Anular en agencia actual
+      await fetch("/api/anular-envio-agencia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId: pedido.id }),
+      });
+      // 2. Actualizar agencia en Supabase
+      await supabase.from("pedidos").update({
+        agencia: nuevaAgencia,
+        transporte: nuevaAgencia,
+        tracking: null,
+        tracking_nacex: null,
+        tracking_dhl: null,
+        tracking_gls: null,
+        tracking_ctt: null,
+        tracking_seur: null,
+        etiqueta_envio_url: null,
+        collection_ref_seur: null,
+        collection_ref_correos_express: null,
+      }).eq("id", pedido.id);
+      // 3. Crear envío en nueva agencia
+      const agLower = nuevaAgencia.toLowerCase();
+      let endpoint = "";
+      if (agLower.includes("nacex")) endpoint = "/api/nacex/crear-envio";
+      else if (agLower.includes("mrw")) endpoint = "/api/mrw/crear-envio";
+      else if (agLower.includes("gls")) endpoint = "/api/gls/crear-envio";
+      else if (agLower.includes("dhl")) endpoint = "/api/dhl/crear-envio";
+      else if (agLower.includes("seur")) endpoint = "/api/seur/crear-envio";
+      else if (agLower.includes("correos")) endpoint = "/api/correos-express/crear-envio";
+      else if (agLower.includes("ctt")) endpoint = "/api/ctt/crear-envio";
+
+      if (endpoint) {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pedidoId: pedido.id }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setMsgAccion({ id: pedido.id, msg: `✅ Agencia cambiada a ${nuevaAgencia} correctamente`, ok: true });
+        } else {
+          setMsgAccion({ id: pedido.id, msg: `⚠️ Agencia actualizada pero error al crear envío: ${data.error || "Error desconocido"}`, ok: false });
+        }
+      } else {
+        setMsgAccion({ id: pedido.id, msg: `✅ Agencia cambiada a ${nuevaAgencia} (sin integración API)`, ok: true });
+      }
+      cargarDatos();
+    } catch (e: any) {
+      setMsgAccion({ id: pedido.id, msg: `❌ Error: ${e.message}`, ok: false });
+    }
+    setCambiandoAgenciaCompleto(null);
+    setAgenciaTemp(prev => { const n = { ...prev }; delete n[pedido.id]; return n; });
+  }
+
+  async function reenviarEmailProveedor(pedido: Pedido) {
+    setReenviandoEmail(pedido.id);
+    setMsgAccion(null);
+    try {
+      const proveedorId = (pedido.productos || [])[0]?.proveedor_id;
+      let emailProveedor = "", nombreProveedor = (pedido.productos || [])[0]?.proveedor_nombre || "";
+      if (proveedorId) {
+        const { data: prov } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", proveedorId).single();
+        emailProveedor = prov?.email || "";
+        nombreProveedor = prov?.nombre_empresa || nombreProveedor;
+      }
+      if (!emailProveedor) { setMsgAccion({ id: pedido.id, msg: "❌ No se encontró email del proveedor", ok: false }); setReenviandoEmail(null); return; }
+      const res = await fetch("/api/enviar-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proveedorEmail: emailProveedor,
+          proveedorNombre: nombreProveedor,
+          productos: pedido.productos || [],
+          cliente: pedido.cliente_nombre || pedido.cliente_email,
+          clienteEmail: pedido.cliente_email,
+          telefono: (pedido as any).cliente_telefono || "",
+          cif: "",
+          direccion: pedido.direccion || "",
+          agencia: pedido.agencia || pedido.transporte,
+          formaPago: pedido.forma_pago,
+          subtotal: pedido.subtotal || pedido.total,
+          iva: (pedido.total || 0) * 0.21,
+          total: pedido.total,
+          codigo: pedido.codigo || `#${pedido.id}`,
+          fecha: pedido.created_at,
+          pedidoId: pedido.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) setMsgAccion({ id: pedido.id, msg: `✅ Email reenviado a ${emailProveedor}`, ok: true });
+      else setMsgAccion({ id: pedido.id, msg: `❌ Error al reenviar: ${data.error}`, ok: false });
+    } catch (e: any) {
+      setMsgAccion({ id: pedido.id, msg: `❌ Error: ${e.message}`, ok: false });
+    }
+    setReenviandoEmail(null);
+  }
+
   return (
     <div>
       <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>PEDIDOS</h1>
@@ -55,7 +160,8 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
             {pedidosPagina.length === 0 ? (
               <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
             ) : pedidosPagina.map(p => (
-              <tr key={p.id} style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
+              <React.Fragment key={p.id}>
+              <tr style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
                 <td style={tdStyle}>
                   <span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>
                   {p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}
@@ -106,12 +212,63 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
                 </td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
                 <td style={tdStyle}>
-                  {!p.anulado && p.estado_envio !== "entregado" && (
-                    <button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>
-                  )}
-                  {p.estado_envio==="entregado" && <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 700 }}>✅</span>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {!p.anulado && p.estado_envio !== "entregado" && (
+                      <button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>
+                    )}
+                    <button onClick={() => setPedidoExpandido(pedidoExpandido === p.id ? null : p.id)} style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                      {pedidoExpandido === p.id ? "▲ Cerrar" : "⚙️ Gestionar"}
+                    </button>
+                  </div>
                 </td>
               </tr>
+              {pedidoExpandido === p.id && (
+                <tr>
+                  <td colSpan={9} style={{ padding: "0 0 12px 0", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb" }}>
+                    <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+                      {msgAccion?.id === p.id && (
+                        <div style={{ background: msgAccion.ok ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${msgAccion.ok ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: msgAccion.ok ? "#4ade80" : "#f87171" }}>
+                          {msgAccion.msg}
+                        </div>
+                      )}
+                      <div>
+                        <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>🚚 CAMBIO DE AGENCIA (anula actual + crea en nueva)</p>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" as const }}>
+                          <select value={agenciaTemp[p.id] ?? ""} onChange={e => setAgenciaTemp(prev => ({ ...prev, [p.id]: e.target.value }))} style={{ background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", fontSize: 13, cursor: "pointer", outline: "none" }}>
+                            <option value="">Seleccionar nueva agencia...</option>
+                            {AGENCIAS.map(a => <option key={a} value={a}>{a}</option>)}
+                          </select>
+                          {agenciaTemp[p.id] && (
+                            <>
+                              <button onClick={() => cambiarAgenciaCompleto(p, agenciaTemp[p.id])} disabled={cambiandoAgenciaCompleto === p.id} style={{ background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                                {cambiandoAgenciaCompleto === p.id ? "Procesando..." : "🔄 Cambiar agencia + API"}
+                              </button>
+                              <button onClick={() => guardarAgencia(p.id)} disabled={cambiandoAgencia === p.id} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                                {cambiandoAgencia === p.id ? "..." : "Solo actualizar campo"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>📧 REENVÍO DE EMAILS</p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                          <button onClick={() => reenviarEmailProveedor(p)} disabled={reenviandoEmail === p.id} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                            {reenviandoEmail === p.id ? "Enviando..." : "📦 Reenviar email proveedor"}
+                          </button>
+                          {p.albaran_url && (
+                            <a href={p.albaran_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>📄 Ver albarán</a>
+                          )}
+                          {(p as any).etiqueta_envio_url && (
+                            <a href={(p as any).etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>🏷️ Ver etiqueta</a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
