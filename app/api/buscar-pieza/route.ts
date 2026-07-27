@@ -253,6 +253,8 @@ export async function GET(request: NextRequest) {
     const { data: exclusiones } = await supabase
       .from("exclusiones_proveedor")
       .select("proveedor_id, tipo, valor");
+    console.log("Exclusiones en BD:", JSON.stringify(exclusiones));
+    console.log("CP cliente:", cpCliente, "Email cliente:", emailCliente);
     if (exclusiones && exclusiones.length > 0) {
       proveedoresExcluidos = exclusiones
         .filter((exc: any) =>
@@ -261,6 +263,7 @@ export async function GET(request: NextRequest) {
         )
         .map((exc: any) => exc.proveedor_id);
     }
+    console.log("Proveedores excluidos:", proveedoresExcluidos);
   }
 
   // -----------------------------------------------------------
