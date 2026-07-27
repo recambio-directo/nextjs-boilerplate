@@ -60,13 +60,16 @@ export async function POST(request: Request) {
 
     // Elegir la etiqueta correcta según la agencia del pedido
     const agenciaPedido = (pedidoData?.agencia || pedidoData?.transporte || agencia || "").toLowerCase();
+    const esMisMedios = agenciaPedido.includes("medios") || agenciaPedido === "mis medios";
     const esNacex = agenciaPedido.includes("nacex");
     const esMrw   = agenciaPedido.includes("mrw");
     const esSeur  = agenciaPedido.includes("seur");
     const esCex   = agenciaPedido.includes("correos");
 
     let etiquetaUrl: string | null = null;
-    if (esNacex && pedidoData?.etiqueta_nacex_url) {
+    if (esMisMedios) {
+      etiquetaUrl = null;
+    } else if (esNacex && pedidoData?.etiqueta_nacex_url) {
       etiquetaUrl = pedidoData.etiqueta_nacex_url;
     } else if (esMrw && pedidoData?.etiqueta_mrw_url) {
       etiquetaUrl = pedidoData.etiqueta_mrw_url;
@@ -216,7 +219,7 @@ export async function POST(request: Request) {
       : esCex  ? `etiqueta-correos-express-${codigo}.pdf`
       : `etiqueta-envio-${codigo}.pdf`;
 
-    const mailEmbalaje = await resend.emails.send({
+    const mailEmbalaje = !esMisMedios ? await resend.emails.send({
       from: "Recambio Directo <info@recambio-directo.com>",
       to: proveedorEmail,
       subject: `📦 Instrucciones de embalaje y etiqueta — Pedido ${codigo}`,
@@ -281,7 +284,7 @@ export async function POST(request: Request) {
       attachments: etiquetaBase64
         ? [{ filename: nombreEtiqueta, content: etiquetaBase64 }]
         : [],
-    });
+    }) : null;
 
     // ── RESTAR STOCK EN SERVIDOR ─────────────────────────────────────────────
     try {
@@ -331,7 +334,7 @@ export async function POST(request: Request) {
       mails: {
         proveedor: mailProveedor.data?.id || null,
         cliente: mailCliente.data?.id || null,
-        embalaje: mailEmbalaje.data?.id || null,
+        embalaje: mailEmbalaje?.data?.id || null,
       }
     });
 
