@@ -212,11 +212,10 @@ function precioDHL(pesoKg: number): number {
 }
 
 // SEUR — tabla real del contrato firmado (columnas peninsulares).
-// ⚠️ Mapeo de zonas ASUMIDO, no confirmado por escrito por SEUR:
-// Provincial→Provincial, Corto→Regional, Medio→Peninsular, Largo→Peninsular+
-// ⚠️ Sin recargo de recogida fuera de domicilio (no confirmado). Si SEUR
-// factura algún recargo adicional en la práctica, el margen real será menor
-// al calculado hasta que se corrija esta tabla.
+// Mapeo de zonas: Provincial→Provincial, Corto→Regional, Medio→Peninsular,
+// Largo→Peninsular+
+// Recargo de recogida fuera de domicilio CONFIRMADO por Yasser: 0,60€ fijo
+// (no es un mínimo variable como CTT, es un importe plano por envío).
 const TABLA_SEUR: TramoZona[] = [
   { hasta: 1, Provincial: 4.30, Regional: 4.77, Peninsular: 4.77, "Peninsular+": 4.77 },
   { hasta: 2, Provincial: 4.76, Regional: 5.29, Peninsular: 5.29, "Peninsular+": 5.29 },
@@ -234,17 +233,40 @@ const TABLA_SEUR: TramoZona[] = [
   { hasta: 30, Provincial: 16.73, Regional: 18.60, Peninsular: 18.60, "Peninsular+": 25.10 },
 ];
 const SEUR_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.47, Regional: 0.51, Peninsular: 0.51, "Peninsular+": 0.70 };
+function recargoRecogidaSEUR(): number {
+  return 0.60; // confirmado por Yasser
+}
+// Colchón de seguridad: 1,50€ fijo por riesgo de "bulto no encintable" (1,50€)
+// dado que muchas piezas de recambio tienen formas irregulares (tubos de
+// escape, paragolpes, etc.) y podrían caer en esa categoría. Revisar y
+// ajustar cuando se tengan facturas reales que confirmen la frecuencia real.
+function colchonBultoIrregularSEUR(): number {
+  return 1.50;
+}
+
+// GLS — tabla "24 HORAS" (servicio estándar). Solo 3 zonas: Provincial/
+// Regional/Nacional. GLS no distingue Peninsular de Peninsular+, igual que
+// MRW, así que ambas columnas usan el mismo valor "Nacional".
+const TABLA_GLS: TramoZona[] = [
+  { hasta: 1, Provincial: 5.40, Regional: 6.10, Peninsular: 6.70, "Peninsular+": 6.70 },
+  { hasta: 3, Provincial: 5.60, Regional: 6.20, Peninsular: 7.00, "Peninsular+": 7.00 },
+  { hasta: 5, Provincial: 5.80, Regional: 6.40, Peninsular: 7.30, "Peninsular+": 7.30 },
+  { hasta: 10, Provincial: 6.10, Regional: 6.90, Peninsular: 8.20, "Peninsular+": 8.20 },
+  { hasta: 15, Provincial: 6.50, Regional: 8.50, Peninsular: 10.50, "Peninsular+": 10.50 },
+];
+const GLS_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.34, Regional: 0.44, Peninsular: 0.54, "Peninsular+": 0.54 };
+// Recargo Interciudad confirmado en tarifa: 3,00€ fijo por envío (siempre
+// aplica en tu caso, ya que nunca recoges en tu propia dirección)
+function recargoInterciudadGLS(): number {
+  return 3.00;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // 3. Función pública del motor
 // ─────────────────────────────────────────────────────────────────────────
 export type PrecioAgencia = { key: string; precio: number };
 
-const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL"];
-// SEUR retirada temporalmente: sin confirmación de recargo de recogida fuera
-// de domicilio, el precio calculado parecía demasiado barato para ser fiable.
-// Reactivar en cuanto Yasser/soporte SEUR confirme el dato o llegue una
-// factura real que permita verificarlo.
+const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL", "SEUR", "GLS"];
 
 export async function calcularPreciosAgencias(
   pesoKg: number,
@@ -272,7 +294,9 @@ export async function calcularPreciosAgencias(
     } else if (agencia === "DHL") {
       costeReal = precioDHL(pesoKg);
     } else if (agencia === "SEUR") {
-      costeReal = buscarPorZona(TABLA_SEUR, SEUR_KG_ADIC, pesoKg, zona);
+      costeReal = buscarPorZona(TABLA_SEUR, SEUR_KG_ADIC, pesoKg, zona) + recargoRecogidaSEUR() + colchonBultoIrregularSEUR();
+    } else if (agencia === "GLS") {
+      costeReal = buscarPorZona(TABLA_GLS, GLS_KG_ADIC, pesoKg, zona) + recargoInterciudadGLS();
     } else {
       continue;
     }
