@@ -78,6 +78,7 @@ function ChatPageInner() {
   const mensajesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userIdRef = useRef<string | null>(null);
+  const chatActivoRef = useRef<number | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -101,6 +102,33 @@ function ChatPageInner() {
     userIdRef.current = user.id;
     await cargarConversaciones(user.id);
     setCargando(false);
+    suscribirRealtime(user.id);
+  }
+
+  function suscribirRealtime(uid: string) {
+    supabase
+      .channel(`chat-mensajes-${uid}-${Date.now()}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "mensajes",
+      }, (payload) => {
+        const nuevo = payload.new as Mensaje;
+        // Solo añadir si pertenece al chat activo
+        if (nuevo.conversacion_id === chatActivoRef.current) {
+          setMensajes(prev => {
+            if (prev.some(m => m.id === nuevo.id)) return prev;
+            return [...prev, nuevo];
+          });
+        }
+        // Actualizar último mensaje en la lista de conversaciones
+        setConversaciones(prev => prev.map(c =>
+          c.id === nuevo.conversacion_id
+            ? { ...c, ultimo_mensaje: nuevo.mensaje, updated_at: nuevo.created_at }
+            : c
+        ).sort((a, b) => new Date(b.updated_at || "").getTime() - new Date(a.updated_at || "").getTime()));
+      })
+      .subscribe();
   }
 
   async function cargarConversaciones(uid: string) {
@@ -108,15 +136,18 @@ function ChatPageInner() {
     const { data: conv2 } = await supabase.from("conversaciones").select("*").eq("user2_id", uid).order("updated_at", { ascending: false });
     const todasConvs = [...(conv1 || []), ...(conv2 || [])];
     if (todasConvs.length === 0) { await cargarDesdeMessagesPedido(uid); return; }
-    const convsConNombre: Conversacion[] = await Promise.all(todasConvs.map(async (conv) => {
+    // Una sola query para todos los perfiles en lugar de N queries
+    const otrosIds = todasConvs.map(conv => conv.user1_id === uid ? conv.user2_id : conv.user1_id).filter(Boolean);
+    const { data: perfiles } = await supabase.from("usuarios").select("id, nombre_empresa, email").in("id", otrosIds);
+    const perfilesMap = new Map((perfiles || []).map(p => [p.id, p]));
+    const convsConNombre: Conversacion[] = todasConvs.map(conv => {
       const otroId = conv.user1_id === uid ? conv.user2_id : conv.user1_id;
-      if (!otroId) return { ...conv, participante_nombre: "Usuario", participante_id: otroId };
-      const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, email").eq("id", otroId).single();
+      const perfil = perfilesMap.get(otroId);
       return { ...conv, participante_nombre: perfil?.nombre_empresa || perfil?.email || "Usuario", participante_id: otroId };
-    }));
+    });
     const ordenadas = convsConNombre.sort((a, b) => new Date(b.updated_at || "").getTime() - new Date(a.updated_at || "").getTime());
     setConversaciones(ordenadas);
-    if (convParam) { setChatActivo(parseInt(convParam)); if (isMobile) setVistaMovil("chat"); }
+    if (convParam) { const id = parseInt(convParam); setChatActivo(id); chatActivoRef.current = id; setVistaMovil("chat"); }
   }
 
   async function cargarDesdeMessagesPedido(uid: string) {
@@ -170,10 +201,10 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
     const convActiva = conversaciones.find(c => c.id === chatActivo);
     const esConvReal = convActiva?.user2_id && convActiva.user2_id !== "";
     if (esConvReal) {
-      const { data, error } = await supabase.from("mensajes").insert({ conversacion_id: chatActivo, user_id: userId, mensaje: texto.trim(), emisor: "cliente", leido: false }).select().single();
+      const { data, error } = await supabase.from("mensajes").insert({ conversacion_id: chatActivo, user_id: userId, mensaje: texto.trim(), emisor: "usuario", leido: false }).select().single();
       if (!error && data) { setMensajes(prev => [...prev, data]); await supabase.from("conversaciones").update({ ultimo_mensaje: texto.trim(), updated_at: new Date().toISOString() }).eq("id", chatActivo); setConversaciones(prev => prev.map(c => c.id === chatActivo ? { ...c, ultimo_mensaje: texto.trim(), updated_at: new Date().toISOString() } : c)); }
     } else {
-      const { data, error } = await supabase.from("mensajes_pedido").insert({ pedido_id: chatActivo, emisor: "cliente", mensaje: texto.trim(), user_id: userId, leido: false }).select().single();
+      const { data, error } = await supabase.from("mensajes_pedido").insert({ pedido_id: chatActivo, emisor: "usuario", mensaje: texto.trim(), user_id: userId, leido: false }).select().single();
       if (!error && data) setMensajes(prev => [...prev, { id: data.id, conversacion_id: chatActivo, user_id: userId, mensaje: texto.trim(), emisor: "cliente", created_at: new Date().toISOString(), leido: false }]);
     }
     setTexto("");
@@ -199,9 +230,10 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
 
   async function borrarConversacion(convId: number) {
     if (!confirm("¿Eliminar esta conversación?")) return;
-    await supabase.from("mensajes").delete().eq("conversacion_id", convId).eq("user_id", userId);
+    await supabase.from("mensajes").delete().eq("conversacion_id", convId);
+    await supabase.from("conversaciones").delete().eq("id", convId);
     setConversaciones(prev => prev.filter(c => c.id !== convId));
-    if (chatActivo === convId) { setChatActivo(null); setVistaMovil("lista"); }
+    if (chatActivo === convId) { setChatActivo(null); chatActivoRef.current = null; setVistaMovil("lista"); }
   }
 
   async function cargarFichaProveedor(participanteId?: string) {
@@ -222,6 +254,7 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
 
   function abrirChat(convId: number) {
     setChatActivo(convId);
+    chatActivoRef.current = convId;
     setFichaVisible(false);
     if (isMobile) setVistaMovil("chat");
   }
