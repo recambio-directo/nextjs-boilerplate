@@ -450,7 +450,10 @@ export default function CheckoutPage() {
 
   const numProveedores = new Set(productos.map(p => p.proveedor_id)).size;
   const grupos = getGruposPorProveedor();
-  const opciones = TODAS_OPCIONES.filter(o => agenciasDisponibles.includes(o.key));
+  const opciones = TODAS_OPCIONES.filter(o => 
+  agenciasDisponibles.includes(o.key) && 
+  (o.key === "Mis Medios" || preciosAgencias.length === 0 || preciosAgencias.some(p => p.key === o.key))
+);
 
   async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string, numeroEnvio?: string, numeroSolicitud?: string) {
     try {
