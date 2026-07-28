@@ -234,15 +234,21 @@ export default function ProveedorPage() {
   async function cargarCesta(uid: string) {
     const { data } = await supabase.from("cesta").select("id").eq("user_id", uid);
     setTotalCesta(data?.length || 0);
+
+    // Realtime para actualizar contador instantáneamente
+    supabase
+      .channel(`cesta-prov-${uid}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cesta", filter: `user_id=eq.${uid}` },
+        async () => {
+          const { data: cestaData } = await supabase.from("cesta").select("id").eq("user_id", uid);
+          setTotalCesta(cestaData?.length || 0);
+        }
+      )
+      .subscribe();
   }
 
   async function cargarNotificaciones(uid: string) {
-    const KEY = `rd_notif_last_prov_${uid}`;
     const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
-    const ultimo = parseInt(localStorage.getItem(KEY) || "0");
-    const ahora = Date.now();
-    if (ahora - ultimo < 60000) return;
-    localStorage.setItem(KEY, String(ahora));
     const vistasAntes = new Set<string>(JSON.parse(localStorage.getItem(VISTAS_KEY) || "[]"));
     const notifsTotales: any[] = [];
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
@@ -269,7 +275,7 @@ export default function ProveedorPage() {
     });
     notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     setNotifs(notifsTotales);
-    localStorage.setItem(VISTAS_KEY, JSON.stringify(notifsTotales.map(n => String(n.id))));
+    // NO marcar como vistas aquí — solo se marcan cuando el proveedor abre la campanita
   }
 
   async function cargarDatos() {
