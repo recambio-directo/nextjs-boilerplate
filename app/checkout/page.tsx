@@ -522,8 +522,8 @@ export default function CheckoutPage() {
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
-      // Lanzar en background sin await — no bloqueamos la redirección
-      descontarStock(provId, grupo.productos, cantidades);
+      // Descontar stock en servidor — no bloqueamos la redirección
+      if (pedidoInsertado?.id) fetch("/api/descontar-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) }).catch(e => console.error("Error stock:", e));
       if (pedidoInsertado?.id) generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
