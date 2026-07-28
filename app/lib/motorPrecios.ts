@@ -240,7 +240,11 @@ const SEUR_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.47, Regional: 0.51, Pe
 // ─────────────────────────────────────────────────────────────────────────
 export type PrecioAgencia = { key: string; precio: number };
 
-const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL", "SEUR"];
+const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL"];
+// SEUR retirada temporalmente: sin confirmación de recargo de recogida fuera
+// de domicilio, el precio calculado parecía demasiado barato para ser fiable.
+// Reactivar en cuanto Yasser/soporte SEUR confirme el dato o llegue una
+// factura real que permita verificarlo.
 
 export async function calcularPreciosAgencias(
   pesoKg: number,
