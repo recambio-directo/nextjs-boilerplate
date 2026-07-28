@@ -203,15 +203,33 @@ function GridTransporte({ opciones, precios, transporte, setTransporte, cargando
     );
   }
 
+  // Ordenar de más barata a más cara, dejando "Mis Medios" siempre al final
+  const opcionesOrdenadas = [...opciones].sort((a, b) => {
+    if (a.key === "Mis Medios") return 1;
+    if (b.key === "Mis Medios") return -1;
+    const precioA = precios.find(p => p.key === a.key)?.precio ?? Infinity;
+    const precioB = precios.find(p => p.key === b.key)?.precio ?? Infinity;
+    return precioA - precioB;
+  });
+
+  // La más barata es la primera que no sea "Mis Medios"
+  const masBarataKey = opcionesOrdenadas.find(o => o.key !== "Mis Medios")?.key;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {opciones.map(({ key, label, color, textColor }) => {
+      {opcionesOrdenadas.map(({ key, label, color, textColor }) => {
         const sel = transporte === key;
         const esMisMedios = key === "Mis Medios";
+        const esMasBarata = key === masBarataKey;
         const precioAgencia = precios.find(p => p.key === key)?.precio ?? 0;
         const { recogida, entrega, recogidaHoy } = calcularFechasEnvio(key);
         return (
-          <button key={key} onClick={() => setTransporte(key)} style={{ borderRadius: 12, padding: "10px 10px", cursor: "pointer", textAlign: "left" as const, background: sel ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.03)", border: sel ? "2px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", color: "white", display: "flex", flexDirection: "column" as const, gap: 4 }}>
+          <button key={key} onClick={() => setTransporte(key)} style={{ position: "relative" as const, borderRadius: 12, padding: "10px 10px", cursor: "pointer", textAlign: "left" as const, background: sel ? "rgba(37,99,235,0.08)" : "rgba(255,255,255,0.03)", border: sel ? "2px solid #2563eb" : esMasBarata ? "1px solid rgba(74,222,128,0.4)" : "1px solid rgba(255,255,255,0.08)", color: "white", display: "flex", flexDirection: "column" as const, gap: 4 }}>
+            {esMasBarata && !sel && (
+              <span style={{ position: "absolute" as const, top: -8, right: 8, background: "#16a34a", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 6, letterSpacing: 0.3 }}>
+                MÁS BARATA
+              </span>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ background: color, color: textColor, fontWeight: 900, fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>{label}</span>
               <span style={{ fontWeight: 900, fontSize: 13, color: sel ? "#60a5fa" : esMisMedios ? "#4ade80" : "white" }}>{esMisMedios ? "Gratis" : `${precioAgencia.toFixed(2)}€`}</span>
