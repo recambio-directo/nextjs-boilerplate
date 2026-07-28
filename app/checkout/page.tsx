@@ -6,6 +6,7 @@ import { pdf } from "@react-pdf/renderer";
 import React from "react";
 import { AlbaranPDF, EtiquetaEnvioPDF } from "../lib/AlbaranPDF";
 import StripeCheckout, { calcularRecargo } from "../components/StripeCheckout";
+import { calcularPreciosAgencias } from "../lib/motorPrecios";
 
 type Producto = {
   id: number;
@@ -100,31 +101,11 @@ const TODAS_OPCIONES = [
   { key: "Mis Medios",      label: "Mis Medios",      color: "#7c3aed", textColor: "#fff" },
 ];
 
-// ── Tipo de resultado que devolverá el motor de cálculo real ──────────────────
+// ── Tipo de resultado que devuelve el motor de cálculo real ──────────────────
 type PrecioAgencia = {
   key: string;
   precio: number; // ya con margen incluido
 };
-
-// ── PLACEHOLDER del motor de cálculo. ────────────────────────────────────────
-// El día que tengamos las 6 agencias con su lógica cerrada, se sustituye el
-// contenido de esta función por la llamada real (API de cada agencia / tablas
-// en Supabase + zona CP↔CP + margen). El resto del checkout no necesita tocarse.
-async function calcularPreciosAgencias(
-  pesoKg: number,
-  cpOrigen: string,
-  cpDestino: string,
-  agenciasDisponibles: string[]
-): Promise<PrecioAgencia[]> {
-  // Simula un pequeño delay de red, como tendría la llamada real
-  await new Promise(r => setTimeout(r, 400));
-
-  return agenciasDisponibles
-    .filter(key => key !== "Mis Medios")
-    .map(key => ({ key, precio: 7.5 }))
-    .concat([{ key: "Mis Medios", precio: 0 }])
-    .filter(p => agenciasDisponibles.includes(p.key));
-}
 
 // ── Selector visual de peso (chips por tramo + modo preciso con slider) ───────
 function SelectorPeso({ pesoKg, tramoPeso, onChange, compacto }: {
@@ -342,15 +323,16 @@ export default function CheckoutPage() {
     setPaso(3);
     setCargandoPrecios(true);
     try {
-      // CP origen: por simplicidad se usa el del primer proveedor de la cesta.
-      // Si hay varios proveedores, el motor real deberá calcular por grupo.
+      // Provincia de origen: se usa la del primer proveedor de la cesta.
+      // Si en el futuro hay varios proveedores con provincias distintas,
+      // el motor debería calcularse por grupo en vez de una sola vez.
       const primerProveedorId = productos[0]?.proveedor_id;
-      let cpOrigen = "";
+      let provinciaOrigen = "";
       if (primerProveedorId) {
-        const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", primerProveedorId).single();
-        cpOrigen = prov?.codigo_postal || "";
+        const { data: prov } = await supabase.from("usuarios").select("provincia").eq("id", primerProveedorId).single();
+        provinciaOrigen = prov?.provincia || "";
       }
-      const resultado = await calcularPreciosAgencias(pesoKg, cpOrigen, codigoPostal, agenciasDisponibles);
+      const resultado = await calcularPreciosAgencias(pesoKg, provinciaOrigen, provincia, agenciasDisponibles);
       setPreciosAgencias(resultado);
     } finally {
       setCargandoPrecios(false);
