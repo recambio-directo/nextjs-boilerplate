@@ -1,8 +1,12 @@
 // lib/motorPrecios.ts
 //
 // Motor de cálculo de tarifas de transporte.
-// Agencias activas: CTT, MRW, NACEX, Correos Express, DHL.
-// SEUR y GLS quedan excluidas hasta cerrar sus condiciones (recargos/zonas).
+// Agencias activas: CTT, MRW, NACEX, Correos Express, DHL, SEUR.
+// GLS queda excluida hasta cerrar su tarifa.
+//
+// ⚠️ SEUR es una ESTIMACIÓN PROVISIONAL: el mapeo de zonas y la ausencia de
+// recargo de recogida no están confirmados por escrito por SEUR. Revisar en
+// cuanto lleguen facturas reales o respuesta de Yasser/ticket de soporte.
 //
 // Margen comercial fijo aplicado sobre el coste real de cada agencia.
 export const MARGEN_COMERCIAL = 1.5;
@@ -205,12 +209,36 @@ function precioDHL(pesoKg: number): number {
   return base * (1 + DHL_COMBUSTIBLE);
 }
 
+// SEUR — tabla real del contrato firmado (columnas peninsulares).
+// ⚠️ Mapeo de zonas ASUMIDO, no confirmado por escrito por SEUR:
+// Provincial→Provincial, Corto→Regional, Medio→Peninsular, Largo→Peninsular+
+// ⚠️ Sin recargo de recogida fuera de domicilio (no confirmado). Si SEUR
+// factura algún recargo adicional en la práctica, el margen real será menor
+// al calculado hasta que se corrija esta tabla.
+const TABLA_SEUR: TramoZona[] = [
+  { hasta: 1, Provincial: 4.30, Regional: 4.77, Peninsular: 4.77, "Peninsular+": 4.77 },
+  { hasta: 2, Provincial: 4.76, Regional: 5.29, Peninsular: 5.29, "Peninsular+": 5.29 },
+  { hasta: 3, Provincial: 5.08, Regional: 5.64, Peninsular: 5.64, "Peninsular+": 5.64 },
+  { hasta: 4, Provincial: 5.39, Regional: 5.99, Peninsular: 5.99, "Peninsular+": 5.99 },
+  { hasta: 5, Provincial: 5.71, Regional: 6.33, Peninsular: 6.33, "Peninsular+": 6.33 },
+  { hasta: 6, Provincial: 6.22, Regional: 6.92, Peninsular: 6.92, "Peninsular+": 7.02 },
+  { hasta: 7, Provincial: 6.66, Regional: 7.38, Peninsular: 7.38, "Peninsular+": 7.64 },
+  { hasta: 8, Provincial: 7.07, Regional: 7.86, Peninsular: 7.86, "Peninsular+": 8.33 },
+  { hasta: 9, Provincial: 7.50, Regional: 8.34, Peninsular: 8.34, "Peninsular+": 9.14 },
+  { hasta: 10, Provincial: 7.93, Regional: 8.82, Peninsular: 8.82, "Peninsular+": 10.21 },
+  { hasta: 15, Provincial: 9.65, Regional: 10.72, Peninsular: 10.72, "Peninsular+": 12.78 },
+  { hasta: 20, Provincial: 11.92, Regional: 13.25, Peninsular: 13.25, "Peninsular+": 16.35 },
+  { hasta: 25, Provincial: 14.56, Regional: 16.18, Peninsular: 16.18, "Peninsular+": 21.03 },
+  { hasta: 30, Provincial: 16.73, Regional: 18.60, Peninsular: 18.60, "Peninsular+": 25.10 },
+];
+const SEUR_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.47, Regional: 0.51, Peninsular: 0.51, "Peninsular+": 0.70 };
+
 // ─────────────────────────────────────────────────────────────────────────
 // 3. Función pública del motor
 // ─────────────────────────────────────────────────────────────────────────
 export type PrecioAgencia = { key: string; precio: number };
 
-const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL"];
+const AGENCIAS_ACTIVAS = ["CTT Express", "MRW", "NACEX", "Correos Express", "DHL", "SEUR"];
 
 export async function calcularPreciosAgencias(
   pesoKg: number,
@@ -237,6 +265,8 @@ export async function calcularPreciosAgencias(
       costeReal = precioNacex(pesoKg);
     } else if (agencia === "DHL") {
       costeReal = precioDHL(pesoKg);
+    } else if (agencia === "SEUR") {
+      costeReal = buscarPorZona(TABLA_SEUR, SEUR_KG_ADIC, pesoKg, zona);
     } else {
       continue;
     }
