@@ -178,13 +178,15 @@ const TABLA_MRW: TramoZona[] = [
 const MRW_KG_ADIC: TramoZona = { hasta: 0, Provincial: 2.32, Regional: 3.58, Peninsular: 4.60, "Peninsular+": 4.60 };
 // MRW: combustible y recogida en tercera ciudad ya incluidos en el precio (confirmado)
 
-// NACEX PlusPack — tarifa plana por rango de peso, sin zonas (ya es "Intercity")
+// NACEX e-N@CEX — tarifa plana por rango de peso, sin zonas (confirmado "tercera
+// ciudad" con el delegado de zona). Sustituye a la tarifa PlusPack anterior,
+// ya que solo existe un contrato vigente con NACEX.
 const TABLA_NACEX: { hasta: number; precio: number }[] = [
-  { hasta: 2, precio: 7.80 },
-  { hasta: 5, precio: 8.80 },
-  { hasta: 10, precio: 9.80 },
-  { hasta: 15, precio: 9.80 },
-  { hasta: 20, precio: 9.80 },
+  { hasta: 2, precio: 7.50 },
+  { hasta: 5, precio: 8.30 },
+  { hasta: 10, precio: 9.60 },
+  { hasta: 15, precio: 15.35 },
+  { hasta: 20, precio: 17.50 },
 ];
 function precioNacex(pesoKg: number): number {
   const tramo = TABLA_NACEX.find(t => pesoKg <= t.hasta);
