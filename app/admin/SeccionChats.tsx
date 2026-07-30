@@ -55,8 +55,9 @@ export default function SeccionChats() {
 
   async function cargarMensajes(convId: number) {
     setChatActivo(convId);
-    const { data } = await supabase.from("mensajes").select("*").eq("conversacion_id", convId).order("created_at", { ascending: true });
-    setMensajes(data || []);
+    const res = await fetch(`/api/admin/mensajes?convId=${convId}`);
+    const data = await res.json();
+    setMensajes(Array.isArray(data) ? data : []);
   }
 
   async function eliminarConversacion(convId: number) {
