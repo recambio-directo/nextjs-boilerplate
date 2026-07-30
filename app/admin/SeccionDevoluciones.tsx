@@ -34,7 +34,8 @@ export default function SeccionDevoluciones() {
 
   async function cargarDevoluciones() {
     setCargando(true);
-    const { data } = await supabase.from("devoluciones").select("*").order("id", { ascending: false });
+    const res = await fetch("/api/admin/devoluciones");
+    const data = await res.json();
     setDevoluciones(data || []);
     setCargando(false);
   }
