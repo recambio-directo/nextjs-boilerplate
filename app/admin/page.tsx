@@ -12,10 +12,12 @@ import SeccionFacturacion from "./SeccionFacturacion";
 import SeccionFinanciero from "./SeccionFinanciero";
 import SeccionPedidos from "./SeccionPedidos";
 import SeccionFTP from "./SeccionFTP";
+import SeccionChats from "./SeccionChats";
+import SeccionDevoluciones from "./SeccionDevoluciones";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"chats"|"devoluciones">("dashboard");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [pagosProveedores, setPagosProveedores] = useState<PagoProveedor[]>([]);
@@ -165,6 +167,8 @@ export default function AdminPage() {
             { key: "financiero",  label: `🏦 Financiero${proximosACobrar.length > 0 ? " 🔴" : ""}` },
             { key: "pedidos",     label: "📦 Pedidos" },
             { key: "ftp",         label: "🔄 FTP Sync" },
+            { key: "chats",       label: "💬 Chats" },
+            { key: "devoluciones", label: "🔄 Devoluciones" },
           ].map(({ key, label }) => (
             <div key={key} onClick={() => setSeccion(key as any)} style={seccion === (key as any) ? menuActivo : menuItem}>{label}</div>
           ))}
@@ -182,6 +186,8 @@ export default function AdminPage() {
         {seccion === "financiero"  && <SeccionFinanciero usuarios={usuarios} pagosProveedores={pagosProveedores} cambiarSuscripcion={cambiarSuscripcion} setUsuarios={setUsuarios} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} marcarPagado={marcarPagado} generarRemesaPagos={generarRemesaPagos} pedidos={pedidos} />}
         {seccion === "pedidos"     && <SeccionPedidos pedidos={pedidos} cargarDatos={cargarDatos} crearPagoProveedorSiNoExiste={crearPagoProveedorSiNoExiste} />}
         {seccion === "ftp"         && <SeccionFTP usuarios={usuarios} ftpProveedorId={ftpProveedorId} setFtpProveedorId={setFtpProveedorId} ftpPassword={ftpPassword} setFtpPassword={setFtpPassword} ftpTipoReferencias={ftpTipoReferencias} setFtpTipoReferencias={setFtpTipoReferencias} ftpCreando={ftpCreando} ftpResultado={ftpResultado} setFtpResultado={setFtpResultado} crearUsuarioFTP={crearUsuarioFTP} descargarCredencialesFTP={descargarCredencialesFTP} />}
+        {seccion === "chats"       && <SeccionChats />}
+        {seccion === "devoluciones" && <SeccionDevoluciones />}
       </section>
 
       {/* MODAL NOTAS */}
