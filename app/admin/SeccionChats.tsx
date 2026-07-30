@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { supabase as supabaseAnon } from "../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = typeof window !== "undefined"
+  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!)
+  : supabaseAnon;
 import { tableContainer, tableStyle, thStyle, trStyle, tdStyle, searchInput } from "./types";
 
 type Conversacion = {
