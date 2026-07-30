@@ -35,14 +35,15 @@ export default function SeccionChats() {
 
   async function cargarConversaciones() {
     setCargando(true);
-    const { data: convs } = await supabase.from("conversaciones").select("*").order("updated_at", { ascending: false });
+    const res = await fetch("/api/admin/conversaciones");
+    const convs = await res.json();
     if (!convs) { setCargando(false); return; }
 
-    const userIds = [...new Set([...convs.map(c => c.user1_id), ...convs.map(c => c.user2_id)].filter(Boolean))];
+    const userIds = [...new Set([...convs.map((c: any) => c.user1_id), ...convs.map((c: any) => c.user2_id)].filter(Boolean))];
     const { data: perfiles } = await supabase.from("usuarios").select("id, nombre_empresa, email").in("id", userIds);
-    const perfilesMap = new Map((perfiles || []).map(p => [p.id, p]));
+    const perfilesMap = new Map((perfiles || []).map((p: any) => [p.id, p]));
 
-    const convsConNombres: Conversacion[] = convs.map(c => ({
+    const convsConNombres: Conversacion[] = convs.map((c: any) => ({
       ...c,
       user1_nombre: perfilesMap.get(c.user1_id)?.nombre_empresa || perfilesMap.get(c.user1_id)?.email || "—",
       user2_nombre: perfilesMap.get(c.user2_id)?.nombre_empresa || perfilesMap.get(c.user2_id)?.email || "—",
