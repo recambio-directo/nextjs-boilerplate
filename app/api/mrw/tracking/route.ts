@@ -34,11 +34,14 @@ export async function POST(request: Request) {
   </soap12:Body>
 </soap12:Envelope>`;
 
-    const response = await fetch(entorno, {
+    const proxyUrl = "http://168.231.83.226:3000";
+
+    const response = await fetch(proxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/soap+xml; charset=utf-8",
-        "SOAPAction": "http://www.mrw.es/SeguimientoEnvio",
+        "x-proxy-secret": "rd-mrw-proxy-2026",
+        "x-target-url": entorno,
       },
       body: soapBody,
     });
