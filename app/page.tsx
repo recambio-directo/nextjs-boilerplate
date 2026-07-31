@@ -20,6 +20,15 @@ export default function Home() {
 
       {/* ── HERO ── */}
       <section className="landing-hero">
+        <div className="landing-hero-mobile-header">
+          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
+            RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
+          </h1>
+          <p style={{ color: "#94a3b8", marginBottom: "24px", fontSize: "15px", lineHeight: 1.6 }}>
+            La plataforma B2B que conecta talleres y proveedores de recambios en toda España.
+          </p>
+        </div>
         <div className="landing-hero-text">
           <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
           <h1 style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
@@ -189,7 +198,7 @@ export default function Home() {
       </section>
 
       {/* ── CTA FINAL ── */}
-      <section style={{ padding: "80px", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <section style={{ padding: "clamp(32px, 6vw, 80px)", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
           <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
           <h2 style={{ fontSize: 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>1 mes gratis.<br />Sin compromiso.</h2>
@@ -210,7 +219,7 @@ export default function Home() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ padding: "60px 80px 30px", position: "relative", zIndex: 10 }}>
+      <footer style={{ padding: "clamp(32px, 6vw, 60px) clamp(20px, 6vw, 80px) 30px", position: "relative", zIndex: 10 }}>
         <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
