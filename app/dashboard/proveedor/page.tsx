@@ -573,18 +573,18 @@ export default function ProveedorPage() {
           <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>RD</div>
           <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>
         </div>
-        <div style={{ display: "flex", flex: 1, maxWidth: 500, margin: "0 24px" }}>
+        {!isMobile && <div style={{ display: "flex", flex: 1, maxWidth: 500, margin: "0 24px" }}>
           <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} placeholder="Buscar referencia OEM, IAM o equivalente..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px 0 0 14px", padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
           <button onClick={() => { if (busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: "0 14px 14px 0", padding: "12px 18px", color: "white", cursor: "pointer", fontSize: 16 }}>🔍</button>
-        </div>
+        </div>}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 700 }}>{nombreEmpresa}</span>
-          <button onClick={() => router.push("/chat")} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>💬 Chats</button>
-          <button onClick={() => router.push("/checkout")} style={{ position: "relative", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+          {!isMobile && <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 700 }}>{nombreEmpresa}</span>}
+          {!isMobile && <button onClick={() => router.push("/chat")} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>💬 Chats</button>}
+          {!isMobile && <button onClick={() => router.push("/checkout")} style={{ position: "relative", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
             🛒 Cesta
             {totalCesta > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{totalCesta}</span>}
-          </button>
-          <div style={{ position: "relative" as const }}>
+          </button>}
+          {!isMobile && <div style={{ position: "relative" as const }}>
             <button onClick={() => {
               setShowNotifs(!showNotifs);
               if (!showNotifs) {
@@ -640,8 +640,8 @@ export default function ProveedorPage() {
                 )}
               </div>
             )}
-          </div>
-          <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Salir</button>
+          </div>}
+          {!isMobile && <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Salir</button>}
         {isMobile && (
           <>
             <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
