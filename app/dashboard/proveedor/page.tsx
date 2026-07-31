@@ -568,7 +568,7 @@ export default function ProveedorPage() {
 
   return (
     <main style={mainStyle}>
-      <header style={{ height: isMobile ? 60 : 70, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 30px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky" as const, top: 0, zIndex: 999, flexShrink: 0 }}>
+      <header style={{ height: isMobile ? 64 : 70, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 30px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky" as const, top: 0, zIndex: 999, flexShrink: 0, overflow: "visible" as const }}>
         <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, cursor: "pointer", flexShrink: 0 }}>
           <div style={{ width: isMobile ? 36 : 46, height: isMobile ? 36 : 46, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: isMobile ? 14 : 18 }}>RD</div>
           {!isMobile && <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>}
@@ -658,8 +658,8 @@ export default function ProveedorPage() {
       {isMobile && (
         <div style={{ position: "sticky" as const, top: 60, zIndex: 998, background: "rgba(2,6,23,0.97)", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex" }}>
-            <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} placeholder="🔍  Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 15, outline: "none" }} />
-            <button onClick={() => { if (busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} style={{ padding: "12px 18px", border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>Ir</button>
+            <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) { router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); setBusquedaHeader(""); } }} placeholder="🔍  Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 15, outline: "none" }} />
+            <button onClick={() => { if (busquedaHeader.trim()) { router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); setBusquedaHeader(""); } }} style={{ padding: "12px 18px", border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>Ir</button>
           </div>
         </div>
       )}
@@ -877,8 +877,8 @@ export default function ProveedorPage() {
 
           {seccion === "pedidos" && (
             <div>
-              <div style={badgeStyle}>GESTIÓN</div>
-              <h1 style={titleStyle}>PEDIDOS</h1>
+              {!isMobile && <div style={badgeStyle}>GESTIÓN</div>}
+              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 12 } : titleStyle}>PEDIDOS</h1>
               <div style={tabsContainer}>
                 <button onClick={() => setPestañaPedidos("recibidos")} style={pestañaPedidos === "recibidos" ? tabActive : tabInactive}>📥 Recibidos ({pedidosRecibidos.length})</button>
                 <button onClick={() => setPestañaPedidos("realizados")} style={pestañaPedidos === "realizados" ? tabActive : tabInactive}>📤 Realizados ({pedidosRealizados.length})</button>
@@ -887,8 +887,8 @@ export default function ProveedorPage() {
               {pedidosFiltrados.length === 0 ? (
                 <div style={emptyState}><p style={{ fontSize: 48 }}>🛒</p><p style={{ fontSize: 20, fontWeight: 700, marginTop: 16 }}>No hay pedidos</p></div>
               ) : (
-                <div style={tableContainer}>
-                  <table style={tableStyle}>
+                <div style={{ ...tableContainer, overflowX: "auto" as const }}>
+                  <table style={{ ...tableStyle, minWidth: isMobile ? 900 : "100%" }}>
                     <thead>
                       <tr style={{ background: "rgba(0,0,0,0.3)" }}>
                         {["CÓDIGO PEDIDO","REFERENCIA / DESCRIPCIÓN","TOTAL",pestañaPedidos === "recibidos" ? "COMPRADOR" : "PROVEEDOR","FECHA","TRANSPORTE","TRACKING","ESTADO","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}
@@ -1021,10 +1021,10 @@ export default function ProveedorPage() {
           )}
 {seccion === "devoluciones" && (
             <div>
-              <div style={badgeStyle}>GESTIÓN</div>
-              <h1 style={titleStyle}>DEVOLUCIONES</h1>
-              <p style={descStyle}>Gestiona las solicitudes de devolución de los talleres.</p>
-              <SeccionDevoluciones isMobile={false} />
+              {!isMobile && <div style={badgeStyle}>GESTIÓN</div>}
+              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 8 } : titleStyle}>DEVOLUCIONES</h1>
+              {!isMobile && <p style={descStyle}>Gestiona las solicitudes de devolución de los talleres.</p>}
+              <SeccionDevoluciones isMobile={isMobile} />
             </div>
           )}
 
