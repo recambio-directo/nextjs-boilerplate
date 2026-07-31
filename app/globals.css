@@ -358,3 +358,14 @@ h4 {
     flex-direction: column;
   }
 }
+@media (max-width: 768px) {
+  .landing-section h2 {
+    font-size: 28px !important;
+  }
+  .landing-section-sm h2 {
+    font-size: 24px !important;
+  }
+  footer {
+    padding: 40px 20px 24px !important;
+  }
+}
