@@ -655,6 +655,15 @@ export default function ProveedorPage() {
         </div>
       </header>
 
+      {isMobile && (
+        <div style={{ position: "sticky" as const, top: 60, zIndex: 998, background: "rgba(2,6,23,0.97)", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex" }}>
+            <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} placeholder="🔍  Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 15, outline: "none" }} />
+            <button onClick={() => { if (busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} style={{ padding: "12px 18px", border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>Ir</button>
+          </div>
+        </div>
+      )}
+
       {isMobile && showNotifs && (
         <div style={{ position: "fixed" as const, top: 60, right: 0, left: 0, background: "#0f172a", borderBottom: "1px solid rgba(255,255,255,0.1)", zIndex: 9998, maxHeight: "55vh", overflowY: "auto" as const }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -706,19 +715,20 @@ export default function ProveedorPage() {
 
           {seccion === "dashboard" && (
             <div>
-              <div style={badgeStyle}>PANEL ENTERPRISE</div>
-              <h1 style={titleStyle}>PANEL PROVEEDOR</h1>
-              <p style={descStyle}>Gestiona tu stock, pedidos recibidos y catálogo de piezas.</p>
-              <div style={kpiGrid}>
-                <div style={kpiCard}><p style={kpiLabel}>PIEZAS PUBLICADAS</p><h2 style={kpiNumber}>{totalPiezas.toLocaleString()}</h2></div>
-                <div style={kpiCard}><p style={kpiLabel}>PEDIDOS RECIBIDOS</p><h2 style={kpiNumber}>{pedidosRecibidos.filter(p => !p.anulado).length}</h2></div>
-                <div style={kpiCard}><p style={kpiLabel}>FACTURACIÓN</p><h2 style={{ ...kpiNumber, color: "#22c55e" }}>{totalFacturado.toFixed(0)}€</h2></div>
-                <div style={kpiCard}><p style={kpiLabel}>EXCLUSIONES</p><h2 style={{ ...kpiNumber, color: "#f87171" }}>{exclusiones.length}</h2></div>
+              {!isMobile && <div style={badgeStyle}>PANEL ENTERPRISE</div>}
+              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 8 } : titleStyle}>{isMobile ? nombreEmpresa : "PANEL PROVEEDOR"}</h1>
+              {!isMobile && <p style={descStyle}>Gestiona tu stock, pedidos recibidos y catálogo de piezas.</p>}
+              <div style={isMobile ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 } : kpiGrid}>
+                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>PIEZAS</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44 }}>{totalPiezas.toLocaleString()}</h2></div>
+                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>PEDIDOS</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44 }}>{pedidosRecibidos.filter(p => !p.anulado).length}</h2></div>
+                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>FACTURACIÓN</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44, color: "#22c55e" }}>{totalFacturado.toFixed(0)}€</h2></div>
+                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>EXCLUSIONES</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44, color: "#f87171" }}>{exclusiones.length}</h2></div>
               </div>
-              <div style={quickGrid}>
-                <div style={quickCard} onClick={() => setSeccion("publicar")}><div style={quickIcon}>➕</div><h3 style={quickTitle}>Publicar Pieza</h3><p style={quickDesc}>Añade una nueva referencia</p></div>
-                <div style={quickCard} onClick={() => setSeccion("importar")}><div style={quickIcon}>📥</div><h3 style={quickTitle}>Importar Excel</h3><p style={quickDesc}>Sube tu catálogo completo</p></div>
-                <div style={quickCard} onClick={() => setSeccion("exclusiones")}><div style={quickIcon}>🚫</div><h3 style={quickTitle}>Exclusiones</h3><p style={quickDesc}>Controla quién ve tus precios</p></div>
+              <div style={isMobile ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } : quickGrid}>
+                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("publicar")}><div style={{ fontSize: 24, marginBottom: 8 }}>➕</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Publicar</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Nueva referencia</p></div>
+                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("importar")}><div style={{ fontSize: 24, marginBottom: 8 }}>📥</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Importar</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Subir catálogo</p></div>
+                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("exclusiones")}><div style={{ fontSize: 24, marginBottom: 8 }}>🚫</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Exclusiones</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Control de precios</p></div>
+                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("pedidos")}><div style={{ fontSize: 24, marginBottom: 8 }}>🛒</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Pedidos</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Ver pedidos</p></div>
               </div>
             </div>
           )}
@@ -1136,17 +1146,22 @@ export default function ProveedorPage() {
       {isMobile && (
         <div style={{ position: "fixed" as const, bottom: 0, left: 0, right: 0, background: "rgba(10,22,40,0.98)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", zIndex: 998, paddingBottom: "env(safe-area-inset-bottom)" }}>
           {[
-            { key: "dashboard",    label: "Inicio",     emoji: "📊" },
-            { key: "almacen",      label: "Almacén",    emoji: "📦" },
-            { key: "pedidos",      label: "Pedidos",    emoji: "🛒" },
-            { key: "devoluciones", label: "Devol.",     emoji: "🔄" },
-            { key: "cuenta",       label: "Cuenta",     emoji: "👤" },
+            { key: "dashboard",    label: "Inicio",   emoji: "📊" },
+            { key: "almacen",      label: "Almacén",  emoji: "📦" },
+            { key: "pedidos",      label: "Pedidos",  emoji: "🛒" },
+            { key: "devoluciones", label: "Devol.",   emoji: "🔄" },
+            { key: "cuenta",       label: "Cuenta",   emoji: "👤" },
           ].map(({ key, label, emoji }) => (
             <button key={key} onClick={() => setSeccion(key as any)} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: seccion === key ? "#60a5fa" : "#475569", borderTop: seccion === key ? "2px solid #2563eb" : "2px solid transparent" }}>
               <span style={{ fontSize: 20 }}>{emoji}</span>
               <span style={{ fontSize: 10, fontWeight: seccion === key ? 800 : 600, marginTop: 2 }}>{label}</span>
             </button>
           ))}
+          <button onClick={() => router.push("/checkout")} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: "#475569", borderTop: "2px solid transparent", position: "relative" as const }}>
+            {totalCesta > 0 && <span style={{ position: "absolute" as const, top: 6, right: "18%", minWidth: 16, height: 16, borderRadius: 999, background: "#22c55e", color: "white", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #020617" }}>{totalCesta}</span>}
+            <span style={{ fontSize: 20 }}>🛒</span>
+            <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>Cesta</span>
+          </button>
         </div>
       )}
 
