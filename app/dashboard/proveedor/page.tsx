@@ -181,6 +181,14 @@ export default function ProveedorPage() {
   const [busquedaInput, setBusquedaInput] = useState("");
   const [totalOEM, setTotalOEM] = useState(0);
   const [totalIAM, setTotalIAM] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     iniciarPagina();
@@ -560,7 +568,7 @@ export default function ProveedorPage() {
 
   return (
     <main style={mainStyle}>
-      <header style={proveedorHeaderStyle}>
+      <header style={isMobile ? { height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", position: "sticky" as const, top: 0, zIndex: 999, flexShrink: 0 } : proveedorHeaderStyle}>
         <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}>
           <div style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>RD</div>
           <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>
@@ -634,11 +642,44 @@ export default function ProveedorPage() {
             )}
           </div>
           <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Salir</button>
+        {isMobile && (
+          <>
+            <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14 }}>RD</div>
+              <span style={{ fontWeight: 900, fontSize: 14 }}>{nombreEmpresa}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => router.push("/chat")} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>💬</button>
+              <div style={{ position: "relative" as const }}>
+                <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) { const uid = userId; if (uid) { const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`; localStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id)))); setNotifs(prev => prev.map(n => ({ ...n, leido: true }))); } } }} style={{ width: 36, height: 36, borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 16, position: "relative" as const }}>
+                  🔔
+                  {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
+                </button>
+                {showNotifs && (
+                  <div style={{ position: "fixed" as const, top: 56, right: 8, left: 8, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones</span>
+                      <button onClick={() => setShowNotifs(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 18 }}>✕</button>
+                    </div>
+                    <div style={{ maxHeight: 300, overflowY: "auto" as const }}>
+                      {notifs.length === 0 ? <div style={{ padding: 24, textAlign: "center" as const, color: "#94a3b8" }}>Sin notificaciones</div> : notifs.slice(0, 15).map((n, i) => (
+                        <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); else { setSeccion("pedidos"); if (n.pedido_id) setTimeout(() => setPedidoExpandido(n.pedido_id), 100); } }} style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)" }}>
+                          <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
+                          <p style={{ fontSize: 11, color: "#94a3b8", margin: "2px 0 0" }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
         </div>
       </header>
 
       <div style={{ display: "flex", flex: 1 }}>
-        <aside style={sidebarStyle}>
+        {!isMobile && <aside style={sidebarStyle}>
           <div>
             <h1 style={logoStyle}>RECAMBIO<br />DIRECTO</h1>
             <p style={logoSub}>Panel Proveedor</p>
@@ -663,9 +704,9 @@ export default function ProveedorPage() {
               <div key={key} onClick={() => setSeccion(key as any)} style={seccion === key ? menuItemActive : menuItem}>{label}</div>
             ))}
           </nav>
-        </aside>
+        </aside>}
 
-        <section style={contentStyle}>
+        <section style={isMobile ? { flex: 1, padding: "16px 12px 80px", overflowY: "auto" as const } : contentStyle}>
 
           {seccion === "dashboard" && (
             <div>
@@ -1094,6 +1135,24 @@ export default function ProveedorPage() {
 
         </section>
       </div>
+
+      {/* BARRA NAVEGACIÓN INFERIOR MÓVIL */}
+      {isMobile && (
+        <div style={{ position: "fixed" as const, bottom: 0, left: 0, right: 0, background: "rgba(10,22,40,0.98)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", zIndex: 998, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          {[
+            { key: "dashboard",    label: "Inicio",     emoji: "📊" },
+            { key: "almacen",      label: "Almacén",    emoji: "📦" },
+            { key: "pedidos",      label: "Pedidos",    emoji: "🛒" },
+            { key: "devoluciones", label: "Devol.",     emoji: "🔄" },
+            { key: "cuenta",       label: "Cuenta",     emoji: "👤" },
+          ].map(({ key, label, emoji }) => (
+            <button key={key} onClick={() => setSeccion(key as any)} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: seccion === key ? "#60a5fa" : "#475569", borderTop: seccion === key ? "2px solid #2563eb" : "2px solid transparent" }}>
+              <span style={{ fontSize: 20 }}>{emoji}</span>
+              <span style={{ fontSize: 10, fontWeight: seccion === key ? 800 : 600, marginTop: 2 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {modalContacto && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setModalContacto(null)}>
