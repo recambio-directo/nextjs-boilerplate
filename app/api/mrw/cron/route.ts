@@ -26,7 +26,8 @@ export async function GET(request: Request) {
       .select("id, codigo, tracking, estado_envio, cliente_email, cliente_nombre, productos, entregado_at")
       .not("tracking", "is", null)
       .in("estado_envio", ["enviado", "preparando"])
-      .eq("anulado", false);
+      .eq("anulado", false)
+      .or("agencia.ilike.%mrw%,transporte.ilike.%mrw%");
 
     if (!pedidos || pedidos.length === 0) {
       return Response.json({ ok: true, procesados: 0, mensaje: "No hay envíos activos" });
@@ -123,19 +124,7 @@ export async function GET(request: Request) {
           actualizados++;
         }
 
-        // Comprobar pedidos entregados hace más de 7 días sin pagar
-        if (pedido.estado_envio === "entregado" && pedido.entregado_at) {
-          const diasDesdeEntrega = Math.floor(
-            (Date.now() - new Date(pedido.entregado_at).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (diasDesdeEntrega >= 7) {
-            // Marcar como pendiente de pago urgente
-            await supabase.from("pedidos")
-              .update({ pago_proveedor_urgente: true })
-              .eq("id", pedido.id)
-              .eq("pago_proveedor_completado", false);
-          }
-        }
+      
 
       } catch (pedidoErr) {
         console.error(`Error procesando pedido ${pedido.id}:`, pedidoErr);

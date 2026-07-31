@@ -11,9 +11,9 @@ export async function POST(request: Request) {
     const codigoFranquicia = process.env.MRW_FRANQUICIA         || "";
     const abonado          = process.env.MRW_ABONADO            || "";
     const departamento     = process.env.MRW_DEPARTAMENTO       || "";
-    const targetUrl        = process.env.MRW_ENTORNO === "production"
-      ? "https://sagec.mrw.es/MRWEnvio.asmx"
-      : "https://sagec-test.mrw.es/MRWEnvio.asmx";
+    const targetUrl = process.env.MRW_ENTORNO === "test"
+      ? "https://sagec-test.mrw.es/MRWEnvio.asmx"
+      : "https://sagec.mrw.es/MRWEnvio.asmx";
 
     const proxyUrl = "http://168.231.83.226:3000";
 
