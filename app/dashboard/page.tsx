@@ -283,7 +283,6 @@ export default function Dashboard() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
               { href: "/dashboard", label: "🏠 Inicio" },
-              { href: "/dashboard/buscar", label: "🔍 Buscar" },
               { href: "/dashboard/pedidos", label: "📦 Pedidos" },
               { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
               { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
