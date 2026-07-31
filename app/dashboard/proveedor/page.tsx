@@ -1098,9 +1098,12 @@ export default function ProveedorPage() {
 
           {seccion === "cuenta" && (
             <div>
-              <div style={badgeStyle}>CONFIGURACIÓN</div>
-              <h1 style={titleStyle}>MI CUENTA</h1>
-              <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>
+              {!isMobile && <div style={badgeStyle}>CONFIGURACIÓN</div>}
+              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 16 } : titleStyle}>MI CUENTA</h1>
+              {!isMobile && <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>}
+              {isMobile && (
+                <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Cerrar sesión</button>
+              )}
               <div style={{ maxWidth: 600 }}>
                 <div style={{ ...formCard, border: "1px solid rgba(22,163,74,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>🏦 Número de cuenta (IBAN)</h2>
