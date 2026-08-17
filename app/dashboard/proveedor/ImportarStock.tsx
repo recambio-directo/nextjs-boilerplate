@@ -80,7 +80,7 @@ export default function ImportarStock({
       autoMapeo.referencia = buscar(["ref", "codigo", "code", "part"]);
       autoMapeo.descripcion = buscar(["desc", "nombre", "name", "articulo", "detalle"]);
       autoMapeo.marca = buscar(["marca", "brand", "fabricante", "manufacturer"]);
-      autoMapeo.precio = buscar(["precio", "price", "pvp", "coste", "neto", "importe"]);
+      autoMapeo.precio = buscar(["precio neto", "neto", "precio_neto", "price", "precio", "pvp", "coste", "importe"]);
       autoMapeo.stock = buscar(["stock", "cantidad", "qty", "units", "unidad", "disponible"]);
       autoMapeo.impuesto = buscar(["impuesto", "ecotasa", "casco", "eco", "tax", "tasa", "recargo"]);
       setMapeo(autoMapeo);
