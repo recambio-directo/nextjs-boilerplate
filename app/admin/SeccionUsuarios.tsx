@@ -19,6 +19,11 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroSub, setFiltroSub] = useState("todos");
   const [cambiandoTipo, setCambiandoTipo] = useState<string | null>(null);
+const [modalDireccion, setModalDireccion] = useState<Usuario | null>(null);
+const [editDireccion, setEditDireccion] = useState("");
+const [editCiudad, setEditCiudad] = useState("");
+const [editCp, setEditCp] = useState("");
+const [guardandoDireccion, setGuardandoDireccion] = useState(false);
 
   async function cambiarTipo(id: string, nuevoTipo: string) {
     if (!confirm(`¿Cambiar este usuario a ${nuevoTipo}? Esto afectará a su acceso en la plataforma.`)) return;
@@ -36,6 +41,7 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
   });
 
   return (
+    <>
     <div>
       <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>USUARIOS</h1>
       <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Gestiona talleres y proveedores de la plataforma.</p>
@@ -114,6 +120,7 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
                 <td style={tdStyle}>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => { setUsuarioEditando(u); setNotasTemp(u.notas_admin || ""); }} style={btnAccion}>📝</button>
+<button onClick={() => { setModalDireccion(u); setEditDireccion(u.direccion || ""); setEditCiudad(u.ciudad || ""); setEditCp((u as any).codigo_postal || ""); }} style={{ ...btnAccion, background: "rgba(245,158,11,0.15)", color: "#fbbf24" }}>📍</button>
                     <button onClick={() => eliminarUsuario(u.id)} style={{ ...btnAccion, background: "rgba(239,68,68,0.15)", color: "#f87171" }}>🗑️</button>
                   </div>
                 </td>
@@ -123,5 +130,49 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
         </table>
       </div>
     </div>
+
+    {modalDireccion && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setModalDireccion(null)}>
+        <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>📍 Dirección de recogida</h2>
+            <button onClick={() => setModalDireccion(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+          </div>
+          <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "8px 14px", marginBottom: 20 }}>
+            <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700 }}>{modalDireccion.nombre_empresa || modalDireccion.email}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Calle y número</p>
+              <input type="text" placeholder="Ej: Calle Mayor 12, Local 3" value={editDireccion} onChange={e => setEditDireccion(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
+                <input type="text" placeholder="Ej: Madrid" value={editCiudad} onChange={e => setEditCiudad(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
+              </div>
+              <div>
+                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Código Postal</p>
+                <input type="text" placeholder="Ej: 28001" value={editCp} onChange={e => setEditCp(e.target.value.replace(/\D/g, "").slice(0, 5))} maxLength={5} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+            <button onClick={() => setModalDireccion(null)} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
+            <button disabled={guardandoDireccion} onClick={async () => {
+              if (!modalDireccion) return;
+              setGuardandoDireccion(true);
+              await supabase.from("usuarios").update({ direccion: editDireccion.trim() || null, ciudad: editCiudad.trim() || null, codigo_postal: editCp.trim() || null }).eq("id", modalDireccion.id);
+              setUsuarios(prev => prev.map(u => u.id === modalDireccion!.id ? { ...u, direccion: editDireccion.trim(), ciudad: editCiudad.trim() } : u));
+              setGuardandoDireccion(false);
+              setModalDireccion(null);
+            }} style={{ flex: 1, background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", color: "white", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 15, opacity: guardandoDireccion ? 0.7 : 1 }}>
+              {guardandoDireccion ? "Guardando..." : "Guardar dirección"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

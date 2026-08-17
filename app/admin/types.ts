@@ -17,6 +17,8 @@ export type Usuario = {
   credito_rd?: number;
   credito_rd_maximo?: number;
   iban?: string;
+  direccion?: string;
+  codigo_postal?: string;
   ultimo_acceso?: string;
   rd_pago_activo?: boolean;
 };
