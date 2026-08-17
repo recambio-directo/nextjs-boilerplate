@@ -64,7 +64,8 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
                   {u.ciudad && <div style={{ color: "#94a3b8", fontSize: 12 }}>📍 {u.ciudad}</div>}
                   {u.notas_admin && <div style={{ color: "#fbbf24", fontSize: 11, marginTop: 2 }}>📝 {u.notas_admin.substring(0, 40)}...</div>}
                 </td>
-                <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
+                <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.telefono || "-"}</td>
+<td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.cif || "-"}</td>
                 <td style={tdStyle}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
