@@ -153,6 +153,9 @@ export default function ProveedorPage() {
   const [emailPerfil, setEmailPerfil] = useState("");
   const [emailFacturas, setEmailFacturas] = useState("");
   const [iban, setIban] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [codigoPostal, setCodigoPostal] = useState("");
   const [guardandoEmailFacturas, setGuardandoEmailFacturas] = useState(false);
   const [emailFacturasGuardado, setEmailFacturasGuardado] = useState(false);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
@@ -294,7 +297,7 @@ export default function ProveedorPage() {
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
     await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", currentUserId);
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban").eq("id", currentUserId).single();
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban, direccion, ciudad, codigo_postal").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
     if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
@@ -302,6 +305,9 @@ export default function ProveedorPage() {
     if (perfil?.dias_apertura?.length) setDiasApertura(perfil.dias_apertura);
     if (perfil?.email_facturas) setEmailFacturas(perfil.email_facturas);
     if (perfil?.iban) setIban(perfil.iban);
+    if (perfil?.direccion) setDireccion(perfil.direccion);
+    if (perfil?.ciudad) setCiudad(perfil.ciudad);
+    if (perfil?.codigo_postal) setCodigoPostal(perfil.codigo_postal);
     const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
     setTotalPiezas(count || 0);
     const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).eq("tipo", "OEM");
@@ -1105,6 +1111,33 @@ export default function ProveedorPage() {
                 <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Cerrar sesión</button>
               )}
               <div style={{ maxWidth: 600 }}>
+                <div style={{ ...formCard, border: "1px solid rgba(245,158,11,0.3)", marginBottom: 20 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📍 Dirección de recogida</h2>
+                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>La dirección donde la agencia pasará a recoger los envíos.</p>
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
+                    <div>
+                      <p style={formLabel}>Calle y número</p>
+                      <input type="text" placeholder="Ej: Calle Mayor 12, Local 3" value={direccion} onChange={e => setDireccion(e.target.value)} style={formInput} />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div>
+                        <p style={formLabel}>Ciudad</p>
+                        <input type="text" placeholder="Ej: Madrid" value={ciudad} onChange={e => setCiudad(e.target.value)} style={formInput} />
+                      </div>
+                      <div>
+                        <p style={formLabel}>Código Postal</p>
+                        <input type="text" placeholder="Ej: 28001" value={codigoPostal} onChange={e => setCodigoPostal(e.target.value.replace(/\D/g, "").slice(0, 5))} style={formInput} maxLength={5} />
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={async () => {
+                    if (!userId) return;
+                    await supabase.from("usuarios").update({ direccion: direccion.trim() || null, ciudad: ciudad.trim() || null, codigo_postal: codigoPostal.trim() || null }).eq("id", userId);
+                    alert("✅ Dirección guardada correctamente");
+                  }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", background: "linear-gradient(135deg,#d97706,#b45309)" }}>
+                    Guardar dirección
+                  </button>
+                </div>
                 <div style={{ ...formCard, border: "1px solid rgba(22,163,74,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>🏦 Número de cuenta (IBAN)</h2>
                   <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Necesario para recibir los pagos de tus pedidos a los 7 días de la entrega.</p>
