@@ -63,6 +63,12 @@ function BuscarPageInner() {
   }, [q]);
 
   useEffect(() => {
+    if (!loadingCruce && stockIAM.length === 0 && stockOEM.length > 0) {
+      setPestañaActiva("OEM");
+    }
+  }, [loadingCruce, stockIAM, stockOEM]);
+
+  useEffect(() => {
     function cerrar(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (!target.closest("[data-menu]")) setMenuAbierto(null);
