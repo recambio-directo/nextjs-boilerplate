@@ -56,6 +56,7 @@ function RegistroPageInner() {
     if (!telefono.trim()) { setError("El teléfono es obligatorio"); return; }
     if (!direccion.trim()) { setError("La dirección es obligatoria"); return; }
     if (!codigoPostal.trim() || codigoPostal.length < 5) { setError("El código postal es obligatorio"); return; }
+if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese código postal. Por favor revisa el CP introducido."); return; }
     if (!password) { setError("La contraseña es obligatoria"); return; }
     if (password.length < 6) { setError("Mínimo 6 caracteres"); return; }
     if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
