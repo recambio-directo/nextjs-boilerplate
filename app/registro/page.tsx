@@ -189,10 +189,6 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
           </div>
           <div style={grid2}>
             <div>
-              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
-              <input placeholder="Se rellena con el CP" value={ciudad} onChange={e => setCiudad(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal *</p>
               <input placeholder="41001" value={codigoPostal} onChange={e => {
                 const cp = e.target.value.replace(/\D/g, "").slice(0, 5);
@@ -202,8 +198,13 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
                   if (datos) { setCiudad(datos.poblacion); setProvincia(datos.provincia); } else { setProvincia(""); }
                 } else { setProvincia(""); }
               }} style={inputStyle} maxLength={5} />
-              {codigoPostal.length === 5 && provincia && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {ciudad} — {provincia}</p>}
-              {codigoPostal.length === 5 && !provincia && <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>CP no encontrado — escribe la ciudad manualmente</p>}
+              {codigoPostal.length === 5 && provincia && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {provincia}</p>}
+              {codigoPostal.length === 5 && !provincia && <p style={{ color: "#f87171", fontSize: 12, marginTop: 4 }}>CP no encontrado — revisa el código postal</p>}
+            </div>
+            <div>
+              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
+              <input placeholder="Se rellena automáticamente con el CP" value={ciudad} onChange={e => setCiudad(e.target.value)} style={{ ...inputStyle, borderColor: codigoPostal.length === 5 && provincia ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.1)" }} />
+              {codigoPostal.length === 5 && provincia && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 4 }}>✓ {ciudad}</p>}
             </div>
           </div>
 
