@@ -1,11 +1,4 @@
 // app/api/ftp/procesar/route.ts
-// Procesa archivos de stock subidos por FTP
-// Formato esperado: referencia, descripcion, precio, stock, marca, precio_casco (opcional)
-// Regla casco: si precio = 0 → es casco de la referencia anterior → se asocia y no se inserta
-// Regla tipo: el FTP usa el tipo configurado en usuarios.tipo_referencias_ftp (IAM por defecto)
-//             y SOLO toca piezas de ese mismo tipo. Las piezas subidas manualmente con otro
-//             tipo (ej. OEM) nunca se actualizan ni se borran desde aqui.
-
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
@@ -13,6 +6,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const ELEKTRA_ID = "72fe848e-3025-4e30-9dc6-1d883eb9aaca";
 
 function normalizarCabecera(header: string): string {
   const h = (header || "").toLowerCase().trim()
@@ -24,12 +19,13 @@ function normalizarCabecera(header: string): string {
   if (["marca", "descripcion marca", "brand", "fabricante", "manufacturer"].includes(h)) return "marca";
   if (["importe casco", "precio_casco", "casco", "p.casco", "pcasco", "importe_casco"].includes(h)) return "precio_casco";
   if (["descuento", "dto", "discount"].includes(h)) return "descuento";
+  if (h === "almacen_codigo") return "almacen_codigo";
+  if (h === "almacen_descripcion") return "almacen_descripcion";
   return h;
 }
 
 function parsearArchivo(buffer: Buffer): any[] {
   try {
-    // Intentar detectar si es CSV con tabulador
     const texto = buffer.toString("latin1");
     const primeraLinea = texto.split("\n")[0];
     const esTabulador = primeraLinea.includes("\t");
@@ -57,26 +53,13 @@ function parsearArchivo(buffer: Buffer): any[] {
 }
 
 function procesarFilasConCasco(filas: any[]): any[] {
-  // Según datos reales:
-  // - Fila normal: precio > 0, importe_casco = precio del casco que lleva
-  // - Fila casco: descripcion contiene "CASCO" y precio > 0 pero importe_casco = 0
-  //   → NO insertar como pieza independiente
   const resultado: any[] = [];
-
   for (const fila of filas) {
     const descripcion = String(fila.descripcion || "").toUpperCase().trim();
-    const precio = parseFloat(String(fila.precio || "0").replace(",", "."));
     const precioCasco = parseFloat(String(fila.precio_casco || "0").replace(",", "."));
-
-    // Si la descripción contiene CASCO y no tiene importe_casco → es fila de casco, saltar
     if (descripcion.includes("CASCO") && precioCasco === 0) continue;
-
-    resultado.push({
-      ...fila,
-      precio_casco: precioCasco > 0 ? precioCasco : null,
-    });
+    resultado.push({ ...fila, precio_casco: precioCasco > 0 ? precioCasco : null });
   }
-
   return resultado;
 }
 
@@ -103,14 +86,24 @@ export async function GET(request: Request) {
       return Response.json({ ok: true, mensaje: "No hay proveedores con FTP activo", procesados: 0 });
     }
 
+    // Cargar almacenes de Elektra una sola vez
+    const { data: almacenesElektra } = await supabase
+      .from("almacenes")
+      .select("id, codigo, nombre")
+      .eq("proveedor_id", ELEKTRA_ID);
+
+    const almacenMap = new Map<string, { id: string; nombre: string }>();
+    for (const a of almacenesElektra || []) {
+      almacenMap.set(a.codigo, { id: a.id, nombre: a.nombre });
+    }
+
     const resultados: any[] = [];
 
     for (const proveedor of proveedores) {
       try {
-        // Tipo de referencias configurado para este proveedor en FTP (IAM por defecto)
         const tipoFtp: "OEM" | "IAM" = proveedor.tipo_referencias_ftp === "OEM" ? "OEM" : "IAM";
+        const esElektra = proveedor.id === ELEKTRA_ID;
 
-        // Buscar archivo en Storage
         let archivoPath: string | null = null;
         for (const ext of ["csv", "xlsx", "xls"]) {
           const { data } = await supabase.storage
@@ -127,7 +120,6 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Descargar archivo
         const { data: fileData, error: downloadError } = await supabase.storage
           .from("ftp-stock")
           .download(archivoPath);
@@ -146,7 +138,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        let insertadas = 0, actualizadas = 0, errores = 0, omitidasOtroTipo = 0;
+        let insertadas = 0, actualizadas = 0, errores = 0;
 
         for (const fila of filas) {
           const referencia = String(fila.referencia || "").toUpperCase().trim();
@@ -158,15 +150,26 @@ export async function GET(request: Request) {
 
           if (!referencia || isNaN(precio) || precio <= 0) { errores++; continue; }
 
-          // IMPORTANTE: solo buscamos coincidencia dentro del MISMO tipo (tipoFtp).
-          // Así, si esa referencia existe pero como OEM subida manualmente, el FTP IAM
-          // no la toca y crea/actualiza su propia fila IAM en paralelo.
+          // Para Elektra: obtener almacen_id y nombre de sucursal
+          let almacenId: string | null = null;
+          let proveedorNombre = proveedor.nombre_empresa;
+
+          if (esElektra) {
+            const almacenCodigo = String(fila.almacen_codigo || "").trim();
+            const almacen = almacenMap.get(almacenCodigo);
+            if (almacen) {
+              almacenId = almacen.id;
+              proveedorNombre = almacen.nombre; // ej. "AUTOCENTRO ELEKTRA (ALICANTE)"
+            }
+          }
+
           const { data: existente } = await supabase
             .from("piezas_publicadas")
-            .select("id, tipo")
+            .select("id")
             .eq("proveedor_id", proveedor.id)
             .eq("referencia", referencia)
             .eq("tipo", tipoFtp)
+            .eq("almacen_id", almacenId || "00000000-0000-0000-0000-000000000000")
             .maybeSingle();
 
           const campos: any = {
@@ -174,8 +177,10 @@ export async function GET(request: Request) {
             stock: isNaN(stock) ? 0 : stock,
             descripcion: descripcion || undefined,
             marca: marca || undefined,
+            proveedor_nombre: proveedorNombre,
           };
           if (precioCasco !== null) campos.precio_casco = precioCasco;
+          if (almacenId) campos.almacen_id = almacenId;
 
           if (existente) {
             await supabase.from("piezas_publicadas").update(campos).eq("id", existente.id);
@@ -183,7 +188,7 @@ export async function GET(request: Request) {
           } else {
             await supabase.from("piezas_publicadas").insert({
               proveedor_id: proveedor.id,
-              proveedor_nombre: proveedor.nombre_empresa,
+              proveedor_nombre: proveedorNombre,
               referencia,
               descripcion: descripcion || referencia,
               precio,
@@ -192,6 +197,7 @@ export async function GET(request: Request) {
               provincia: proveedor.provincia || null,
               tipo: tipoFtp,
               ...(precioCasco !== null && { precio_casco: precioCasco }),
+              ...(almacenId && { almacen_id: almacenId }),
             });
             insertadas++;
           }
