@@ -190,11 +190,11 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
           <div style={grid2}>
             <div>
               <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Codigo Postal *</p>
-              <input placeholder="41001" value={codigoPostal} onChange={e => {
+              <input placeholder="41001" value={codigoPostal} onChange={async (e) => {
                 const cp = e.target.value.replace(/\D/g, "").slice(0, 5);
                 setCodigoPostal(cp);
                 if (cp.length === 5) {
-                  const datos = buscarCP(cp);
+                  const datos = await buscarCP(cp);
                   if (datos) { setCiudad(datos.poblacion); setProvincia(datos.provincia); } else { setProvincia(""); }
                 } else { setProvincia(""); }
               }} style={inputStyle} maxLength={5} />
