@@ -1,4 +1,4 @@
-// Mapa de códigos postales de España
+﻿// Mapa de códigos postales de España
 // Generado automáticamente — cubre capitales y ciudades principales de todas las provincias
 // Formato: { "CP": { p: "Población", pr: "Provincia" } }
 
