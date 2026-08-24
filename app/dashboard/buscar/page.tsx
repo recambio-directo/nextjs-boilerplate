@@ -287,12 +287,12 @@ function BuscarPageInner() {
                 style={{
                   flex: 1, minWidth: 0,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: isMobile ? "10px 8px" : "11px 14px",
+                  padding: isMobile ? "14px 10px" : "16px 20px",
                   borderRadius: 12,
                   border: activa ? "none" : "1px solid rgba(255,255,255,0.08)",
                   background: activa ? tab.colorActivo : "rgba(15,23,42,0.6)",
                   color: activa ? "white" : "#94a3b8",
-                  fontWeight: 900, fontSize: isMobile ? 12 : 13,
+                  fontWeight: 900, fontSize: isMobile ? 13 : 15,
                   cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 }}
               >
@@ -382,7 +382,7 @@ function BuscarPageInner() {
       <div style={{ maxWidth: 1700, margin: "0 auto" }}>
         <div style={{ marginBottom: isMobile ? 14 : 20 }}>
           <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: 8, fontSize: isMobile ? 11 : 13 }}>MARKETPLACE B2B</div>
-          <h1 style={{ fontSize: isMobile ? "22px" : "clamp(24px,5vw,48px)", fontWeight: 900, marginBottom: 4, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
+          <h1 style={{ fontSize: isMobile ? "18px" : "clamp(18px,3vw,32px)", fontWeight: 900, marginBottom: 4, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
         </div>
 
         {renderTabs()}
