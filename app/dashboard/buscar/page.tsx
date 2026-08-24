@@ -25,18 +25,16 @@ type Oferta = {
   descripcion_iam?: string;
 };
 
-// (FILTROS_TIPO eliminado: ya no existe el bloque "Otros resultados por texto")
+type PestañaKey = "OEM" | "IAM" | "EQ";
 
 function BuscarPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
-  // Versión sin espacios de lo que escribió el usuario, para cuando busca una
-  // referencia (ej. "28113 2H 000" -> "28113-2H000" -- aquí solo quitamos
-  // espacios; el resto de normalización agresiva ya la hace el endpoint).
   const qSinEspacios = q.replace(/\s+/g, "");
   const [stockOEM, setStockOEM] = useState<Oferta[]>([]);
   const [stockIAM, setStockIAM] = useState<Oferta[]>([]);
+  const [stockEQ, setStockEQ] = useState<Oferta[]>([]);
   const [loadingCruce, setLoadingCruce] = useState(true);
   const [menuAbierto, setMenuAbierto] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -45,10 +43,7 @@ function BuscarPageInner() {
   const [fotoVisor, setFotoVisor] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [contactoModal, setContactoModal] = useState<{ nombre: string; telefono: string; email: string } | null>(null);
-  // Paneles Stock OEM / Stock IAM: plegados por defecto, se expanden al hacer clic en el título.
-  // Pestaña activa entre Stock OEM y Stock IAM (solo una visible a la vez).
-  // Por defecto empieza en IAM.
-  const [pestañaActiva, setPestañaActiva] = useState<"OEM" | "IAM">("IAM");
+  const [pestañaActiva, setPestañaActiva] = useState<PestañaKey>("IAM");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -85,18 +80,8 @@ function BuscarPageInner() {
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
-  // (cargarOfertas eliminada: su lógica de exclusiones se trasladó a cargarStockOEMeIAM)
-
-  // Cruce exacto OEM <-> IAM vía nuestro endpoint /api/buscar-pieza.
-  // Este es el que rellena los dos paneles separados: Stock OEM y Stock IAM.
-  // Usamos qSinEspacios: si el taller escribe la referencia con espacios
-  // ("28113 2H 000"), aquí ya se los hemos quitado antes de mandarla.
-  // También aplicamos aquí el filtro de exclusiones por proveedor (código
-  // postal / cliente concreto) que antes solo se aplicaba en la búsqueda
-  // de texto libre — ahora es el único punto de entrada, así que debe
-  // aplicarse aquí para no perder esa regla de negocio.
   async function cargarStockOEMeIAM() {
-    if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setLoadingCruce(false); return; }
+    if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setStockEQ([]); setLoadingCruce(false); return; }
     setLoadingCruce(true);
     try {
       const { data: { user: userBuscar } } = await supabase.auth.getUser();
@@ -105,14 +90,13 @@ function BuscarPageInner() {
       const emailParam = perfilBuscar?.email ? `&email=${encodeURIComponent(perfilBuscar.email)}` : "";
       const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}${cpParam}${emailParam}`);
       if (!res.ok) {
-        console.error("Error llamando a /api/buscar-pieza:", res.status);
-        setStockOEM([]); setStockIAM([]);
+        setStockOEM([]); setStockIAM([]); setStockEQ([]);
         setLoadingCruce(false);
         return;
       }
       const data = await res.json();
       let resultadoOEM: Oferta[] = data?.stock_oem?.proveedores || [];
-      let resultadoIAM: Oferta[] = data?.stock_iam?.proveedores || [];
+      let resultadoIAMRaw: Oferta[] = data?.stock_iam?.proveedores || [];
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -128,21 +112,24 @@ function BuscarPageInner() {
               return true;
             });
           resultadoOEM = aplicarExclusiones(resultadoOEM);
-          resultadoIAM = aplicarExclusiones(resultadoIAM);
+          resultadoIAMRaw = aplicarExclusiones(resultadoIAMRaw);
         }
       }
 
+      const refNorm = qSinEspacios.toUpperCase().replace(/[\s\-_./]/g, "");
+      const resultadoIAM = resultadoIAMRaw.filter(o => o.referencia.toUpperCase().replace(/[\s\-_./]/g, "") === refNorm);
+      const resultadoEQ = resultadoIAMRaw.filter(o => o.referencia.toUpperCase().replace(/[\s\-_./]/g, "") !== refNorm);
+
       setStockOEM(resultadoOEM);
       setStockIAM(resultadoIAM);
+      setStockEQ(resultadoEQ);
     } catch (err) {
       console.error("Error de red llamando a /api/buscar-pieza:", err);
-      setStockOEM([]); setStockIAM([]);
+      setStockOEM([]); setStockIAM([]); setStockEQ([]);
     } finally {
       setLoadingCruce(false);
     }
   }
-
-  // (ofertasFiltradas eliminada junto con el bloque "Otros resultados por texto")
 
   async function pedirOferta(oferta: Oferta) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -168,7 +155,7 @@ function BuscarPageInner() {
   async function abrirChatConProveedor(ofertaId: number) {
     setMenuAbierto(null);
     setAbriendo(true);
-    const todasLasOfertas = [...stockOEM, ...stockIAM];
+    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockEQ];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) { setAbriendo(false); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -187,7 +174,7 @@ function BuscarPageInner() {
 
   async function verTelefono(ofertaId: number) {
     setMenuAbierto(null);
-    const todasLasOfertas = [...stockOEM, ...stockIAM];
+    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockEQ];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) return;
     const { data } = await supabase.from("usuarios").select("telefono, nombre_empresa, email").eq("id", oferta.proveedor_id).single();
@@ -210,7 +197,6 @@ function BuscarPageInner() {
     return                        { bg: "rgba(37,99,235,0.2)",   color: "#60a5fa" };
   }
 
-  // ---- Tarjeta/fila reutilizable para pintar una oferta dentro de un panel ----
   function renderOfertaMobile(oferta: Oferta) {
     const descripcion = oferta.descripcion || oferta.descripcion_iam || oferta.nombre || "-";
     const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
@@ -218,29 +204,29 @@ function BuscarPageInner() {
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
     return (
-      <div key={oferta.id} style={{ background: "rgba(15,23,42,0.97)", borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+      <div key={oferta.id} style={{ background: "rgba(15,23,42,0.97)", borderRadius: 12, padding: 12, border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div>
-            <p style={{ fontWeight: 900, fontSize: 17, marginBottom: 4 }}>{oferta.referencia}</p>
-            <span style={{ background: badge.bg, color: badge.color, padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
-            {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>{oferta.marca_iam}</span>}
+            <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 3 }}>{oferta.referencia}</p>
+            <span style={{ background: badge.bg, color: badge.color, padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
+            {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
           </div>
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 22, fontWeight: 900, color: "#22c55e", lineHeight: 1 }}>{Number(oferta.precio).toFixed(2)}€</p>
+            <p style={{ fontSize: 18, fontWeight: 900, color: "#22c55e", lineHeight: 1 }}>{Number(oferta.precio).toFixed(2)}€</p>
             {oferta.impuesto && Number(oferta.impuesto) > 0 && (
-              <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ imp/casco</p>
+              <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</p>
             )}
           </div>
         </div>
-        <p style={{ fontSize: 13, color: "#cbd5e1", marginBottom: 8 }}>{descripcion}{oferta.marca ? ` · ${oferta.marca}` : ""}</p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, fontSize: 12 }}>
+        <p style={{ fontSize: 12, color: "#cbd5e1", marginBottom: 6 }}>{descripcion}{oferta.marca ? ` · ${oferta.marca}` : ""}</p>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, fontSize: 11 }}>
           <span style={{ color: "#94a3b8" }}>🏭 {proveedor}</span>
           {oferta.provincia && <span style={{ color: "#94a3b8" }}>📍 {oferta.provincia}</span>}
-          <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 8px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
+          <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 6px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => pedirOferta(oferta)} style={{ flex: 1, border: "none", color: "white", padding: "13px", borderRadius: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>{enCesta ? "✓ Añadido" : "🛒 Pedir"}</button>
-          <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: "white", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>⋮</button>
+          <button onClick={() => pedirOferta(oferta)} style={{ flex: 1, border: "none", color: "white", padding: "10px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>{enCesta ? "✓ Añadido" : "🛒 Pedir"}</button>
+          <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 40, height: 40, borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: "white", fontSize: 18, cursor: "pointer", flexShrink: 0 }}>⋮</button>
         </div>
       </div>
     );
@@ -253,47 +239,45 @@ function BuscarPageInner() {
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
     return (
-      <div key={oferta.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: 24, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div key={oferta.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 4 }}>{oferta.referencia}</div>
-          <span style={{ background: badge.bg, color: badge.color, padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
-          {oferta.marca_iam && <span style={{ marginLeft: 8, color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>{oferta.marca_iam}</span>}
+          <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{oferta.referencia}</div>
+          <span style={{ background: badge.bg, color: badge.color, padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
+          {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{descripcion}</div>
-          {oferta.marca && <div style={{ color: "#94a3b8", fontSize: 13 }}>{oferta.marca}</div>}
+          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 1, color: "#e2e8f0" }}>{descripcion}</div>
+          {oferta.marca && <div style={{ color: "#64748b", fontSize: 11 }}>{oferta.marca}</div>}
         </div>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{proveedor}</div>
-          {oferta.poblacion && <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>{oferta.poblacion}</div>}
+          <div style={{ fontWeight: 700, fontSize: 12, color: "#cbd5e1" }}>{proveedor}</div>
         </div>
-        <div><span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>{oferta.stock} uds</span></div>
-        <div style={{ color: "#cbd5e1", fontWeight: 700 }}>{oferta.provincia || "-"}</div>
+        <div><span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "3px 8px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>{oferta.stock}</span></div>
+        <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{oferta.provincia || "-"}</div>
         <div>
-          <div style={{ fontSize: 36, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
-          {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€ imp/casco</div>}
+          <div style={{ fontSize: 17, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
+          {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</div>}
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => pedirOferta(oferta)} style={{ border: "none", color: "white", padding: "14px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 14, minWidth: 90, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={() => pedirOferta(oferta)} style={{ border: "none", color: "white", padding: "7px 12px", borderRadius: 9, fontWeight: 800, cursor: "pointer", fontSize: 12, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
             {enCesta ? "✓ AÑADIDO" : "PEDIR"}
           </button>
-          <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)", color: "white", fontSize: 20, cursor: "pointer" }}>⋮</button>
+          <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)", color: "white", fontSize: 15, cursor: "pointer" }}>⋮</button>
         </div>
       </div>
     );
   }
 
-  // ---- Pestañas en línea: Stock OEM | Stock IAM (solo una visible a la vez) ----
   function renderTabs() {
-    const tabs: { key: "OEM" | "IAM"; titulo: string; icono: string; lista: Oferta[]; colorActivo: string }[] = [
+    const tabs: { key: PestañaKey; titulo: string; icono: string; lista: Oferta[]; colorActivo: string }[] = [
       { key: "OEM", titulo: "Stock OEM", icono: "🔧", lista: stockOEM, colorActivo: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
       { key: "IAM", titulo: "Stock IAM", icono: "⚙️", lista: stockIAM, colorActivo: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
+      { key: "EQ",  titulo: "Equivalencias", icono: "🔄", lista: stockEQ, colorActivo: "linear-gradient(135deg,#0891b2,#0e7490)" },
     ];
 
     return (
       <div style={{ marginBottom: 20 }}>
-        {/* Fila de pestañas, siempre en línea (se encogen en móvil) */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "nowrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "nowrap" }}>
           {tabs.map((tab) => {
             const activa = pestañaActiva === tab.key;
             return (
@@ -301,28 +285,20 @@ function BuscarPageInner() {
                 key={tab.key}
                 onClick={() => setPestañaActiva(tab.key)}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  padding: isMobile ? "12px 10px" : "16px 20px",
-                  borderRadius: 16,
+                  flex: 1, minWidth: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: isMobile ? "10px 8px" : "11px 14px",
+                  borderRadius: 12,
                   border: activa ? "none" : "1px solid rgba(255,255,255,0.08)",
                   background: activa ? tab.colorActivo : "rgba(15,23,42,0.6)",
                   color: activa ? "white" : "#94a3b8",
-                  fontWeight: 900,
-                  fontSize: isMobile ? 13 : 16,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+                  fontWeight: 900, fontSize: isMobile ? 12 : 13,
+                  cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 }}
               >
                 <span>{tab.icono}</span>
                 <span>{tab.titulo}</span>
-                <span style={{ opacity: 0.85, fontSize: isMobile ? 12 : 14 }}>
+                <span style={{ opacity: 0.85, fontSize: isMobile ? 11 : 12 }}>
                   {loadingCruce ? "(...)" : `(${tab.lista.length})`}
                 </span>
               </button>
@@ -330,26 +306,21 @@ function BuscarPageInner() {
           })}
         </div>
 
-        {/* Contenido de la pestaña activa */}
         {(() => {
           const tabActiva = tabs.find((t) => t.key === pestañaActiva)!;
           const lista = tabActiva.lista;
           if (loadingCruce) {
-            return <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 16 }}>Buscando...</div>;
+            return <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", background: "rgba(15,23,42,0.6)", borderRadius: 14 }}>Buscando...</div>;
           }
           if (lista.length === 0) {
-            return <div style={{ padding: "24px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 16, fontSize: 14 }}>Sin proveedores disponibles</div>;
+            return <div style={{ padding: "20px", textAlign: "center", color: "#64748b", background: "rgba(15,23,42,0.4)", borderRadius: 14, fontSize: 13 }}>Sin proveedores disponibles</div>;
           }
           if (isMobile) {
-            return (
-              <div style={{ display: "grid", gap: 10 }}>
-                {lista.map(renderOfertaMobile)}
-              </div>
-            );
+            return <div style={{ display: "grid", gap: 8 }}>{lista.map(renderOfertaMobile)}</div>;
           }
           return (
-            <div style={{ width: "100%", borderRadius: 28, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 1fr 1fr 1fr 1.5fr", gap: 20, padding: "20px 24px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#94a3b8", fontSize: 13 }}>
+            <div style={{ width: "100%", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#64748b", fontSize: 11 }}>
                 {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
               </div>
               {lista.map(renderOfertaDesktopRow)}
@@ -363,7 +334,6 @@ function BuscarPageInner() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: isMobile ? "16px 12px" : "clamp(16px,4vw,40px)" }}>
 
-      {/* MODAL CONTACTO */}
       {contactoModal && (
         <div onClick={() => setContactoModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#0f172a", borderRadius: 24, padding: 28, width: "100%", maxWidth: 400, border: "1px solid rgba(255,255,255,0.1)" }}>
@@ -391,7 +361,6 @@ function BuscarPageInner() {
         </div>
       )}
 
-      {/* LIGHTBOX */}
       {fotoVisor && (
         <div onClick={() => setFotoVisor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
           <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}>
@@ -411,25 +380,20 @@ function BuscarPageInner() {
       )}
 
       <div style={{ maxWidth: 1700, margin: "0 auto" }}>
-
-        {/* CABECERA */}
-        <div style={{ marginBottom: isMobile ? 16 : 32 }}>
-          <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "10px 18px", borderRadius: 999, background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: 10, fontSize: isMobile ? 11 : 14 }}>MARKETPLACE B2B</div>
-          <h1 style={{ fontSize: isMobile ? "28px" : "clamp(32px,8vw,70px)", fontWeight: 900, marginBottom: 6, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
+        <div style={{ marginBottom: isMobile ? 14 : 20 }}>
+          <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: 8, fontSize: isMobile ? 11 : 13 }}>MARKETPLACE B2B</div>
+          <h1 style={{ fontSize: isMobile ? "22px" : "clamp(24px,5vw,48px)", fontWeight: 900, marginBottom: 4, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
         </div>
 
-        {/* PESTAÑAS: Stock OEM | Stock IAM (en línea, IAM activa por defecto) */}
         {renderTabs()}
 
-        {/* Mensaje si no hay resultados en ningún panel, una vez terminada la búsqueda */}
-        {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && (
+        {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && stockEQ.length === 0 && (
           <div style={{ padding: "60px", textAlign: "center", color: "#94a3b8", fontSize: 16 }}>
             No hay resultados para <strong style={{ color: "white" }}>"{q}"</strong>
           </div>
         )}
       </div>
 
-      {/* MENÚ CONTEXTUAL */}
       {menuAbierto !== null && (
         <div data-menu="true" style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: 210, background: "#0f172a", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", zIndex: 99999, boxShadow: "0 20px 50px rgba(0,0,0,0.9)" }}>
           <button data-menu="true" style={{ width: "100%", border: "none", background: "transparent", color: "white", padding: "14px 18px", textAlign: "left", cursor: "pointer", fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 14 }} onClick={() => abrirChatConProveedor(menuAbierto!)}>💬 Abrir chat</button>
