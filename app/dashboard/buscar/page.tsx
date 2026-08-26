@@ -117,8 +117,8 @@ function BuscarPageInner() {
       }
 
       const refNorm = qSinEspacios.toUpperCase().replace(/[\s\-_./]/g, "");
-      const resultadoIAM = resultadoIAMRaw.filter(o => o.referencia.toUpperCase().replace(/[\s\-_./]/g, "") === refNorm);
-      const resultadoEQ = resultadoIAMRaw.filter(o => o.referencia.toUpperCase().replace(/[\s\-_./]/g, "") !== refNorm);
+      const resultadoIAM = resultadoIAMRaw;
+      const resultadoEQ: Oferta[] = [];
 
       setStockOEM(resultadoOEM);
       setStockIAM(resultadoIAM);
