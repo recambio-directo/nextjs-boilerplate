@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
   // búsquedas, y el taller obtiene resultados más rápido.
   // -----------------------------------------------------------
   let equivalenciasIAM: { articulo_no: string; marca: string; descripcion: string }[] = [];
-  const referenciaEsYaIAMDirecta = coincidenciaDirecta?.tipo === "IAM";
+  const referenciaEsYaIAMDirecta = false;
 
   if (!referenciaEsYaIAMDirecta) {
     // ---- INTENTO 1: Cruces locales (tabla cruces_referencias) ----
