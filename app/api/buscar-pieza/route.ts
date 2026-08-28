@@ -53,30 +53,20 @@ function normalizar(referencia: string): string {
 async function buscarCrucesLocales(
   referenciaNormalizada: string
 ): Promise<{ articulo_no: string; marca: string }[]> {
-  const { data, error } = await supabase
-    .from("cruces_referencias")
-    .select("marca_iam, referencia_iam")
-    .eq("referencia_oem_norm", referenciaNormalizada)
-    .limit(500);
-
-  if (error) {
-    console.error("Error buscando cruces locales:", error);
-    return [];
-  }
-
-  if (!data || data.length === 0) return [];
-
-  // Deduplicar por marca + referencia normalizada
+  const [{ data: data1 }, { data: data2 }] = await Promise.all([
+    supabase.from("cruces_referencias").select("marca_iam, referencia_iam").eq("referencia_oem_norm", referenciaNormalizada).limit(500),
+    supabase.from("cruces_referencias").select("marca_oem, referencia_oem").eq("referencia_iam_norm", referenciaNormalizada).limit(500),
+  ]);
+  const resultados: { articulo_no: string; marca: string }[] = [];
+  if (data1) for (const d of data1) resultados.push({ articulo_no: d.referencia_iam, marca: d.marca_iam });
+  if (data2) for (const d of data2) resultados.push({ articulo_no: d.referencia_oem, marca: d.marca_oem });
   const vistos = new Set<string>();
-  return data.filter((d) => {
-    const k = `${normalizar(d.marca_iam)}|${normalizar(d.referencia_iam)}`;
+  return resultados.filter((r) => {
+    const k = `${normalizar(r.marca)}|${normalizar(r.articulo_no)}`;
     if (vistos.has(k)) return false;
     vistos.add(k);
     return true;
-  }).map((d) => ({
-    articulo_no: d.referencia_iam,
-    marca: d.marca_iam,
-  }));
+  });
 }
 
 // ---------- RAPIDAPI (fallback si no hay cruces locales) ----------
@@ -211,16 +201,8 @@ async function buscarStockIAM(
   }
   const piezas = (data as PiezaPublicada[]) || [];
   return piezas.filter((pieza) => {
-    const marcaPieza = normalizar(pieza.marca || "");
-    if (!marcaPieza || marcaPieza.length < 3) return false;
-    return equivalencias.some((eq) => {
-      const refCoincide = normalizar(eq.articulo_no) === normalizar(pieza.referencia);
-      const marcaEquivalencia = normalizar(eq.marca);
-      if (!marcaEquivalencia || marcaEquivalencia.length < 3) return false;
-      const marcaCoincide =
-        marcaEquivalencia.includes(marcaPieza) || marcaPieza.includes(marcaEquivalencia);
-      return refCoincide && marcaCoincide;
-    });
+    const refPieza = normalizar(pieza.referencia);
+    return equivalencias.some((eq) => normalizar(eq.articulo_no) === refPieza);
   });
 }
 
