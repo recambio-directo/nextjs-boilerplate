@@ -121,15 +121,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   async function cargarNotificaciones(uid: string) {
-    // Timestamp de la última vez que el usuario abrió la campanita
-    // Persistido en localStorage para que sobreviva entre sesiones
     const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
     const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
-    const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 24 * 60 * 60 * 1000); // si nunca, últimas 24h
+    const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const notifsTotales: any[] = [];
 
-    // Mensajes no leídos en conversaciones del usuario
     const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
     const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
     const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
@@ -150,14 +147,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           id: m.id,
           tipo: "chat",
           texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`,
-          leido: !esNuevo, // nuevo = llegó después de la última vez que vimos la campanita
+          leido: !esNuevo,
           created_at: m.created_at,
           conv_id: m.conversacion_id,
         });
       });
     }
 
-    // Pedidos con cambio de estado en las últimas 24h
     const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const { data: pedidos } = await supabase
       .from("pedidos")
@@ -195,14 +191,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const uid = userIdRef.current;
     if (!uid) return;
 
-    // Guardar el momento actual como "última vez visto"
     const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
     localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
 
-    // Marcar todas como leídas en el estado local
     setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
 
-    // Marcar mensajes como leídos en BD
     const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
     if (convIds.length > 0) {
       await supabase.from("mensajes")
@@ -228,8 +221,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const tabs = [
     { href: "/dashboard",         icon: "🏠", label: "Inicio" },
     { href: "/checkout",          icon: "🛒", label: "Cesta", badge: totalCesta },
+    { href: "/dashboard/catalogos", icon: "📚", label: "Catálogos" },
     { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
-    { href: "/dashboard/devoluciones", icon: "🔄", label: "Devoluciones" },
     { href: "/perfil",            icon: "👤", label: "Cuenta" },
   ];
 
@@ -258,6 +251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {!isMobile && (
           <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
             <Link href="/dashboard" style={{ textDecoration: "none", color: pathname === "/dashboard" ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Inicio</Link>
+            <Link href="/dashboard/catalogos" style={{ textDecoration: "none", color: pathname.startsWith("/dashboard/catalogos") ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Catálogos</Link>
             <Link href="/dashboard/pedidos" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Pedidos</Link>
             <Link href="/checkout" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "white", fontWeight: 800 }}>
               <div style={{ position: "relative" }}>
@@ -271,7 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div ref={notifRef} style={{ position: "relative" }}>
               <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ width: 46, height: 46, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 20, position: "relative" }}>
                 🔔
-                {noLeidas > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, padding: "0 4px", border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
+                {noLeidas > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, padding: "0 4px", border: "2px solid #020617" }}>{noLeidas}</span>}
               </button>
               {showNotifs && (
                 <div style={{ position: "absolute", right: 0, top: 54, width: 340, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>

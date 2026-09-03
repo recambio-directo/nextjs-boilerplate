@@ -216,6 +216,7 @@ async function buscarStockIAM(
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const referenciaOriginal = searchParams.get("referencia")?.trim();
+  const exactMode = searchParams.get("exact") === "1";
 
   if (!referenciaOriginal) {
     return NextResponse.json({ error: "Falta el parámetro 'referencia'" }, { status: 400 });
@@ -273,7 +274,9 @@ export async function GET(request: NextRequest) {
   let equivalenciasIAM: { articulo_no: string; marca: string; descripcion: string }[] = [];
   const referenciaEsYaIAMDirecta = false;
 
-  if (!referenciaEsYaIAMDirecta) {
+  if (exactMode) {
+    // Modo exacto: no buscar cruces ni equivalencias, solo la referencia directa
+  } else if (!referenciaEsYaIAMDirecta) {
     // ---- INTENTO 1: Cruces locales (tabla cruces_referencias) ----
     const crucesLocales = await buscarCrucesLocales(referenciaBuscada);
 
