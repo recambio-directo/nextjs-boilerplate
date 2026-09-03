@@ -39,6 +39,10 @@ interface EquivalenciaCache {
 // HELPERS
 // ============================================================
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizar(referencia: string): string {
   return referencia.toUpperCase().replace(/[\s\-_./]/g, "");
 }
@@ -291,17 +295,21 @@ export async function GET(request: NextRequest) {
         const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
 
         if (articleIds.length > 0) {
-          const detalles = await Promise.all(
-            articleIds.map(async (id) => {
-              const detalle = await obtenerDetalleArticulo(id);
-              return detalle ? { articleId: id, ...detalle } : null;
-            })
-          );
-
-          const detallesValidos = detalles.filter(
-            (d): d is { articleId: number; articulo_no: string; marca: string; descripcion: string } =>
-              d !== null
-          );
+          const detallesValidos: { articleId: number; articulo_no: string; marca: string; descripcion: string }[] = [];
+          const LOTE = 10;
+          for (let i = 0; i < articleIds.length; i += LOTE) {
+            const lote = articleIds.slice(i, i + LOTE);
+            const resultados = await Promise.all(
+              lote.map(async (id) => {
+                const detalle = await obtenerDetalleArticulo(id);
+                return detalle ? { articleId: id, ...detalle } : null;
+              })
+            );
+            for (const r of resultados) {
+              if (r) detallesValidos.push(r);
+            }
+            if (i + LOTE < articleIds.length) await sleep(800);
+          }
 
           await guardarCache(referenciaOriginal, detallesValidos);
 
