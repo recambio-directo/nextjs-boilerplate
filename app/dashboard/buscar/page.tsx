@@ -31,6 +31,7 @@ function BuscarPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
+  const exactMode = searchParams.get("exact") === "1";
   const qSinEspacios = q.replace(/\s+/g, "");
   const [stockOEM, setStockOEM] = useState<Oferta[]>([]);
   const [stockIAM, setStockIAM] = useState<Oferta[]>([]);
@@ -88,7 +89,8 @@ function BuscarPageInner() {
       const { data: perfilBuscar } = userBuscar ? await supabase.from("usuarios").select("codigo_postal, email").eq("id", userBuscar.id).single() : { data: null };
       const cpParam = perfilBuscar?.codigo_postal ? `&cp=${encodeURIComponent(perfilBuscar.codigo_postal)}` : "";
       const emailParam = perfilBuscar?.email ? `&email=${encodeURIComponent(perfilBuscar.email)}` : "";
-      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}${cpParam}${emailParam}`);
+      const exactParam = exactMode ? "&exact=1" : "";
+      const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}${cpParam}${emailParam}${exactParam}`);
       if (!res.ok) {
         setStockOEM([]); setStockIAM([]); setStockEQ([]);
         setLoadingCruce(false);

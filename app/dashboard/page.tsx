@@ -63,7 +63,6 @@ export default function Dashboard() {
     location.href = "/";
   }
 
-  // Calcular requisitos RD Pago
   function calcularRequisitos() {
     const diasActivo = fechaRegistro
       ? Math.floor((new Date().getTime() - new Date(fechaRegistro).getTime()) / (1000 * 60 * 60 * 24))
@@ -81,11 +80,9 @@ export default function Dashboard() {
     if (!userId || !userEmail) return;
     setSolicitandoRD(true);
     try {
-      // Marcar solicitud en Supabase
       await supabase.from("usuarios").update({ rd_pago_solicitado: true }).eq("id", userId);
       setRdPagoSolicitado(true);
 
-      // Email a Vicente
       await fetch("/api/send-rd-pago-solicitud", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +107,6 @@ export default function Dashboard() {
 
   const req = calcularRequisitos();
 
-  // Bloque RD Pago
   function BloqueRDPago() {
     if (rdPagoActivo) {
       return (
@@ -192,6 +188,7 @@ export default function Dashboard() {
 
   const accesos = [
     { href: "/dashboard/pedidos",  icon: "📦", title: "Mis Pedidos",  text: "Estados y tracking" },
+    { href: "/dashboard/catalogos", icon: "📚", title: "Catálogos",    text: "Catálogos de marcas" },
     { href: "/dashboard/mis-piezas", icon: "🔩", title: "Mis Piezas",   text: "Vende piezas sueltas" },
     { href: "/chat",               icon: "💬", title: "Chat",          text: "Mensajes con proveedores" },
     { href: "/perfil",             icon: "👤", title: "Mi Cuenta",     text: "Datos y contraseña" },
@@ -283,6 +280,7 @@ export default function Dashboard() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
               { href: "/dashboard", label: "🏠 Inicio" },
+              { href: "/dashboard/catalogos", label: "📚 Catálogos" },
               { href: "/dashboard/pedidos", label: "📦 Pedidos" },
               { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
               { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
@@ -323,6 +321,22 @@ export default function Dashboard() {
         </div>
         {/* RD PAGO */}
         <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
+
+        {/* CATÁLOGOS DESTACADO */}
+        <div style={{ padding: "0 50px", marginBottom: 32 }}>
+          <Link href="/dashboard/catalogos" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg,rgba(124,58,237,0.12),rgba(37,99,235,0.08))", border: "1px solid rgba(124,58,237,0.3)", borderRadius: 28, padding: 32, transition: "border-color 0.2s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, flexShrink: 0 }}>📚</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "inline-block", background: "rgba(124,58,237,0.2)", color: "#a78bfa", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>NUEVO</div>
+                <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 6 }}>Catálogos de Marcas</h3>
+                <p style={{ color: "#94a3b8", fontSize: 14, margin: 0 }}>Consulta catálogos interactivos de aditivos, aceites y más. Haz clic en cualquier referencia para encontrar proveedores.</p>
+              </div>
+              <span style={{ fontSize: 28, color: "#94a3b8", flexShrink: 0 }}>→</span>
+            </div>
+          </Link>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 40 }}>
           {[
             { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
