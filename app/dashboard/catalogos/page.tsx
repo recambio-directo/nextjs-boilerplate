@@ -38,32 +38,24 @@ const CATEGORIAS_MARKETPLACE = [
   { id: "taller", nombre: "Taller", icon: "🏭" },
 ];
 
-// ── LOGOS SVG INLINE ──
+// ── LOGOS REALES ──
 function LiquiMolyLogo({ size = 80 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 120 60" width={size} height={size * 0.5} xmlns="http://www.w3.org/2000/svg">
-      <rect width="120" height="60" rx="6" fill="#002B7F" />
-      <rect x="3" y="3" width="114" height="54" rx="4" fill="#DC2626" />
-      <text x="60" y="28" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontSize="18" fontWeight="900" fill="#FFFFFF" letterSpacing="1">LIQUI</text>
-      <text x="60" y="48" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontSize="18" fontWeight="900" fill="#FFFFFF" letterSpacing="1">MOLY</text>
-    </svg>
+    <img
+      src="/catalogos/liqui-moly-logo.png"
+      alt="Liqui Moly"
+      style={{ width: size, height: "auto", objectFit: "contain", borderRadius: "6px" }}
+    />
   );
 }
 
 function AuxolLogo({ size = 80 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 140 60" width={size} height={size * 0.43} xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="auxolGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#CD7F32" />
-          <stop offset="50%" stopColor="#E8B86D" />
-          <stop offset="100%" stopColor="#CD7F32" />
-        </linearGradient>
-      </defs>
-      <rect width="140" height="60" rx="6" fill="#1a1a1a" />
-      <polygon points="70,8 120,30 70,52 20,30" fill="none" stroke="url(#auxolGrad)" strokeWidth="2.5" />
-      <text x="70" y="36" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontSize="20" fontWeight="900" fill="url(#auxolGrad)" letterSpacing="3">AUXOL</text>
-    </svg>
+    <img
+      src="/catalogos/auxol-logo.png"
+      alt="Auxol"
+      style={{ width: size, height: "auto", objectFit: "contain", borderRadius: "6px" }}
+    />
   );
 }
 
@@ -628,7 +620,6 @@ export default function CatalogosPage() {
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
   const [verPDF, setVerPDF] = useState(false);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
-  const [mostrarContacto, setMostrarContacto] = useState(false);
   const [soloDestacados, setSoloDestacados] = useState(false);
 
   // Filtrar catálogos en la vista marketplace
@@ -666,96 +657,13 @@ export default function CatalogosPage() {
 
   const totalProductos = seccionesFiltradas.reduce((acc, s) => acc + s.productos.length, 0);
 
-  // ── MODAL DE CONTACTO ──
-  const ModalContacto = () => {
-    if (!mostrarContacto) return null;
-    return (
-      <div
-        onClick={() => setMostrarContacto(false)}
-        style={{
-          position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "20px",
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: "#1e293b", borderRadius: "16px", padding: "32px",
-            maxWidth: "480px", width: "100%", border: "1px solid #334155",
-            boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div style={{ textAlign: "center", marginBottom: "24px" }}>
-            <div style={{ fontSize: "48px", marginBottom: "12px" }}>📞</div>
-            <h2 style={{ color: "#f8fafc", fontSize: "22px", fontWeight: 700, margin: 0 }}>
-              Contacta con Recambio Directo
-            </h2>
-            <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "8px" }}>
-              ¿Quieres publicar tu catálogo en nuestra plataforma? Ponte en contacto con nosotros.
-            </p>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <a
-              href="mailto:info@recambiodirecto.com"
-              style={{
-                display: "flex", alignItems: "center", gap: "14px",
-                background: "#0f172a", borderRadius: "12px", padding: "16px 20px",
-                textDecoration: "none", border: "1px solid #334155",
-                transition: "border-color 0.2s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#2563eb")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#334155")}
-            >
-              <span style={{ fontSize: "28px" }}>✉️</span>
-              <div>
-                <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Email</div>
-                <div style={{ color: "#f8fafc", fontSize: "16px", fontWeight: 600 }}>info@recambiodirecto.com</div>
-              </div>
-            </a>
-
-            <a
-              href="tel:+34968123456"
-              style={{
-                display: "flex", alignItems: "center", gap: "14px",
-                background: "#0f172a", borderRadius: "12px", padding: "16px 20px",
-                textDecoration: "none", border: "1px solid #334155",
-                transition: "border-color 0.2s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#16a34a")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#334155")}
-            >
-              <span style={{ fontSize: "28px" }}>📱</span>
-              <div>
-                <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Teléfono</div>
-                <div style={{ color: "#f8fafc", fontSize: "16px", fontWeight: 600 }}>+34 968 123 456</div>
-              </div>
-            </a>
-          </div>
-
-          <button
-            onClick={() => setMostrarContacto(false)}
-            style={{
-              marginTop: "24px", width: "100%", padding: "12px",
-              background: "#334155", color: "#f8fafc", border: "none",
-              borderRadius: "10px", cursor: "pointer", fontSize: "14px", fontWeight: 600,
-            }}
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   // ═══════════════════════════════════════
   // VISTA DETALLE DE CATÁLOGO
   // ═══════════════════════════════════════
   if (catalogoSeleccionado) {
     return (
       <div style={{ minHeight: "100vh", background: "#020617", color: "#f8fafc" }}>
-        <ModalContacto />
+
 
         {/* Cabecera */}
         <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "20px 24px" }}>
@@ -952,7 +860,6 @@ export default function CatalogosPage() {
   // ═══════════════════════════════════════
   return (
     <div style={{ minHeight: "100vh", background: "#020617", color: "#f8fafc" }}>
-      <ModalContacto />
 
       {/* Cabecera */}
       <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "24px" }}>
@@ -1043,27 +950,16 @@ export default function CatalogosPage() {
                 </div>
 
                 {/* Botones */}
-                <div style={{ padding: "0 24px 20px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <div style={{ padding: "0 24px 20px" }}>
                   <button
                     onClick={() => { setCatalogoSeleccionado(catalogo); setSeccionAbierta(catalogo.secciones[0]?.titulo || null); }}
                     style={{
-                      flex: 1, padding: "12px", borderRadius: "10px", border: "none",
+                      width: "100%", padding: "12px", borderRadius: "10px", border: "none",
                       background: catalogo.color, color: "#fff", fontSize: "14px",
-                      fontWeight: 700, cursor: "pointer", minWidth: "120px",
+                      fontWeight: 700, cursor: "pointer",
                     }}
                   >
                     Ver catálogo
-                  </button>
-                  <button
-                    onClick={() => setMostrarContacto(true)}
-                    style={{
-                      flex: 1, padding: "12px", borderRadius: "10px",
-                      border: "1px solid #334155", background: "transparent",
-                      color: "#94a3b8", fontSize: "14px", fontWeight: 600,
-                      cursor: "pointer", minWidth: "120px",
-                    }}
-                  >
-                    📞 Más información
                   </button>
                 </div>
               </div>
@@ -1077,6 +973,56 @@ export default function CatalogosPage() {
             <p style={{ fontSize: "16px" }}>No se encontraron catálogos en esta categoría</p>
           </div>
         )}
+
+        {/* Banner para proveedores */}
+        <div
+          style={{
+            marginTop: "40px",
+            background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(22,163,106,0.08))",
+            border: "1px solid rgba(37,99,235,0.3)",
+            borderRadius: "16px",
+            padding: "32px",
+            display: "flex",
+            alignItems: "center",
+            gap: "24px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ fontSize: "48px", flexShrink: 0 }}>📦</div>
+          <div style={{ flex: 1, minWidth: "220px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 6px 0", color: "#f8fafc" }}>
+              ¿Eres proveedor? Publica tu catálogo en Recambio Directo
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: "14px", margin: "0 0 16px 0", lineHeight: "1.5" }}>
+              Haz visible tus productos a cientos de talleres en toda España. Contacta con nosotros y te ayudamos a dar de alta tu catálogo en nuestra plataforma.
+            </p>
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
+              <a
+                href="mailto:info@recambiodirecto.com"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px",
+                  padding: "10px 20px", borderRadius: "10px",
+                  background: "#2563eb", color: "#fff", fontSize: "14px",
+                  fontWeight: 600, textDecoration: "none",
+                }}
+              >
+                ✉️ info@recambiodirecto.com
+              </a>
+              <a
+                href="tel:+34968123456"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px",
+                  padding: "10px 20px", borderRadius: "10px",
+                  border: "1px solid #334155", background: "transparent",
+                  color: "#e2e8f0", fontSize: "14px", fontWeight: 600,
+                  textDecoration: "none",
+                }}
+              >
+                📞 +34 968 123 456
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
