@@ -1656,7 +1656,7 @@ const CATALOGOS: Catalogo[] = [
     descripcion: "Catálogo General 2025 — Emergencia, Escobillas, Tapacubos, Seguridad, Iluminación, Eléctrico, Complementos, Herramientas, Químico, Cadenas",
     color: "#b91c1c",
     categoriaFiltro: "accesorios",
-    pdfUrl: "/catalogos/carpriss-catalogo.pdf",
+    pdfUrl: "https://drive.google.com/file/d/1PkmJ3-VsNydmytEtHQTxhGXGfA7fuj59/view?usp=drive_link",
     secciones: [
       { titulo: "Emergencia", icon: "🚨", productos: [
         { ref: "70113901", nombre: "Triangulo de avería", desc: "Triángulo de emergencia homologado" },
@@ -2962,28 +2962,45 @@ export default function CatalogosPage() {
                   fontSize: "14px", outline: "none",
                 }}
               />
-              <button
-                onClick={() => setVerPDF(!verPDF)}
-                style={{
-                  padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
-                  background: verPDF ? "rgba(37,99,235,0.15)" : "#1e293b",
-                  color: verPDF ? "#60a5fa" : "#94a3b8",
-                  cursor: "pointer", fontSize: "13px", fontWeight: 600,
-                }}
-              >
-                📄 {verPDF ? "Ocultar PDF" : "Ver PDF"}
-              </button>
-              <a
-                href={catalogoSeleccionado.pdfUrl}
-                download
-                style={{
-                  padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
-                  background: "#1e293b", color: "#94a3b8", textDecoration: "none",
-                  fontSize: "13px", fontWeight: 600,
-                }}
-              >
-                ⬇️ Descargar PDF
-              </a>
+              {catalogoSeleccionado.slug === "carpriss" ? (
+                <a
+                  href={catalogoSeleccionado.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
+                    background: "#1e293b", color: "#94a3b8", textDecoration: "none",
+                    fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  📄 Ver PDF completo
+                </a>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setVerPDF(!verPDF)}
+                    style={{
+                      padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
+                      background: verPDF ? "rgba(37,99,235,0.15)" : "#1e293b",
+                      color: verPDF ? "#60a5fa" : "#94a3b8",
+                      cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                    }}
+                  >
+                    📄 {verPDF ? "Ocultar PDF" : "Ver PDF"}
+                  </button>
+                  <a
+                    href={catalogoSeleccionado.pdfUrl}
+                    download
+                    style={{
+                      padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
+                      background: "#1e293b", color: "#94a3b8", textDecoration: "none",
+                      fontSize: "13px", fontWeight: 600,
+                    }}
+                  >
+                    ⬇️ Descargar PDF
+                  </a>
+                </>
+              )}
             </div>
 
             <div style={{ marginTop: "10px", color: "#64748b", fontSize: "13px" }}>
