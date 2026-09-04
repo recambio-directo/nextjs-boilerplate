@@ -226,7 +226,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/perfil",            icon: "👤", label: "Cuenta" },
   ];
 
-  if (esProveedor) return <main>{children}</main>;
+  if (esProveedor) {
+    const enCatalogos = pathname?.startsWith("/dashboard/catalogos");
+    return (
+      <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
+        {enCatalogos && (
+          <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)" }}>
+            <button onClick={() => router.push("/dashboard/proveedor")} style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+              ← Volver al panel
+            </button>
+          </div>
+        )}
+        {children}
+      </main>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
