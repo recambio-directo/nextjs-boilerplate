@@ -714,6 +714,7 @@ export default function ProveedorPage() {
             ].map(({ key, label }) => (
               <div key={key} onClick={() => setSeccion(key as any)} style={seccion === key ? menuItemActive : menuItem}>{label}</div>
             ))}
+            <div onClick={() => router.push("/dashboard/catalogos")} style={menuItem}>📚 Catálogos</div>
           </nav>
         </aside>}
 
@@ -735,6 +736,7 @@ export default function ProveedorPage() {
                 <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("importar")}><div style={{ fontSize: 24, marginBottom: 8 }}>📥</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Importar</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Subir catálogo</p></div>
                 <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("exclusiones")}><div style={{ fontSize: 24, marginBottom: 8 }}>🚫</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Exclusiones</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Control de precios</p></div>
                 <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("pedidos")}><div style={{ fontSize: 24, marginBottom: 8 }}>🛒</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Pedidos</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Ver pedidos</p></div>
+                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => router.push("/dashboard/catalogos")}><div style={{ fontSize: 24, marginBottom: 8 }}>📚</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Catálogos</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Liqui Moly, Auxol, Carpriss</p></div>
               </div>
             </div>
           )}
@@ -1185,10 +1187,10 @@ export default function ProveedorPage() {
             { key: "dashboard",    label: "Inicio",   emoji: "📊" },
             { key: "almacen",      label: "Almacén",  emoji: "📦" },
             { key: "pedidos",      label: "Pedidos",  emoji: "🛒" },
-            { key: "devoluciones", label: "Devol.",   emoji: "🔄" },
+            { key: "catalogos",    label: "Catálogos", emoji: "📚" },
             { key: "cuenta",       label: "Cuenta",   emoji: "👤" },
           ].map(({ key, label, emoji }) => (
-            <button key={key} onClick={() => setSeccion(key as any)} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: seccion === key ? "#60a5fa" : "#475569", borderTop: seccion === key ? "2px solid #2563eb" : "2px solid transparent" }}>
+            <button key={key} onClick={() => key === "catalogos" ? router.push("/dashboard/catalogos") : setSeccion(key as any)} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: seccion === key ? "#60a5fa" : "#475569", borderTop: seccion === key ? "2px solid #2563eb" : "2px solid transparent" }}>
               <span style={{ fontSize: 20 }}>{emoji}</span>
               <span style={{ fontSize: 10, fontWeight: seccion === key ? 800 : 600, marginTop: 2 }}>{label}</span>
             </button>

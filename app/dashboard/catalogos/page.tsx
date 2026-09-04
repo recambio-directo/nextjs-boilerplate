@@ -3069,12 +3069,16 @@ export default function CatalogosPage() {
                             {producto.nombre}
                           </span>
                         </div>
-                        <p style={{ color: "#64748b", fontSize: "13px", margin: "4px 0 0 0" }}>
-                          {producto.desc}
-                        </p>
+                        {producto.desc ? (
+                          <p style={{ color: "#94a3b8", fontSize: "13px", margin: "4px 0 0 0" }}>
+                            {producto.desc}
+                          </p>
+                        ) : null}
                       </div>
                       <Link
                         href={`/dashboard/buscar?q=${encodeURIComponent(producto.ref)}&exact=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         style={{
                           padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600,
                           background: "rgba(37,99,235,0.15)", color: "#60a5fa",
