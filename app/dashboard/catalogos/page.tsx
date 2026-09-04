@@ -1439,15 +1439,15 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Diésel",
         icon: "🛢️",
         productos: [
-          { ref: "00361", nombre: "Detox Ultra Diesel Plus", desc: "Tratamiento detox ultra para diésel", destacado: true },
-          { ref: "02845", nombre: "Limpia Inyección Diesel Plus", desc: "Limpiador avanzado de inyección diésel", destacado: true },
-          { ref: "00445", nombre: "Limpia Inyectores Diesel", desc: "Limpiador de inyectores diésel", destacado: true },
-          { ref: "00620", nombre: "Antihumo ITV Diesel", desc: "Reduce emisiones para pasar la ITV", destacado: true },
-          { ref: "01445", nombre: "Antihumo ITV Diesel Plus", desc: "Antihumo diésel versión plus", destacado: true },
-          { ref: "00110", nombre: "Tratamiento Circuito Diesel 1L", desc: "Limpieza permanente sistema inyección", destacado: true },
+          { ref: "00361", nombre: "Detox Ultra Diesel Plus", desc: "Tratamiento detox ultra para diésel" },
+          { ref: "02845", nombre: "Limpia Inyección Diesel Plus", desc: "Limpiador avanzado de inyección diésel" },
+          { ref: "00445", nombre: "Limpia Inyectores Diesel", desc: "Limpiador de inyectores diésel" },
+          { ref: "00620", nombre: "Antihumo ITV Diesel", desc: "Reduce emisiones para pasar la ITV" },
+          { ref: "01445", nombre: "Antihumo ITV Diesel Plus", desc: "Antihumo diésel versión plus" },
+          { ref: "00110", nombre: "Tratamiento Circuito Diesel 1L", desc: "Limpieza permanente sistema inyección" },
           { ref: "00125", nombre: "Tratamiento Circuito Diesel 5L", desc: "Tratamiento circuito diésel profesional" },
-          { ref: "02920", nombre: "Restaura Juntas Inyección", desc: "Restaurador de juntas de inyección", destacado: true },
-          { ref: "90145", nombre: "Kit ITV Diesel", desc: "Kit completo para pasar la ITV diésel", destacado: true },
+          { ref: "02920", nombre: "Restaura Juntas Inyección", desc: "Restaurador de juntas de inyección" },
+          { ref: "90145", nombre: "Kit ITV Diesel", desc: "Kit completo para pasar la ITV diésel" },
           { ref: "00161", nombre: "Tratamiento Circuito Diesel 1L (V.I.)", desc: "Tratamiento circuito diésel vehículo industrial" },
           { ref: "00462", nombre: "Limpia Inyectores Diesel 2L", desc: "Limpia inyectores formato industrial" },
           { ref: "23961", nombre: "Anticongelante Diesel 1L", desc: "Anticongelante para gasóleo" },
@@ -1458,12 +1458,12 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Gasolina",
         icon: "⛽",
         productos: [
-          { ref: "00861", nombre: "Detox Ultra Gasolina Plus", desc: "Tratamiento detox ultra para gasolina", destacado: true },
-          { ref: "00545", nombre: "Limpia Inyectores Gasolina", desc: "Limpiador de inyectores gasolina", destacado: true },
-          { ref: "03545", nombre: "Limpia Circuito Híbridos", desc: "Limpiador específico para motores híbridos", destacado: true },
-          { ref: "00210", nombre: "Tratamiento Circuito Gasolina", desc: "Tratamiento completo circuito gasolina", destacado: true },
-          { ref: "00720", nombre: "Antihumo ITV Gasolina", desc: "Reduce emisiones gasolina para ITV", destacado: true },
-          { ref: "90245", nombre: "Kit ITV Gasolina", desc: "Kit completo para pasar la ITV gasolina", destacado: true },
+          { ref: "00861", nombre: "Detox Ultra Gasolina Plus", desc: "Tratamiento detox ultra para gasolina" },
+          { ref: "00545", nombre: "Limpia Inyectores Gasolina", desc: "Limpiador de inyectores gasolina" },
+          { ref: "03545", nombre: "Limpia Circuito Híbridos", desc: "Limpiador específico para motores híbridos" },
+          { ref: "00210", nombre: "Tratamiento Circuito Gasolina", desc: "Tratamiento completo circuito gasolina" },
+          { ref: "00720", nombre: "Antihumo ITV Gasolina", desc: "Reduce emisiones gasolina para ITV" },
+          { ref: "90245", nombre: "Kit ITV Gasolina", desc: "Kit completo para pasar la ITV gasolina" },
         ],
       },
       // ═══ SERVICIO ADMISIÓN & POSTCOMBUSTIÓN ═══
@@ -1471,11 +1471,11 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Admisión y Postcombustión",
         icon: "💨",
         productos: [
-          { ref: "01940", nombre: "Limpia Turbo EGR", desc: "Limpiador de turbo y válvula EGR sin desmontaje", destacado: true },
-          { ref: "90380", nombre: "Kit Limpieza Turbo-EGR", desc: "Kit profesional limpieza turbo y EGR", destacado: true },
-          { ref: "04840", nombre: "Limpia Catalizador y Sensor Oxígeno", desc: "Limpiador catalizador y sonda lambda", destacado: true },
-          { ref: "06461", nombre: "Tratamiento Urea 2 en 1 1000ml", desc: "Tratamiento urea AdBlue", destacado: true },
-          { ref: "07040", nombre: "Limpia Inyector Urea & Filtro SCR", desc: "Limpiador inyector AdBlue y filtro SCR", destacado: true },
+          { ref: "01940", nombre: "Limpia Turbo EGR", desc: "Limpiador de turbo y válvula EGR sin desmontaje" },
+          { ref: "90380", nombre: "Kit Limpieza Turbo-EGR", desc: "Kit profesional limpieza turbo y EGR" },
+          { ref: "04840", nombre: "Limpia Catalizador y Sensor Oxígeno", desc: "Limpiador catalizador y sonda lambda" },
+          { ref: "06461", nombre: "Tratamiento Urea 2 en 1 1000ml", desc: "Tratamiento urea AdBlue" },
+          { ref: "07040", nombre: "Limpia Inyector Urea & Filtro SCR", desc: "Limpiador inyector AdBlue y filtro SCR" },
         ],
       },
       // ═══ SERVICIO DPF-FAP ═══
@@ -1483,13 +1483,13 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio DPF-FAP",
         icon: "🔥",
         productos: [
-          { ref: "01061", nombre: "Detox DPF Plus", desc: "Tratamiento detox avanzado para DPF", destacado: true },
-          { ref: "05750", nombre: "Limpia Catalizador & DPF", desc: "Limpiador combinado catalizador y DPF", destacado: true },
-          { ref: "02761", nombre: "Limpiador DPF-GPF Pistola 1L", desc: "Limpiador DPF para pistola vaporizadora", destacado: true },
+          { ref: "01061", nombre: "Detox DPF Plus", desc: "Tratamiento detox avanzado para DPF" },
+          { ref: "05750", nombre: "Limpia Catalizador & DPF", desc: "Limpiador combinado catalizador y DPF" },
+          { ref: "02761", nombre: "Limpiador DPF-GPF Pistola 1L", desc: "Limpiador DPF para pistola vaporizadora" },
           { ref: "02765", nombre: "Limpiador DPF-GPF Pistola 5L", desc: "Limpiador DPF pistola formato profesional" },
-          { ref: "00350", nombre: "Pistola Vaporizadora DPF-GPF", desc: "Pistola para limpieza DPF", destacado: true },
-          { ref: "23630", nombre: "Activador DPF", desc: "Activa la regeneración del DPF", destacado: true },
-          { ref: "07261", nombre: "Regenerador FAP Universal 1L", desc: "Regenerador de filtro de partículas", destacado: true },
+          { ref: "00350", nombre: "Pistola Vaporizadora DPF-GPF", desc: "Pistola para limpieza DPF" },
+          { ref: "23630", nombre: "Activador DPF", desc: "Activa la regeneración del DPF" },
+          { ref: "07261", nombre: "Regenerador FAP Universal 1L", desc: "Regenerador de filtro de partículas" },
           { ref: "07265", nombre: "Regenerador FAP Universal 5L", desc: "Regenerador FAP profesional" },
           { ref: "00355", nombre: "Kit llenado Regenerador FAP", desc: "Kit para llenado regenerador FAP" },
         ],
@@ -1499,10 +1499,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Descarbonización",
         icon: "🧹",
         productos: [
-          { ref: "05961", nombre: "Gel Carbon Cleaner", desc: "Gel limpiador de carbonilla", destacado: true },
-          { ref: "22740", nombre: "Carbon Off Turbo EGR & Colectores", desc: "Elimina carbonilla de turbo, EGR y colectores", destacado: true },
-          { ref: "05240", nombre: "Limpia Alquitrán + Inyectores", desc: "Limpiador de alquitrán e inyectores", destacado: true },
-          { ref: "90680", nombre: "Kit Limpieza Cámara Combustión", desc: "Kit profesional descarbonización", destacado: true },
+          { ref: "05961", nombre: "Gel Carbon Cleaner", desc: "Gel limpiador de carbonilla" },
+          { ref: "22740", nombre: "Carbon Off Turbo EGR & Colectores", desc: "Elimina carbonilla de turbo, EGR y colectores" },
+          { ref: "05240", nombre: "Limpia Alquitrán + Inyectores", desc: "Limpiador de alquitrán e inyectores" },
+          { ref: "90680", nombre: "Kit Limpieza Cámara Combustión", desc: "Kit profesional descarbonización" },
           { ref: "00357", nombre: "Kit Extracción de Fluidos", desc: "Kit para extracción de fluidos" },
         ],
       },
@@ -1511,11 +1511,11 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Motor",
         icon: "🔧",
         productos: [
-          { ref: "21330", nombre: "Biowax Antifricción Motor", desc: "Antifricción con nanotecnología para motor", destacado: true },
-          { ref: "21525", nombre: "Compresión Motor Antihumo Aceite", desc: "Mejora la compresión, reduce humo de aceite", destacado: true },
-          { ref: "11245", nombre: "Limpia Carter-Taques", desc: "Limpiador de cárter y taqués", destacado: true },
-          { ref: "21830", nombre: "Empujadores Hidráulicos", desc: "Elimina ruido de empujadores hidráulicos", destacado: true },
-          { ref: "21710", nombre: "Stop Fugas Juntas & Retenes", desc: "Sella fugas de juntas y retenes", destacado: true },
+          { ref: "21330", nombre: "Biowax Antifricción Motor", desc: "Antifricción con nanotecnología para motor" },
+          { ref: "21525", nombre: "Compresión Motor Antihumo Aceite", desc: "Mejora la compresión, reduce humo de aceite" },
+          { ref: "11245", nombre: "Limpia Carter-Taques", desc: "Limpiador de cárter y taqués" },
+          { ref: "21830", nombre: "Empujadores Hidráulicos", desc: "Elimina ruido de empujadores hidráulicos" },
+          { ref: "21710", nombre: "Stop Fugas Juntas & Retenes", desc: "Sella fugas de juntas y retenes" },
           { ref: "11262", nombre: "Limpia Carter - Taques 2L (V.I.)", desc: "Limpiador cárter formato industrial" },
           { ref: "21361", nombre: "Biosyntec Antifricción Universal", desc: "Antifricción universal motor/cambio/dirección" },
           { ref: "21755", nombre: "Stop Fugas Juntas & Retenes 1L (V.I.)", desc: "Stop fugas formato industrial" },
@@ -1526,10 +1526,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Transmisión",
         icon: "⚙️",
         productos: [
-          { ref: "21630", nombre: "Biowax Antifricción Cambio Automático", desc: "Antifricción para transmisión automática", destacado: true },
-          { ref: "05330", nombre: "Limpiador Cambio Automático", desc: "Limpiador interno cambio automático", destacado: true },
-          { ref: "21423", nombre: "Biowax Antifricción Cambio Manual", desc: "Antifricción para cambio manual", destacado: true },
-          { ref: "24012", nombre: "Stop Fugas Servodirección", desc: "Sella fugas del sistema de servodirección", destacado: true },
+          { ref: "21630", nombre: "Biowax Antifricción Cambio Automático", desc: "Antifricción para transmisión automática" },
+          { ref: "05330", nombre: "Limpiador Cambio Automático", desc: "Limpiador interno cambio automático" },
+          { ref: "21423", nombre: "Biowax Antifricción Cambio Manual", desc: "Antifricción para cambio manual" },
+          { ref: "24012", nombre: "Stop Fugas Servodirección", desc: "Sella fugas del sistema de servodirección" },
         ],
       },
       // ═══ SERVICIO REFRIGERACIÓN ═══
@@ -1537,9 +1537,9 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Refrigeración",
         icon: "❄️",
         productos: [
-          { ref: "22230", nombre: "Limpia Radiador Instant", desc: "Limpieza rápida del radiador", destacado: true },
-          { ref: "11850", nombre: "Desengrasa Radiadores", desc: "Desengrasante para radiadores", destacado: true },
-          { ref: "22125", nombre: "Tapafugas Radiador", desc: "Sella fugas del circuito de refrigeración", destacado: true },
+          { ref: "22230", nombre: "Limpia Radiador Instant", desc: "Limpieza rápida del radiador" },
+          { ref: "11850", nombre: "Desengrasa Radiadores", desc: "Desengrasante para radiadores" },
+          { ref: "22125", nombre: "Tapafugas Radiador", desc: "Sella fugas del circuito de refrigeración" },
           { ref: "22261", nombre: "Limpia Radiador Instant 1L (V.I.)", desc: "Limpiador radiador formato industrial" },
           { ref: "11862", nombre: "Desengrasa Radiadores 2L (V.I.)", desc: "Desengrasante radiador formato industrial" },
           { ref: "22361", nombre: "Sellador Bloque Radiador 1L (V.I.)", desc: "Sellador bloque radiador industrial" },
@@ -1550,9 +1550,9 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Bloque y Junta Culata",
         icon: "🔩",
         productos: [
-          { ref: "22323", nombre: "Sellador Bloque Radiador", desc: "Sella juntas de culata porosas y micro-fisuras", destacado: true },
-          { ref: "06530", nombre: "Sellador Bloque Radiador Plus", desc: "Sellador bloque versión plus", destacado: true },
-          { ref: "90480", nombre: "Kit Reparación Junta Culata", desc: "Kit profesional reparación junta culata", destacado: true },
+          { ref: "22323", nombre: "Sellador Bloque Radiador", desc: "Sella juntas de culata porosas y micro-fisuras" },
+          { ref: "06530", nombre: "Sellador Bloque Radiador Plus", desc: "Sellador bloque versión plus" },
+          { ref: "90480", nombre: "Kit Reparación Junta Culata", desc: "Kit profesional reparación junta culata" },
         ],
       },
       // ═══ SERVICIO CLIMATIZACIÓN ═══
@@ -1560,10 +1560,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Climatización",
         icon: "🌡️",
         productos: [
-          { ref: "23320", nombre: "Higienizante Aire Acondicionado 200ml", desc: "Desinfectante circuito A/C", destacado: true },
-          { ref: "24120", nombre: "Higienizante Habitáculo 200ml", desc: "Higieniza y ambientar habitáculo", destacado: true },
-          { ref: "23404", nombre: "Tapafugas AC 30ml", desc: "Sella fugas de gas refrigerante A/C", destacado: true },
-          { ref: "07904", nombre: "Tapafugas AC Plus 40ml", desc: "Tapafugas A/C con tecnología XCOOL", destacado: true },
+          { ref: "23320", nombre: "Higienizante Aire Acondicionado 200ml", desc: "Desinfectante circuito A/C" },
+          { ref: "24120", nombre: "Higienizante Habitáculo 200ml", desc: "Higieniza y ambientar habitáculo" },
+          { ref: "23404", nombre: "Tapafugas AC 30ml", desc: "Sella fugas de gas refrigerante A/C" },
+          { ref: "07904", nombre: "Tapafugas AC Plus 40ml", desc: "Tapafugas A/C con tecnología XCOOL" },
           { ref: "00356", nombre: "Kit Conexión AC", desc: "Kit de conexión para aire acondicionado" },
         ],
       },
@@ -1572,11 +1572,11 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Depósitos",
         icon: "🏗️",
         productos: [
-          { ref: "05062", nombre: "Aditech Diesel 2L", desc: "Descontaminante nanotecnológico diésel premium", destacado: true },
+          { ref: "05062", nombre: "Aditech Diesel 2L", desc: "Descontaminante nanotecnológico diésel premium" },
           { ref: "05065", nombre: "Aditech Diesel 5L", desc: "Aditech Diesel formato profesional" },
-          { ref: "21130", nombre: "Tratamiento Bactericida Gasoleo 250ml", desc: "Biocida contra bacterias en depósitos", destacado: true },
+          { ref: "21130", nombre: "Tratamiento Bactericida Gasoleo 250ml", desc: "Biocida contra bacterias en depósitos" },
           { ref: "21165", nombre: "Tratamiento Bactericida Gasoleo 5L", desc: "Bactericida formato profesional" },
-          { ref: "06461", nombre: "Tratamiento Urea 2 en 1 1000ml", desc: "Protege inyector y filtro AdBlue", destacado: true },
+          { ref: "06461", nombre: "Tratamiento Urea 2 en 1 1000ml", desc: "Protege inyector y filtro AdBlue" },
         ],
       },
       // ═══ SERVICIO DETOX ═══
@@ -1584,10 +1584,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Detox",
         icon: "🧪",
         productos: [
-          { ref: "01760", nombre: "Detox Diesel Pro", desc: "Tratamiento detox profesional diésel", destacado: true },
-          { ref: "01860", nombre: "Detox Gasolina Pro", desc: "Tratamiento detox profesional gasolina", destacado: true },
-          { ref: "01960", nombre: "Detox Admisión Pro", desc: "Tratamiento detox profesional admisión", destacado: true },
-          { ref: "03660", nombre: "Detox DPF Pro", desc: "Tratamiento detox profesional DPF", destacado: true },
+          { ref: "01760", nombre: "Detox Diesel Pro", desc: "Tratamiento detox profesional diésel" },
+          { ref: "01860", nombre: "Detox Gasolina Pro", desc: "Tratamiento detox profesional gasolina" },
+          { ref: "01960", nombre: "Detox Admisión Pro", desc: "Tratamiento detox profesional admisión" },
+          { ref: "03660", nombre: "Detox DPF Pro", desc: "Tratamiento detox profesional DPF" },
           { ref: "00500", nombre: "Motor Detox 500", desc: "Máquina profesional tratamiento detox" },
         ],
       },
@@ -1596,10 +1596,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Servicio Usuario Final",
         icon: "🚗",
         productos: [
-          { ref: "06025", nombre: "Menos Consumo Diesel", desc: "Reduce consumo de gasoil", destacado: true },
-          { ref: "06125", nombre: "Menos Consumo Gasolina", desc: "Reduce consumo de gasolina", destacado: true },
-          { ref: "06425", nombre: "Tratamiento Urea 2 en 1", desc: "Tratamiento urea para usuario final", destacado: true },
-          { ref: "06225", nombre: "Protección Motor 4 en 1", desc: "Protección integral del motor", destacado: true },
+          { ref: "06025", nombre: "Menos Consumo Diesel", desc: "Reduce consumo de gasoil" },
+          { ref: "06125", nombre: "Menos Consumo Gasolina", desc: "Reduce consumo de gasolina" },
+          { ref: "06425", nombre: "Tratamiento Urea 2 en 1", desc: "Tratamiento urea para usuario final" },
+          { ref: "06225", nombre: "Protección Motor 4 en 1", desc: "Protección integral del motor" },
           { ref: "90563", nombre: "Expositor Multiproductos", desc: "Expositor para punto de venta" },
         ],
       },
@@ -1608,9 +1608,9 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Aerosoles - Limpieza",
         icon: "🧴",
         productos: [
-          { ref: "23160", nombre: "Limpia Frenos 600ml", desc: "Limpiador de frenos aerosol", destacado: true },
-          { ref: "23250", nombre: "Limpia Contactos 500ml", desc: "Limpiador de contactos eléctricos", destacado: true },
-          { ref: "22740", nombre: "Carbon Off Turbo EGR & Colectores 400ml", desc: "Elimina carbonilla piezas desmontadas", destacado: true },
+          { ref: "23160", nombre: "Limpia Frenos 600ml", desc: "Limpiador de frenos aerosol" },
+          { ref: "23250", nombre: "Limpia Contactos 500ml", desc: "Limpiador de contactos eléctricos" },
+          { ref: "22740", nombre: "Carbon Off Turbo EGR & Colectores 400ml", desc: "Elimina carbonilla piezas desmontadas" },
         ],
       },
       // ═══ AEROSOLES - LUBRICACIÓN ═══
@@ -1618,10 +1618,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Aerosoles - Lubricación",
         icon: "⚡",
         productos: [
-          { ref: "22440", nombre: "Aflojatodo Universal 400ml", desc: "Desbloquea piezas oxidadas y agarrotadas", destacado: true },
-          { ref: "22540", nombre: "Lubricante Multiusos Plus 400ml", desc: "Lubricante 7 funciones", destacado: true },
-          { ref: "23040", nombre: "Multigrease Partículas PTFE 400ml", desc: "Grasa con PTFE alta temperatura", destacado: true },
-          { ref: "22640", nombre: "Multilube Dispersión PTFE 400ml", desc: "Lubricante PTFE penetrante", destacado: true },
+          { ref: "22440", nombre: "Aflojatodo Universal 400ml", desc: "Desbloquea piezas oxidadas y agarrotadas" },
+          { ref: "22540", nombre: "Lubricante Multiusos Plus 400ml", desc: "Lubricante 7 funciones" },
+          { ref: "23040", nombre: "Multigrease Partículas PTFE 400ml", desc: "Grasa con PTFE alta temperatura" },
+          { ref: "22640", nombre: "Multilube Dispersión PTFE 400ml", desc: "Lubricante PTFE penetrante" },
         ],
       },
       // ═══ AEROSOLES - HERRAMIENTAS ═══
@@ -1629,10 +1629,10 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Aerosoles - Herramientas",
         icon: "🔨",
         productos: [
-          { ref: "04740", nombre: "Autoarranque Diesel Gasolina 400ml", desc: "Spray arranque en frío", destacado: true },
-          { ref: "23520", nombre: "Silicona 100% RTV Negra 200ml", desc: "Sellante silicona resistente", destacado: true },
-          { ref: "04340", nombre: "Desbloqueador Efecto Frío + PTFE 400ml", desc: "Desbloqueador con enfriamiento extremo", destacado: true },
-          { ref: "05240", nombre: "Limpia Alquitrán + Inyectores 400ml", desc: "Elimina alquitrán solidificado", destacado: true },
+          { ref: "04740", nombre: "Autoarranque Diesel Gasolina 400ml", desc: "Spray arranque en frío" },
+          { ref: "23520", nombre: "Silicona 100% RTV Negra 200ml", desc: "Sellante silicona resistente" },
+          { ref: "04340", nombre: "Desbloqueador Efecto Frío + PTFE 400ml", desc: "Desbloqueador con enfriamiento extremo" },
+          { ref: "05240", nombre: "Limpia Alquitrán + Inyectores 400ml", desc: "Elimina alquitrán solidificado" },
         ],
       },
       // ═══ AEROSOLES - POSTCOMBUSTIÓN ═══
@@ -1640,9 +1640,9 @@ const CATALOGOS: Catalogo[] = [
         titulo: "Aerosoles - Postcombustión",
         icon: "🔥",
         productos: [
-          { ref: "01940", nombre: "Limpia Turbo EGR 400ml", desc: "Limpiador turbo y EGR sin desmontaje", destacado: true },
-          { ref: "05750", nombre: "Limpia Catalizador & DPF 500ml", desc: "Limpiador catalizador y DPF sin desmontaje", destacado: true },
-          { ref: "07040", nombre: "Limpia Inyector Urea & Filtro SCR 400ml", desc: "Limpiador inyector AdBlue", destacado: true },
+          { ref: "01940", nombre: "Limpia Turbo EGR 400ml", desc: "Limpiador turbo y EGR sin desmontaje" },
+          { ref: "05750", nombre: "Limpia Catalizador & DPF 500ml", desc: "Limpiador catalizador y DPF sin desmontaje" },
+          { ref: "07040", nombre: "Limpia Inyector Urea & Filtro SCR 400ml", desc: "Limpiador inyector AdBlue" },
         ],
       },
     ],
@@ -2878,7 +2878,6 @@ export default function CatalogosPage() {
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
   const [verPDF, setVerPDF] = useState(false);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
-  const [soloDestacados, setSoloDestacados] = useState(false);
 
   // Filtrar catálogos en la vista marketplace
   const catalogosFiltrados = useMemo(() => {
@@ -2898,7 +2897,6 @@ export default function CatalogosPage() {
     return catalogoSeleccionado.secciones
       .map((sec) => {
         let prods = sec.productos;
-        if (soloDestacados) prods = prods.filter((p) => p.destacado);
         if (busquedaCatalogo) {
           const q = busquedaCatalogo.toLowerCase();
           prods = prods.filter(
@@ -2911,7 +2909,7 @@ export default function CatalogosPage() {
         return { ...sec, productos: prods };
       })
       .filter((sec) => sec.productos.length > 0);
-  }, [catalogoSeleccionado, busquedaCatalogo, soloDestacados]);
+  }, [catalogoSeleccionado, busquedaCatalogo]);
 
   const totalProductos = seccionesFiltradas.reduce((acc, s) => acc + s.productos.length, 0);
 
@@ -2965,17 +2963,6 @@ export default function CatalogosPage() {
                 }}
               />
               <button
-                onClick={() => setSoloDestacados(!soloDestacados)}
-                style={{
-                  padding: "10px 16px", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600,
-                  border: soloDestacados ? "1px solid #16a34a" : "1px solid #334155",
-                  background: soloDestacados ? "rgba(22,163,106,0.15)" : "#1e293b",
-                  color: soloDestacados ? "#4ade80" : "#94a3b8",
-                }}
-              >
-                ⭐ Destacados España
-              </button>
-              <button
                 onClick={() => setVerPDF(!verPDF)}
                 style={{
                   padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
@@ -3001,7 +2988,7 @@ export default function CatalogosPage() {
 
             <div style={{ marginTop: "10px", color: "#64748b", fontSize: "13px" }}>
               {totalProductos} producto{totalProductos !== 1 ? "s" : ""} encontrado{totalProductos !== 1 ? "s" : ""}
-              {soloDestacados && " (solo destacados España)"}
+              
             </div>
           </div>
         </div>
@@ -3034,7 +3021,7 @@ export default function CatalogosPage() {
           {seccionesFiltradas.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
               <div style={{ fontSize: "48px", marginBottom: "12px" }}>🔍</div>
-              <p style={{ fontSize: "16px" }}>No se encontraron productos{soloDestacados ? " destacados" : ""} con esa búsqueda</p>
+              <p style={{ fontSize: "16px" }}>No se encontraron productos con esa búsqueda</p>
             </div>
           )}
 
@@ -3078,11 +3065,6 @@ export default function CatalogosPage() {
                           }}>
                             {producto.ref}
                           </span>
-                          {producto.destacado && (
-                            <span style={{ fontSize: "11px", background: "rgba(22,163,106,0.15)", color: "#4ade80", padding: "2px 8px", borderRadius: "4px", fontWeight: 600 }}>
-                              ES
-                            </span>
-                          )}
                           <span style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 600 }}>
                             {producto.nombre}
                           </span>
@@ -3170,7 +3152,6 @@ export default function CatalogosPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "20px" }}>
           {catalogosFiltrados.map((catalogo) => {
             const totalRefs = catalogo.secciones.reduce((acc, s) => acc + s.productos.length, 0);
-            const totalDestacados = catalogo.secciones.reduce((acc, s) => acc + s.productos.filter(p => p.destacado).length, 0);
 
             return (
               <div
@@ -3195,7 +3176,6 @@ export default function CatalogosPage() {
                     </h3>
                     <div style={{ color: "#64748b", fontSize: "13px", marginTop: "4px" }}>
                       {totalRefs} referencias · {catalogo.secciones.length} secciones
-                      {totalDestacados > 0 && <span style={{ color: "#4ade80" }}> · {totalDestacados} destacadas ES</span>}
                     </div>
                   </div>
                 </div>
