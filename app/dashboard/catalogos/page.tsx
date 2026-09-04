@@ -2925,7 +2925,7 @@ export default function CatalogosPage() {
         <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "20px 24px" }}>
           <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
             <button
-              onClick={() => { setCatalogoSeleccionado(null); setVerPDF(false); setBusquedaCatalogo(""); setSoloDestacados(false); }}
+              onClick={() => { setCatalogoSeleccionado(null); setVerPDF(false); setBusquedaCatalogo(""); }}
               style={{
                 background: "none", border: "1px solid #334155", color: "#94a3b8",
                 padding: "8px 16px", borderRadius: "8px", cursor: "pointer",
@@ -3074,7 +3074,7 @@ export default function CatalogosPage() {
                         </p>
                       </div>
                       <Link
-                        href={`/dashboard/buscar?ref=${encodeURIComponent(producto.ref)}&exact=1`}
+                        href={`/dashboard/buscar?q=${encodeURIComponent(producto.ref)}&exact=1`}
                         style={{
                           padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600,
                           background: "rgba(37,99,235,0.15)", color: "#60a5fa",
