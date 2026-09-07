@@ -1676,7 +1676,7 @@ const CATALOGOS: Catalogo[] = [
     descripcion: "Catálogo General 2025 — Emergencia, Escobillas, Tapacubos, Seguridad, Iluminación, Eléctrico, Complementos, Herramientas, Químico, Cadenas",
     color: "#b91c1c",
     categoriaFiltro: "accesorios",
-    pdfUrl: "/catalogos/carpriss-catalogo.pdf",
+    pdfUrl: "https://gharfhzqowuyxighnqbz.supabase.co/storage/v1/object/public/CATALOGOS/catalogo_carpriss.pdf",
     secciones: [
       { titulo: "Emergencia", icon: "🚨", productos: [
         { ref: "70113901", nombre: "Triangulo de avería", desc: "Triángulo de emergencia homologado" },
@@ -4901,7 +4901,7 @@ const CATALOGOS: Catalogo[] = [
     descripcion: "Catálogo 2026 — Herramientas, equipamiento de taller, utillaje, iluminación, neumáticas y consumibles",
     color: "#16a34a",
     categoriaFiltro: "taller",
-    pdfUrl: "/catalogos/jbm-catalogo.pdf",
+    pdfUrl: "https://gharfhzqowuyxighnqbz.supabase.co/storage/v1/object/public/CATALOGOS/jbm-catalogo.pdf",
     secciones: [
       { titulo: "Estuches de Herramientas", icon: "🧰", productos: [
         { ref: "54863", nombre: "Maletín De Herramientas Con Pistola De Impacto A Batería 800Nm", desc: "Maletín De Herramientas Con Pistola De Impacto A Batería 800Nm" },
