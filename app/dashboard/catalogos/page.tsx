@@ -1656,7 +1656,7 @@ const CATALOGOS: Catalogo[] = [
     descripcion: "Catálogo General 2025 — Emergencia, Escobillas, Tapacubos, Seguridad, Iluminación, Eléctrico, Complementos, Herramientas, Químico, Cadenas",
     color: "#b91c1c",
     categoriaFiltro: "accesorios",
-    pdfUrl: "https://drive.google.com/file/d/1PkmJ3-VsNydmytEtHQTxhGXGfA7fuj59/preview",
+    pdfUrl: "/catalogos/carpriss-catalogo.pdf",
     secciones: [
       { titulo: "Emergencia", icon: "🚨", productos: [
         { ref: "70113901", nombre: "Triangulo de avería", desc: "Triángulo de emergencia homologado" },
@@ -2973,19 +2973,17 @@ export default function CatalogosPage() {
               >
                 📄 {verPDF ? "Ocultar PDF" : "Ver PDF"}
               </button>
-              {catalogoSeleccionado.slug !== "carpriss" && (
-                <a
-                  href={catalogoSeleccionado.pdfUrl}
-                  download
-                  style={{
-                    padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
-                    background: "#1e293b", color: "#94a3b8", textDecoration: "none",
-                    fontSize: "13px", fontWeight: 600,
-                  }}
-                >
-                  ⬇️ Descargar PDF
-                </a>
-              )}
+              <a
+                href={catalogoSeleccionado.pdfUrl}
+                download
+                style={{
+                  padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
+                  background: "#1e293b", color: "#94a3b8", textDecoration: "none",
+                  fontSize: "13px", fontWeight: 600,
+                }}
+              >
+                ⬇️ Descargar PDF
+              </a>
             </div>
 
             <div style={{ marginTop: "10px", color: "#64748b", fontSize: "13px" }}>
@@ -3006,7 +3004,7 @@ export default function CatalogosPage() {
               />
               <div style={{ padding: "12px 16px", borderTop: "1px solid #1e293b", textAlign: "center" }}>
                 <a
-                  href={catalogoSeleccionado.pdfUrl.replace("/preview", "/view?usp=drive_link")}
+                  href={catalogoSeleccionado.pdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: "#60a5fa", textDecoration: "none", fontSize: "13px" }}
