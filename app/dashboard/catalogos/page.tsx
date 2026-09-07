@@ -9566,7 +9566,6 @@ export default function CatalogosPage() {
   const [busqueda, setBusqueda] = useState("");
   const [catalogoSeleccionado, setCatalogoSeleccionado] = useState<Catalogo | null>(null);
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
-  const [verPDF, setVerPDF] = useState(false);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
 
   // Filtrar catálogos en la vista marketplace
@@ -9652,17 +9651,18 @@ export default function CatalogosPage() {
                   fontSize: "14px", outline: "none",
                 }}
               />
-              <button
-                onClick={() => setVerPDF(!verPDF)}
+              <a
+                href={catalogoSeleccionado.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   padding: "10px 16px", borderRadius: "8px", border: "1px solid #334155",
-                  background: verPDF ? "rgba(37,99,235,0.15)" : "#1e293b",
-                  color: verPDF ? "#60a5fa" : "#94a3b8",
-                  cursor: "pointer", fontSize: "13px", fontWeight: 600,
+                  background: "#1e293b", color: "#94a3b8", textDecoration: "none",
+                  fontSize: "13px", fontWeight: 600, cursor: "pointer",
                 }}
               >
-                📄 {verPDF ? "Ocultar PDF" : "Ver PDF"}
-              </button>
+                📄 Ver PDF
+              </a>
               <a
                 href={catalogoSeleccionado.pdfUrl}
                 download
@@ -9683,28 +9683,6 @@ export default function CatalogosPage() {
           </div>
         </div>
 
-        {/* PDF embed */}
-        {verPDF && (
-          <div style={{ maxWidth: "1400px", margin: "20px auto", padding: "0 24px" }}>
-            <div style={{ background: "#0f172a", borderRadius: "12px", overflow: "hidden", border: "1px solid #1e293b" }}>
-              <iframe
-                src={catalogoSeleccionado.pdfUrl}
-                style={{ width: "100%", height: "700px", border: "none" }}
-                title="Catálogo PDF"
-              />
-              <div style={{ padding: "12px 16px", borderTop: "1px solid #1e293b", textAlign: "center" }}>
-                <a
-                  href={catalogoSeleccionado.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#60a5fa", textDecoration: "none", fontSize: "13px" }}
-                >
-                  Abrir PDF en nueva pestaña →
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Secciones y productos */}
         <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "20px 24px" }}>
