@@ -2937,7 +2937,7 @@ export default function CatalogosPage() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
               <div style={{ flexShrink: 0 }}>
-                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : <AuxolLogo size={100} />}
+                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : catalogoSeleccionado.slug === "carpriss" ? <CarprissLogo size={100} /> : <AuxolLogo size={100} />}
               </div>
               <div style={{ flex: 1, minWidth: "200px" }}>
                 <h1 style={{ fontSize: "24px", fontWeight: 800, margin: 0 }}>
@@ -3171,7 +3171,7 @@ export default function CatalogosPage() {
                   borderBottom: "1px solid #1e293b",
                   background: `linear-gradient(135deg, ${catalogo.color}15, transparent)`,
                 }}>
-                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : <AuxolLogo size={90} />}
+                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : catalogo.slug === "carpriss" ? <CarprissLogo size={90} /> : <AuxolLogo size={90} />}
                   <div>
                     <h3 style={{ fontSize: "20px", fontWeight: 800, margin: 0 }}>
                       {catalogo.marca}
