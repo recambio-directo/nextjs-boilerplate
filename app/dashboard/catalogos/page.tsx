@@ -9569,6 +9569,7 @@ export default function CatalogosPage() {
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
+  const [slideActual, setSlideActual] = useState(0);
 
   useEffect(() => {
     const fetchTipo = async () => {
@@ -9894,6 +9895,189 @@ export default function CatalogosPage() {
             <p style={{ fontSize: "16px" }}>No se encontraron catálogos en esta categoría</p>
           </div>
         )}
+
+        {/* Presentación slides solo para proveedores */}
+        {tipoUsuario === "proveedor" && (() => {
+          const slides = [
+            // Slide 1 - Intro
+            <div key="s1" style={{ textAlign: "center", padding: "48px 32px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🚀</div>
+              <h2 style={{ color: "#e2e8f0", fontSize: "28px", fontWeight: 800, margin: "0 0 12px" }}>
+                Publica tu catálogo en Recambio Directo
+              </h2>
+              <p style={{ color: "#94a3b8", fontSize: "16px", lineHeight: "1.6", maxWidth: "600px", margin: "0 auto 24px" }}>
+                El medio más directo para hacer llegar la información de tu empresa a cientos de talleres profesionales en toda España.
+              </p>
+              <div style={{ display: "flex", gap: "24px", justifyContent: "center", flexWrap: "wrap", marginTop: "32px" }}>
+                {[
+                  { num: "500+", label: "Talleres registrados" },
+                  { num: "5", label: "Catálogos activos" },
+                  { num: "10.000+", label: "Referencias disponibles" },
+                  { num: "24/7", label: "Disponibilidad" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: "12px", padding: "20px 24px", minWidth: "130px" }}>
+                    <div style={{ color: "#2563eb", fontSize: "24px", fontWeight: 800 }}>{s.num}</div>
+                    <div style={{ color: "#94a3b8", fontSize: "12px", marginTop: "4px" }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>,
+            // Slide 2 - Cómo funciona
+            <div key="s2" style={{ padding: "48px 32px" }}>
+              <div style={{ textAlign: "center", marginBottom: "32px" }}>
+                <div style={{ fontSize: "40px", marginBottom: "12px" }}>⚙️</div>
+                <h2 style={{ color: "#e2e8f0", fontSize: "24px", fontWeight: 800, margin: "0 0 8px" }}>Cómo funciona</h2>
+                <p style={{ color: "#94a3b8", fontSize: "14px" }}>Los talleres encuentran tus productos a través del buscador de la plataforma</p>
+              </div>
+              <div style={{ display: "flex", gap: "20px", justifyContent: "center", flexWrap: "wrap" }}>
+                {[
+                  { icon: "📤", title: "1. Sube tu catálogo", desc: "Envíanos tu catálogo en PDF y lo integramos en la plataforma con todas tus referencias." },
+                  { icon: "🔍", title: "2. Los talleres buscan", desc: "Cuando un taller busca una referencia o categoría, encuentra tus productos al instante." },
+                  { icon: "📞", title: "3. Te contactan", desc: "El taller te contacta directamente para realizar el pedido. Sin intermediarios." },
+                ].map((step, i) => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px", flex: "1", minWidth: "220px", maxWidth: "280px" }}>
+                    <div style={{ fontSize: "32px", marginBottom: "12px" }}>{step.icon}</div>
+                    <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 8px" }}>{step.title}</h3>
+                    <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>{step.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>,
+            // Slide 3 - Ficha de empresa
+            <div key="s3" style={{ padding: "48px 32px" }}>
+              <div style={{ textAlign: "center", marginBottom: "32px" }}>
+                <div style={{ fontSize: "40px", marginBottom: "12px" }}>🏢</div>
+                <h2 style={{ color: "#e2e8f0", fontSize: "24px", fontWeight: 800, margin: "0 0 8px" }}>Tu ficha de empresa</h2>
+                <p style={{ color: "#94a3b8", fontSize: "14px" }}>Muestra toda la información de tu empresa a los talleres de la plataforma</p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", maxWidth: "700px", margin: "0 auto" }}>
+                {[
+                  { icon: "📋", title: "Datos de contacto", desc: "Teléfono, email, dirección y horarios de atención" },
+                  { icon: "🏷️", title: "Marcas comercializadas", desc: "Lista de todas las marcas que distribuyes" },
+                  { icon: "🌐", title: "Web y redes sociales", desc: "Enlaces a tu web y perfiles en redes" },
+                  { icon: "📍", title: "Geolocalización", desc: "Los talleres cercanos te encuentran en el mapa" },
+                  { icon: "🖼️", title: "Imágenes", desc: "Fotos de tu empresa, almacén e instalaciones" },
+                  { icon: "💬", title: "Chat directo", desc: "Comunicación directa con los talleres interesados" },
+                ].map((item, i) => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b", borderRadius: "12px", padding: "20px" }}>
+                    <div style={{ fontSize: "24px", marginBottom: "8px" }}>{item.icon}</div>
+                    <h4 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 4px" }}>{item.title}</h4>
+                    <p style={{ color: "#64748b", fontSize: "12px", lineHeight: "1.4", margin: 0 }}>{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>,
+            // Slide 4 - Tu tienda / catálogo
+            <div key="s4" style={{ padding: "48px 32px" }}>
+              <div style={{ textAlign: "center", marginBottom: "32px" }}>
+                <div style={{ fontSize: "40px", marginBottom: "12px" }}>🛒</div>
+                <h2 style={{ color: "#e2e8f0", fontSize: "24px", fontWeight: 800, margin: "0 0 8px" }}>Tu catálogo online</h2>
+                <p style={{ color: "#94a3b8", fontSize: "14px" }}>Haz visibles todos tus productos a los profesionales del sector</p>
+              </div>
+              <div style={{ display: "flex", gap: "24px", justifyContent: "center", flexWrap: "wrap" }}>
+                {[
+                  { icon: "📄", title: "Catálogo PDF", desc: "Tu catálogo completo disponible para descargar y consultar offline." },
+                  { icon: "🔎", title: "Buscador de referencias", desc: "Los talleres buscan por referencia, nombre o categoría y encuentran tus productos." },
+                  { icon: "📊", title: "Secciones organizadas", desc: "Productos ordenados por familias y categorías para una navegación fácil." },
+                  { icon: "📱", title: "Siempre disponible", desc: "Accesible 24h, 7 días a la semana, desde cualquier dispositivo." },
+                ].map((item, i) => (
+                  <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px", flex: "1", minWidth: "200px", maxWidth: "240px", textAlign: "center" }}>
+                    <div style={{ fontSize: "32px", marginBottom: "12px" }}>{item.icon}</div>
+                    <h3 style={{ color: "#e2e8f0", fontSize: "15px", fontWeight: 700, margin: "0 0 8px" }}>{item.title}</h3>
+                    <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>,
+            // Slide 5 - Publicaciones y ventajas
+            <div key="s5" style={{ padding: "48px 32px" }}>
+              <div style={{ textAlign: "center", marginBottom: "32px" }}>
+                <div style={{ fontSize: "40px", marginBottom: "12px" }}>📢</div>
+                <h2 style={{ color: "#e2e8f0", fontSize: "24px", fontWeight: 800, margin: "0 0 8px" }}>Promociones y documentación</h2>
+                <p style={{ color: "#94a3b8", fontSize: "14px" }}>Comparte ofertas, tarifas y documentación técnica con los talleres</p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", maxWidth: "650px", margin: "0 auto" }}>
+                <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: "14px", padding: "24px" }}>
+                  <h3 style={{ color: "#2563eb", fontSize: "16px", fontWeight: 700, margin: "0 0 12px" }}>📣 Promociones</h3>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>Publica ofertas y campañas promocionales. Los talleres las ven directamente en su panel.</p>
+                </div>
+                <div style={{ background: "rgba(22,163,106,0.08)", border: "1px solid rgba(22,163,106,0.2)", borderRadius: "14px", padding: "24px" }}>
+                  <h3 style={{ color: "#16a34a", fontSize: "16px", fontWeight: 700, margin: "0 0 12px" }}>📑 Tarifas</h3>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>Comparte tu información de tarifas actualizada para que los talleres consulten tus precios.</p>
+                </div>
+                <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", borderRadius: "14px", padding: "24px" }}>
+                  <h3 style={{ color: "#eab308", fontSize: "16px", fontWeight: 700, margin: "0 0 12px" }}>📖 Manuales técnicos</h3>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>Sube manuales e información técnica de tus productos para los profesionales.</p>
+                </div>
+                <div style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "14px", padding: "24px" }}>
+                  <h3 style={{ color: "#a855f7", fontSize: "16px", fontWeight: 700, margin: "0 0 12px" }}>🔧 Garantías</h3>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.5", margin: 0 }}>Centraliza la gestión de garantías y devoluciones en un solo lugar.</p>
+                </div>
+              </div>
+            </div>,
+            // Slide 6 - CTA
+            <div key="s6" style={{ textAlign: "center", padding: "48px 32px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>🤝</div>
+              <h2 style={{ color: "#e2e8f0", fontSize: "28px", fontWeight: 800, margin: "0 0 12px" }}>
+                ¿Listo para empezar?
+              </h2>
+              <p style={{ color: "#94a3b8", fontSize: "16px", lineHeight: "1.6", maxWidth: "500px", margin: "0 auto 32px" }}>
+                Contacta con nosotros y te ayudamos a dar de alta tu catálogo en Recambio Directo. Sin compromiso.
+              </p>
+              <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+                <a href="mailto:info@recambiodirecto.com" style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px",
+                  background: "#2563eb", color: "#fff", fontSize: "15px", fontWeight: 700, textDecoration: "none",
+                }}>✉️ info@recambiodirecto.com</a>
+                <a href="tel:+34744487895" style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px",
+                  border: "1px solid #334155", background: "transparent", color: "#e2e8f0", fontSize: "15px", fontWeight: 700, textDecoration: "none",
+                }}>📞 +34 744 487 895</a>
+              </div>
+            </div>,
+          ];
+          const totalSlides = slides.length;
+          return (
+            <div style={{ padding: "40px 20px 0" }}>
+              <div style={{
+                maxWidth: "900px", margin: "0 auto", position: "relative",
+                background: "linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(139,92,246,0.05) 100%)",
+                border: "1px solid rgba(37,99,235,0.15)", borderRadius: "20px", overflow: "hidden",
+              }}>
+                {/* Slide content */}
+                <div style={{ minHeight: "380px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {slides[slideActual]}
+                </div>
+                {/* Navigation arrows */}
+                <button onClick={() => setSlideActual((slideActual - 1 + totalSlides) % totalSlides)}
+                  style={{
+                    position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)",
+                    background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "50%",
+                    width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#93c5fd", fontSize: "20px", cursor: "pointer",
+                  }}>‹</button>
+                <button onClick={() => setSlideActual((slideActual + 1) % totalSlides)}
+                  style={{
+                    position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
+                    background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "50%",
+                    width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#93c5fd", fontSize: "20px", cursor: "pointer",
+                  }}>›</button>
+                {/* Dots */}
+                <div style={{ display: "flex", justifyContent: "center", gap: "8px", padding: "0 0 20px" }}>
+                  {slides.map((_, i) => (
+                    <button key={i} onClick={() => setSlideActual(i)}
+                      style={{
+                        width: slideActual === i ? "24px" : "8px", height: "8px", borderRadius: "4px", border: "none",
+                        background: slideActual === i ? "#2563eb" : "#334155", cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Banner solo para proveedores */}
         {tipoUsuario === "proveedor" && (
