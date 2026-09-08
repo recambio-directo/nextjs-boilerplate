@@ -284,7 +284,6 @@ export default function Dashboard() {
             {[
               { href: "/dashboard", label: "🏠 Inicio" },
               { href: "/dashboard/catalogos", label: "📚 Catálogos" },
-              { href: "/dashboard/vehiculo", label: "🚗 Vehículo" },
               { href: "/dashboard/pedidos", label: "📦 Pedidos" },
               { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
               { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
