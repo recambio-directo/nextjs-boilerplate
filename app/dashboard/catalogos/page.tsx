@@ -9897,28 +9897,45 @@ export default function CatalogosPage() {
 
         {/* Banner solo para proveedores */}
         {tipoUsuario === "proveedor" && (
-          <div style={{
-            margin: "40px auto 0", maxWidth: "800px", padding: "32px",
-            background: "linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(139,92,246,0.1) 100%)",
-            border: "1px solid rgba(37,99,235,0.2)", borderRadius: "16px", textAlign: "center",
-          }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🤝</div>
-            <h3 style={{ color: "#e2e8f0", fontSize: "20px", fontWeight: 700, margin: "0 0 8px" }}>
-              ¿Eres proveedor?
-            </h3>
-            <p style={{ color: "#94a3b8", fontSize: "14px", margin: "0 0 20px", lineHeight: "1.6" }}>
-              Si quieres aparecer en nuestro catálogo y llegar a cientos de talleres, contacta con nosotros.
-            </p>
-            <a
-              href="mailto:info@recambio-directo.com?subject=Quiero%20aparecer%20en%20el%20catálogo"
-              style={{
-                display: "inline-block", padding: "12px 32px", borderRadius: "10px",
-                background: "#2563eb", color: "#fff", fontSize: "14px", fontWeight: 700,
-                textDecoration: "none", cursor: "pointer",
-              }}
-            >
-              Contactar
-            </a>
+          <div style={{ padding: "40px 20px 20px" }}>
+            <div style={{
+              maxWidth: "800px", margin: "0 auto", padding: "32px",
+              background: "linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(139,92,246,0.1) 100%)",
+              border: "1px solid rgba(37,99,235,0.2)", borderRadius: "16px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: "36px", marginBottom: "12px" }}>🤝</div>
+              <h3 style={{ color: "#e2e8f0", fontSize: "20px", fontWeight: 700, margin: "0 0 8px" }}>
+                ¿Eres proveedor? Publica tu catálogo en Recambio Directo
+              </h3>
+              <p style={{ color: "#94a3b8", fontSize: "14px", margin: "0 0 16px 0", lineHeight: "1.5" }}>
+                Haz visible tus productos a cientos de talleres en toda España. Contacta con nosotros y te ayudamos a dar de alta tu catálogo en nuestra plataforma.
+              </p>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
+                <a
+                  href="mailto:info@recambiodirecto.com"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: "8px",
+                    padding: "10px 20px", borderRadius: "10px",
+                    background: "#2563eb", color: "#fff", fontSize: "14px",
+                    fontWeight: 600, textDecoration: "none",
+                  }}
+                >
+                  ✉️ info@recambiodirecto.com
+                </a>
+                <a
+                  href="tel:+34744487895"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: "8px",
+                    padding: "10px 20px", borderRadius: "10px",
+                    border: "1px solid #334155", background: "transparent",
+                    color: "#e2e8f0", fontSize: "14px", fontWeight: 600,
+                    textDecoration: "none",
+                  }}
+                >
+                  📞 +34 744 487 895
+                </a>
+              </div>
+            </div>
           </div>
         )}
 
