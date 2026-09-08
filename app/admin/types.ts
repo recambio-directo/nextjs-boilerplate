@@ -21,6 +21,7 @@ export type Usuario = {
   codigo_postal?: string;
   ultimo_acceso?: string;
   rd_pago_activo?: boolean;
+  vehiculo_activo?: boolean;
 };
 
 export type Pedido = {

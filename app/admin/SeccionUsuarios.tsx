@@ -61,7 +61,7 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
       </div>
       <div style={tableContainer}>
         <table style={tableStyle}>
-          <thead><tr>{["EMPRESA", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr>{["EMPRESA", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "VEHÍCULO", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {usuariosFiltrados.map(u => (
               <tr key={u.id} style={{ ...trStyle, opacity: u.activo ? 1 : 0.5 }}>
@@ -112,6 +112,19 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
                     </div>
                   ) : (
                     <button onClick={() => { setSeccion("ftp"); setFtpProveedorId(u.id); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>+ Activar</button>
+                  )}
+                </td>
+                <td style={tdStyle}>
+                  {u.tipo === "taller" ? (
+                    <button onClick={async () => {
+                      const nuevo = !u.vehiculo_activo;
+                      await supabase.from("usuarios").update({ vehiculo_activo: nuevo }).eq("id", u.id);
+                      setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, vehiculo_activo: nuevo } : x));
+                    }} style={{ background: u.vehiculo_activo ? "rgba(22,163,74,0.15)" : "rgba(255,255,255,0.05)", border: u.vehiculo_activo ? "none" : "1px solid rgba(255,255,255,0.08)", color: u.vehiculo_activo ? "#4ade80" : "#64748b", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                      {u.vehiculo_activo ? "🚗 Activo" : "Activar"}
+                    </button>
+                  ) : (
+                    <span style={{ color: "#334155", fontSize: 12 }}>—</span>
                   )}
                 </td>
                 <td style={tdStyle}>
