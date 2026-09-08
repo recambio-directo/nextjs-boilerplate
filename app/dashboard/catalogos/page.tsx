@@ -9882,55 +9882,6 @@ export default function CatalogosPage() {
           </div>
         )}
 
-        {/* Banner para proveedores */}
-        <div
-          style={{
-            marginTop: "40px",
-            background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(22,163,106,0.08))",
-            border: "1px solid rgba(37,99,235,0.3)",
-            borderRadius: "16px",
-            padding: "32px",
-            display: "flex",
-            alignItems: "center",
-            gap: "24px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ fontSize: "48px", flexShrink: 0 }}>📦</div>
-          <div style={{ flex: 1, minWidth: "220px" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 6px 0", color: "#f8fafc" }}>
-              ¿Eres proveedor? Publica tu catálogo en Recambio Directo
-            </h3>
-            <p style={{ color: "#94a3b8", fontSize: "14px", margin: "0 0 16px 0", lineHeight: "1.5" }}>
-              Haz visible tus productos a cientos de talleres en toda España. Contacta con nosotros y te ayudamos a dar de alta tu catálogo en nuestra plataforma.
-            </p>
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
-              <a
-                href="mailto:info@recambiodirecto.com"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: "8px",
-                  padding: "10px 20px", borderRadius: "10px",
-                  background: "#2563eb", color: "#fff", fontSize: "14px",
-                  fontWeight: 600, textDecoration: "none",
-                }}
-              >
-                ✉️ info@recambiodirecto.com
-              </a>
-              <a
-                href="tel:+34744487895"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: "8px",
-                  padding: "10px 20px", borderRadius: "10px",
-                  border: "1px solid #334155", background: "transparent",
-                  color: "#e2e8f0", fontSize: "14px", fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                📞 +34 744 487 895
-              </a>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
