@@ -222,6 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard",         icon: "🏠", label: "Inicio" },
     { href: "/checkout",          icon: "🛒", label: "Cesta", badge: totalCesta },
     { href: "/dashboard/catalogos", icon: "📚", label: "Catálogos" },
+    { href: "/dashboard/vehiculo", icon: "🚗", label: "Vehículo" },
     { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
     { href: "/perfil",            icon: "👤", label: "Cuenta" },
   ];
@@ -266,6 +267,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <nav style={{ display: "flex", alignItems: "center", gap: 22 }}>
             <Link href="/dashboard" style={{ textDecoration: "none", color: pathname === "/dashboard" ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Inicio</Link>
             <Link href="/dashboard/catalogos" style={{ textDecoration: "none", color: pathname.startsWith("/dashboard/catalogos") ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Catálogos</Link>
+            <Link href="/dashboard/vehiculo" style={{ textDecoration: "none", color: pathname.startsWith("/dashboard/vehiculo") ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Vehículo</Link>
             <Link href="/dashboard/pedidos" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Pedidos</Link>
             <Link href="/checkout" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "white", fontWeight: 800 }}>
               <div style={{ position: "relative" }}>
