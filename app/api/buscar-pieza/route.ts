@@ -303,26 +303,24 @@ export async function GET(request: NextRequest) {
       }));
     } else {
       // Sin caché — llamar a RapidAPI en vivo
+      // Si ya tenemos cruces locales, no bloquear: guardar caché en background
       const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
 
       if (articleIds.length > 0) {
-        const detallesValidos: { articleId: number; articulo_no: string; marca: string; descripcion: string }[] = [];
-        const LOTE = 10;
-        for (let i = 0; i < articleIds.length; i += LOTE) {
-          const lote = articleIds.slice(i, i + LOTE);
-          const resultados = await Promise.all(
-            lote.map(async (id) => {
-              const detalle = await obtenerDetalleArticulo(id);
-              return detalle ? { articleId: id, ...detalle } : null;
-            })
-          );
-          for (const r of resultados) {
-            if (r) detallesValidos.push(r);
-          }
-          if (i + LOTE < articleIds.length) await sleep(800);
-        }
+        // Limitar a 30 artículos y lanzar TODOS en paralelo (una sola ronda)
+        const idsLimitados = articleIds.slice(0, 30);
+        const resultados = await Promise.all(
+          idsLimitados.map(async (id) => {
+            const detalle = await obtenerDetalleArticulo(id);
+            return detalle ? { articleId: id, ...detalle } : null;
+          })
+        );
+        const detallesValidos = resultados.filter(
+          (r): r is { articleId: number; articulo_no: string; marca: string; descripcion: string } => r !== null
+        );
 
-        await guardarCache(referenciaOriginal, detallesValidos);
+        // Guardar caché sin bloquear la respuesta
+        guardarCache(referenciaOriginal, detallesValidos).catch(() => {});
 
         desdeRapidAPI = detallesValidos.map((d) => ({
           articulo_no: d.articulo_no,
