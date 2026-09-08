@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 
 // ── TIPOS ──
 interface DatosVehiculo {
@@ -40,71 +41,157 @@ interface DatosVehiculo {
 
 // ── HELPERS ──
 const fuelEmoji: Record<string, string> = {
-  Diesel: "⛽",
-  Gasoline: "⛽",
-  Electric: "🔋",
-  "Gasoline / Electric Hybrid": "🔋",
-  "Gasoline / Electric Plug-in": "🔌",
-  "Diesel / Electric Hybrid": "🔋",
-  "Diesel / Electric Plug-in": "🔌",
-  LPG: "🟢",
-  "Natural Gas": "🟢",
-  "Hydrogen / Electric": "💧",
+  Diesel: "⛽", Gasoline: "⛽", Electric: "🔋",
+  "Gasoline / Electric Hybrid": "🔋", "Gasoline / Electric Plug-in": "🔌",
+  "Diesel / Electric Hybrid": "🔋", "Diesel / Electric Plug-in": "🔌",
+  LPG: "🟢", "Natural Gas": "🟢", "Hydrogen / Electric": "💧",
 };
-
 const fuelLabel: Record<string, string> = {
-  Diesel: "Diésel",
-  Gasoline: "Gasolina",
-  Electric: "Eléctrico",
-  "Gasoline / Electric Hybrid": "Híbrido Gasolina",
-  "Gasoline / Electric Plug-in": "PHEV Gasolina",
-  "Diesel / Electric Hybrid": "Híbrido Diésel",
-  "Diesel / Electric Plug-in": "PHEV Diésel",
-  LPG: "GLP",
-  "Natural Gas": "Gas Natural",
-  "Gasoline + LPG": "Gasolina + GLP",
-  "Hydrogen / Electric": "Hidrógeno",
+  Diesel: "Diésel", Gasoline: "Gasolina", Electric: "Eléctrico",
+  "Gasoline / Electric Hybrid": "Híbrido Gasolina", "Gasoline / Electric Plug-in": "PHEV Gasolina",
+  "Diesel / Electric Hybrid": "Híbrido Diésel", "Diesel / Electric Plug-in": "PHEV Diésel",
+  LPG: "GLP", "Natural Gas": "Gas Natural", "Gasoline + LPG": "Gasolina + GLP", "Hydrogen / Electric": "Hidrógeno",
 };
-
 const bodyLabel: Record<string, string> = {
-  "Hatchback (3 or 5 doors)": "Hatchback",
-  "Sedan (3 volumes)": "Berlina",
-  "Estate / Station Wagon": "Familiar",
-  SUV: "SUV",
-  "Closed Off-road": "Todoterreno",
-  "Minivan / MPV": "Monovolumen",
-  Coupe: "Coupé",
-  Convertible: "Cabrio",
-  Pickup: "Pick-up",
-  Van: "Furgoneta",
-  "Light Van / Hatchback": "Furgoneta",
-  "Van / Estate": "Furgoneta",
+  "Hatchback (3 or 5 doors)": "Hatchback", "Sedan (3 volumes)": "Berlina",
+  "Estate / Station Wagon": "Familiar", SUV: "SUV", "Closed Off-road": "Todoterreno",
+  "Minivan / MPV": "Monovolumen", Coupe: "Coupé", Convertible: "Cabrio",
+  Pickup: "Pick-up", Van: "Furgoneta", "Light Van / Hatchback": "Furgoneta", "Van / Estate": "Furgoneta",
 };
-
-const transLabel: Record<string, string> = {
-  FWD: "Tracción delantera",
-  RWD: "Tracción trasera",
-  AWD: "Tracción total (4x4)",
-};
-
+const transLabel: Record<string, string> = { FWD: "Tracción delantera", RWD: "Tracción trasera", AWD: "Tracción total (4x4)" };
 const gearLabel: Record<string, string> = {
-  Manual: "Manual",
-  Automatic: "Automático",
-  Sequential: "Secuencial",
-  "CVT (Continuously Variable)": "CVT",
-  "Automated Manual (Robotic)": "Automatizado",
+  Manual: "Manual", Automatic: "Automático", Sequential: "Secuencial",
+  "CVT (Continuously Variable)": "CVT", "Automated Manual (Robotic)": "Automatizado",
 };
+
+// ════════════════════════════════════════════════════════
+// LANDING DE VENTA (si no tiene vehiculo_activo)
+// ════════════════════════════════════════════════════════
+function LandingVehiculo() {
+  const ventajas = [
+    { icon: "🔍", titulo: "Identifica cualquier vehículo", desc: "Introduce la matrícula o bastidor y obtén todos los datos técnicos al instante" },
+    { icon: "🔧", titulo: "Datos de motor completos", desc: "Código motor, cilindrada, potencia, combustible, alimentación, emisiones..." },
+    { icon: "🛞", titulo: "Neumáticos homologados", desc: "Medidas exactas de neumáticos delanteros y traseros con índices de carga y velocidad" },
+    { icon: "⚙️", titulo: "Transmisión y carrocería", desc: "Tipo de cambio, tracción, puertas, plazas, peso, plataforma..." },
+    { icon: "📋", titulo: "Ficha técnica completa", desc: "VIN, fecha de matriculación, variante, periodo de fabricación del modelo" },
+    { icon: "⚡", titulo: "Resultados instantáneos", desc: "Consulta directa a la base de datos oficial de la DGT. Sin esperas" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#020617", padding: "24px" }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+
+        {/* Hero */}
+        <div style={{
+          background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.1) 100%)",
+          border: "1px solid rgba(37,99,235,0.25)", borderRadius: "24px",
+          padding: "48px 40px", textAlign: "center", marginBottom: "32px",
+        }}>
+          <div style={{ fontSize: "64px", marginBottom: "16px" }}>🚗</div>
+          <h1 style={{ color: "#e2e8f0", fontSize: "36px", fontWeight: 900, margin: "0 0 12px", lineHeight: 1.2 }}>
+            Identificación de Vehículos
+          </h1>
+          <p style={{ color: "#94a3b8", fontSize: "17px", margin: "0 0 28px", maxWidth: "600px", marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+            Consulta los datos técnicos completos de cualquier vehículo matriculado en España introduciendo su matrícula o número de bastidor (VIN).
+          </p>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "8px",
+            background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "16px",
+            padding: "18px 36px", boxShadow: "0 8px 30px rgba(37,99,235,0.4)",
+          }}>
+            <span style={{ color: "white", fontSize: "32px", fontWeight: 900 }}>10€</span>
+            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "15px", fontWeight: 600 }}>/mes</span>
+          </div>
+          <p style={{ color: "#64748b", fontSize: "13px", marginTop: "8px" }}>Adicional a tu suscripción</p>
+        </div>
+
+        {/* Ventajas */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px", marginBottom: "32px" }}>
+          {ventajas.map((v, i) => (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b",
+              borderRadius: "16px", padding: "24px",
+            }}>
+              <div style={{ fontSize: "32px", marginBottom: "12px" }}>{v.icon}</div>
+              <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 8px" }}>{v.titulo}</h3>
+              <p style={{ color: "#64748b", fontSize: "13px", margin: 0, lineHeight: 1.5 }}>{v.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA Contacto */}
+        <div style={{
+          background: "linear-gradient(135deg, rgba(22,163,74,0.1) 0%, rgba(37,99,235,0.1) 100%)",
+          border: "1px solid rgba(22,163,74,0.25)", borderRadius: "20px",
+          padding: "32px 40px", textAlign: "center",
+        }}>
+          <h2 style={{ color: "#e2e8f0", fontSize: "22px", fontWeight: 800, margin: "0 0 8px" }}>
+            ¿Quieres activar este servicio?
+          </h2>
+          <p style={{ color: "#94a3b8", fontSize: "15px", margin: "0 0 24px" }}>
+            Contacta con nosotros y lo activamos en tu cuenta en menos de 24h
+          </p>
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+            <a href="mailto:info@recambiodirecto.com?subject=Activar%20búsqueda%20de%20vehículos" style={{
+              display: "inline-flex", alignItems: "center", gap: "8px",
+              background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "12px",
+              padding: "14px 28px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "15px",
+              boxShadow: "0 4px 15px rgba(37,99,235,0.3)",
+            }}>
+              ✉️ info@recambiodirecto.com
+            </a>
+            <a href="tel:+34744487895" style={{
+              display: "inline-flex", alignItems: "center", gap: "8px",
+              background: "linear-gradient(135deg,#16a34a,#15803d)", borderRadius: "12px",
+              padding: "14px 28px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "15px",
+              boxShadow: "0 4px 15px rgba(22,163,74,0.3)",
+            }}>
+              📞 +34 744 487 895
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════
 export default function VehiculoPage() {
+  const [vehiculoActivo, setVehiculoActivo] = useState<boolean | null>(null);
   const [input, setInput] = useState("");
   const [modo, setModo] = useState<"plate" | "vin">("plate");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [vehiculo, setVehiculo] = useState<DatosVehiculo | null>(null);
 
+  useEffect(() => {
+    const checkAcceso = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setVehiculoActivo(false); return; }
+      const { data: perfil } = await supabase.from("usuarios").select("vehiculo_activo").eq("id", user.id).single();
+      setVehiculoActivo(perfil?.vehiculo_activo === true);
+    };
+    checkAcceso();
+  }, []);
+
+  // Cargando estado
+  if (vehiculoActivo === null) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#020617", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#94a3b8", fontSize: 16 }}>Cargando...</p>
+      </div>
+    );
+  }
+
+  // No tiene acceso → landing de venta
+  if (!vehiculoActivo) {
+    return <LandingVehiculo />;
+  }
+
+  // Tiene acceso → buscador completo
   const buscar = async () => {
     const valor = input.trim().replace(/[\s-]/g, "").toUpperCase();
     if (!valor) return;
@@ -129,7 +216,6 @@ export default function VehiculoPage() {
     }
   };
 
-  // ── Ficha dato ──
   const Dato = ({ label, value, icon }: { label: string; value?: string | number | null; icon?: string }) => {
     if (!value && value !== 0) return null;
     return (
@@ -162,7 +248,6 @@ export default function VehiculoPage() {
           background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b",
           borderRadius: "16px", padding: "24px", marginBottom: "24px",
         }}>
-          {/* Toggle matrícula / VIN */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
             {(["plate", "vin"] as const).map((m) => (
               <button
@@ -181,7 +266,6 @@ export default function VehiculoPage() {
             ))}
           </div>
 
-          {/* Input + botón */}
           <div style={{ display: "flex", gap: "12px" }}>
             <input
               type="text"
@@ -212,8 +296,6 @@ export default function VehiculoPage() {
               ) : "🔍"} Buscar
             </button>
           </div>
-
-          {/* Spinner animation */}
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
 
@@ -231,7 +313,6 @@ export default function VehiculoPage() {
         {/* Resultados */}
         {vehiculo && (
           <div>
-            {/* Cabecera vehículo */}
             <div style={{
               background: "linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(16,185,129,0.1) 100%)",
               border: "1px solid rgba(37,99,235,0.2)", borderRadius: "16px",
@@ -240,8 +321,7 @@ export default function VehiculoPage() {
               <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
                 <div style={{
                   background: "#2563eb", borderRadius: "12px", padding: "12px 20px",
-                  color: "#fff", fontSize: "20px", fontWeight: 800, letterSpacing: "2px",
-                  fontFamily: "monospace",
+                  color: "#fff", fontSize: "20px", fontWeight: 800, letterSpacing: "2px", fontFamily: "monospace",
                 }}>
                   {vehiculo.plate || vehiculo.vin?.substring(0, 10) || "—"}
                 </div>
@@ -255,8 +335,6 @@ export default function VehiculoPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Tags rápidos */}
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "20px" }}>
                 {vehiculo.fuelType && (
                   <span style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "8px", padding: "6px 14px", color: "#93c5fd", fontSize: "13px", fontWeight: 600 }}>
@@ -281,14 +359,9 @@ export default function VehiculoPage() {
               </div>
             </div>
 
-            {/* Grid de datos */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
-
-              {/* Motor */}
               <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px" }}>
-                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                  🔧 Motor y mecánica
-                </h3>
+                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>🔧 Motor y mecánica</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "10px" }}>
                   <Dato icon="🏷️" label="Código motor" value={vehiculo.engineCode} />
                   <Dato icon="⛽" label="Combustible" value={vehiculo.fuelType ? (fuelLabel[vehiculo.fuelType] || vehiculo.fuelType) : undefined} />
@@ -302,11 +375,8 @@ export default function VehiculoPage() {
                 </div>
               </div>
 
-              {/* Transmisión y carrocería */}
               <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px" }}>
-                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                  🚘 Carrocería y transmisión
-                </h3>
+                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>🚘 Carrocería y transmisión</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "10px" }}>
                   <Dato icon="🚗" label="Tipo" value={vehiculo.vehicleType === "Passenger Car" ? "Turismo" : vehiculo.vehicleType} />
                   <Dato icon="🏎️" label="Carrocería" value={vehiculo.bodyType ? (bodyLabel[vehiculo.bodyType] || vehiculo.bodyType) : undefined} />
@@ -320,11 +390,8 @@ export default function VehiculoPage() {
                 </div>
               </div>
 
-              {/* Identificación */}
               <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px" }}>
-                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                  📋 Identificación
-                </h3>
+                <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>📋 Identificación</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "10px" }}>
                   <Dato icon="🔢" label="Matrícula" value={vehiculo.plate} />
                   <Dato icon="🔠" label="Bastidor (VIN)" value={vehiculo.vin} />
@@ -335,12 +402,9 @@ export default function VehiculoPage() {
                 </div>
               </div>
 
-              {/* Neumáticos */}
               {vehiculo.tires && vehiculo.tires.length > 0 && (
                 <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "24px" }}>
-                  <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                    🛞 Neumáticos
-                  </h3>
+                  <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px" }}>🛞 Neumáticos</h3>
                   <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                     {vehiculo.tires.map((t, i) => (
                       <div key={i} style={{
@@ -361,12 +425,10 @@ export default function VehiculoPage() {
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         )}
 
-        {/* Empty state */}
         {!vehiculo && !error && !loading && (
           <div style={{ textAlign: "center", padding: "60px 20px", color: "#334155" }}>
             <div style={{ fontSize: "64px", marginBottom: "16px" }}>🔍</div>
