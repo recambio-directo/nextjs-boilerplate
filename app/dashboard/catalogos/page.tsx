@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { supabase } from "../lib/supabase";
 
 // ── TIPOS ──
 interface Producto {
@@ -9567,6 +9568,18 @@ export default function CatalogosPage() {
   const [catalogoSeleccionado, setCatalogoSeleccionado] = useState<Catalogo | null>(null);
   const [seccionAbierta, setSeccionAbierta] = useState<string | null>(null);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
+  const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTipo = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
+        if (perfil?.tipo) setTipoUsuario(perfil.tipo);
+      }
+    };
+    fetchTipo();
+  }, []);
 
   // Filtrar catálogos en la vista marketplace
   const catalogosFiltrados = useMemo(() => {
@@ -9879,6 +9892,33 @@ export default function CatalogosPage() {
           <div style={{ textAlign: "center", padding: "60px 20px", color: "#64748b" }}>
             <div style={{ fontSize: "48px", marginBottom: "12px" }}>📭</div>
             <p style={{ fontSize: "16px" }}>No se encontraron catálogos en esta categoría</p>
+          </div>
+        )}
+
+        {/* Banner solo para proveedores */}
+        {tipoUsuario === "proveedor" && (
+          <div style={{
+            margin: "40px auto 0", maxWidth: "800px", padding: "32px",
+            background: "linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(139,92,246,0.1) 100%)",
+            border: "1px solid rgba(37,99,235,0.2)", borderRadius: "16px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🤝</div>
+            <h3 style={{ color: "#e2e8f0", fontSize: "20px", fontWeight: 700, margin: "0 0 8px" }}>
+              ¿Eres proveedor?
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: "14px", margin: "0 0 20px", lineHeight: "1.6" }}>
+              Si quieres aparecer en nuestro catálogo y llegar a cientos de talleres, contacta con nosotros.
+            </p>
+            <a
+              href="mailto:info@recambio-directo.com?subject=Quiero%20aparecer%20en%20el%20catálogo"
+              style={{
+                display: "inline-block", padding: "12px 32px", borderRadius: "10px",
+                background: "#2563eb", color: "#fff", fontSize: "14px", fontWeight: 700,
+                textDecoration: "none", cursor: "pointer",
+              }}
+            >
+              Contactar
+            </a>
           </div>
         )}
 
