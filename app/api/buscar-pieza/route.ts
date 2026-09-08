@@ -264,72 +264,98 @@ export async function GET(request: NextRequest) {
   // -----------------------------------------------------------
   // PASO 3: Equivalencias IAM
   //
-  // PRIMERO: buscamos en nuestra tabla local de cruces (1,5M+
-  // registros, instantánea, gratis).
-  // SOLO SI no hay cruces locales: caemos a RapidAPI (lenta, de pago).
+  // Se ejecutan en PARALELO las dos fuentes gratuitas (Supabase):
+  //   1. Cruces locales (tabla cruces_referencias, 1,5M+ registros)
+  //   2. Caché de RapidAPI (tabla equivalencias_oem, 30 días)
   //
-  // Esto ahorra llamadas a RapidAPI para la inmensa mayoría de
-  // búsquedas, y el taller obtiene resultados más rápido.
+  // Si la caché está vacía → se llama a RapidAPI en vivo y se guarda.
+  // Finalmente se hace MERGE + DEDUPLICACIÓN de ambas fuentes,
+  // para que aparezcan todos los cruces posibles sin solapamientos.
   // -----------------------------------------------------------
   let equivalenciasIAM: { articulo_no: string; marca: string; descripcion: string }[] = [];
-  const referenciaEsYaIAMDirecta = false;
 
   if (exactMode) {
     // Modo exacto: no buscar cruces ni equivalencias, solo la referencia directa
-  } else if (!referenciaEsYaIAMDirecta) {
-    // ---- INTENTO 1: Cruces locales (tabla cruces_referencias) ----
-    const crucesLocales = await buscarCrucesLocales(referenciaBuscada);
+  } else {
+    // ---- PARALELO: Cruces locales + Caché RapidAPI (ambas Supabase, gratis) ----
+    const [crucesLocales, cacheRapidAPI] = await Promise.all([
+      buscarCrucesLocales(referenciaBuscada),
+      obtenerCache(referenciaOriginal),
+    ]);
 
-    if (crucesLocales.length > 0) {
-      // Tenemos cruces locales — los usamos directamente, sin RapidAPI.
-      // No tenemos "descripcion" de TecDoc (eso lo pone el proveedor),
-      // así que la dejamos vacía. El frontend ya usa la descripcion de
-      // piezas_publicadas como fallback, así que no hay problema.
-      equivalenciasIAM = crucesLocales.map((c) => ({
+    // Resultados de cruces locales
+    const desdeLocales: { articulo_no: string; marca: string; descripcion: string }[] =
+      crucesLocales.map((c) => ({
         articulo_no: c.articulo_no,
         marca: c.marca,
         descripcion: "",
       }));
+
+    // Resultados de RapidAPI (caché o live)
+    let desdeRapidAPI: { articulo_no: string; marca: string; descripcion: string }[] = [];
+
+    if (cacheRapidAPI && cacheRapidAPI.length > 0) {
+      // Caché válida — usarla directamente, sin llamada externa
+      desdeRapidAPI = cacheRapidAPI.map((c) => ({
+        articulo_no: c.articulo_no,
+        marca: c.marca_iam,
+        descripcion: c.descripcion || "",
+      }));
     } else {
-      // ---- INTENTO 2: RapidAPI (fallback) ----
-      let cache = await obtenerCache(referenciaOriginal);
+      // Sin caché — llamar a RapidAPI en vivo
+      const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
 
-      if (!cache) {
-        const articleIds = await buscarEquivalenciasEnRapidAPI(referenciaOriginal);
-
-        if (articleIds.length > 0) {
-          const detallesValidos: { articleId: number; articulo_no: string; marca: string; descripcion: string }[] = [];
-          const LOTE = 10;
-          for (let i = 0; i < articleIds.length; i += LOTE) {
-            const lote = articleIds.slice(i, i + LOTE);
-            const resultados = await Promise.all(
-              lote.map(async (id) => {
-                const detalle = await obtenerDetalleArticulo(id);
-                return detalle ? { articleId: id, ...detalle } : null;
-              })
-            );
-            for (const r of resultados) {
-              if (r) detallesValidos.push(r);
-            }
-            if (i + LOTE < articleIds.length) await sleep(800);
+      if (articleIds.length > 0) {
+        const detallesValidos: { articleId: number; articulo_no: string; marca: string; descripcion: string }[] = [];
+        const LOTE = 10;
+        for (let i = 0; i < articleIds.length; i += LOTE) {
+          const lote = articleIds.slice(i, i + LOTE);
+          const resultados = await Promise.all(
+            lote.map(async (id) => {
+              const detalle = await obtenerDetalleArticulo(id);
+              return detalle ? { articleId: id, ...detalle } : null;
+            })
+          );
+          for (const r of resultados) {
+            if (r) detallesValidos.push(r);
           }
-
-          await guardarCache(referenciaOriginal, detallesValidos);
-
-          equivalenciasIAM = detallesValidos.map((d) => ({
-            articulo_no: d.articulo_no,
-            marca: d.marca,
-            descripcion: d.descripcion,
-          }));
+          if (i + LOTE < articleIds.length) await sleep(800);
         }
-      } else {
-        equivalenciasIAM = cache.map((c) => ({
-          articulo_no: c.articulo_no,
-          marca: c.marca_iam,
-          descripcion: c.descripcion || "",
+
+        await guardarCache(referenciaOriginal, detallesValidos);
+
+        desdeRapidAPI = detallesValidos.map((d) => ({
+          articulo_no: d.articulo_no,
+          marca: d.marca,
+          descripcion: d.descripcion,
         }));
       }
     }
+
+    // ---- MERGE + DEDUPLICACIÓN ----
+    // Prioridad: si una misma ref+marca aparece en ambas fuentes,
+    // preferimos la de RapidAPI porque tiene descripcion de TecDoc.
+    const vistos = new Set<string>();
+    const merged: typeof equivalenciasIAM = [];
+
+    // Primero RapidAPI (tiene descripcion)
+    for (const eq of desdeRapidAPI) {
+      const clave = `${normalizar(eq.marca)}|${normalizar(eq.articulo_no)}`;
+      if (!vistos.has(clave)) {
+        vistos.add(clave);
+        merged.push(eq);
+      }
+    }
+    // Luego locales (solo los que no estén ya)
+    for (const eq of desdeLocales) {
+      const clave = `${normalizar(eq.marca)}|${normalizar(eq.articulo_no)}`;
+      if (!vistos.has(clave)) {
+        vistos.add(clave);
+        merged.push(eq);
+      }
+    }
+
+    equivalenciasIAM = merged;
   }
 
   // -----------------------------------------------------------
