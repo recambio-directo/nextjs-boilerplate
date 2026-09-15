@@ -6,7 +6,7 @@ import { pdf } from "@react-pdf/renderer";
 import React from "react";
 import { AlbaranPDF, EtiquetaEnvioPDF } from "../lib/AlbaranPDF";
 import StripeCheckout, { calcularRecargo } from "../components/StripeCheckout";
-import { calcularPreciosAgencias } from "../lib/motorPrecios";
+import { calcularPreciosAgencias, calcularPreciosInsulares, detectarTipoInsularEnvio } from "../lib/motorPrecios";
 
 type Producto = {
   id: number;
@@ -341,16 +341,18 @@ export default function CheckoutPage() {
     setPaso(3);
     setCargandoPrecios(true);
     try {
-      // Provincia de origen: se usa la del primer proveedor de la cesta.
-      // Si en el futuro hay varios proveedores con provincias distintas,
-      // el motor debería calcularse por grupo en vez de una sola vez.
       const primerProveedorId = productos[0]?.proveedor_id;
       let provinciaOrigen = "";
+      let cpOrigen = "";
       if (primerProveedorId) {
-        const { data: prov } = await supabase.from("usuarios").select("provincia").eq("id", primerProveedorId).single();
+        const { data: prov } = await supabase.from("usuarios").select("provincia, codigo_postal").eq("id", primerProveedorId).single();
         provinciaOrigen = prov?.provincia || "";
+        cpOrigen = prov?.codigo_postal || "";
       }
-      const resultado = await calcularPreciosAgencias(pesoKg, provinciaOrigen, provincia, agenciasDisponibles);
+      const tipoInsular = detectarTipoInsularEnvio(cpOrigen, codigoPostal);
+      const resultado = tipoInsular
+        ? await calcularPreciosInsulares(pesoKg, tipoInsular, agenciasDisponibles)
+        : await calcularPreciosAgencias(pesoKg, provinciaOrigen, provincia, agenciasDisponibles);
       setPreciosAgencias(resultado);
     } finally {
       setCargandoPrecios(false);
@@ -358,12 +360,10 @@ export default function CheckoutPage() {
   }
 
   function getAgenciasDisponibles(cpOrigen: string, cpDestino: string): string[] {
-    // 07=Baleares, 35=Las Palmas, 38=Sta. Cruz de Tenerife, 51/52=Ceuta/Melilla
-    const esIsla = (cp: string) => cp.startsWith("07") || cp.startsWith("35") || cp.startsWith("38") || cp.startsWith("51") || cp.startsWith("52");
-    const esEnvioInsular = esIsla(cpOrigen) || esIsla(cpDestino);
-    if (esEnvioInsular) {
-      // Ninguna agencia calcula precio insular todavía en el motor:
-      // solo "Mis Medios" queda disponible hasta construir las tablas de islas.
+    const tipoInsular = detectarTipoInsularEnvio(cpOrigen, cpDestino);
+    if (tipoInsular === "baleares") return ["Mis Medios", "DHL", "Correos Express", "MRW"];
+    if (tipoInsular === "canarias") return ["Mis Medios", "DHL", "Correos Express", "MRW", "CTT Express"];
+    if (cpOrigen?.startsWith("51") || cpOrigen?.startsWith("52") || cpDestino?.startsWith("51") || cpDestino?.startsWith("52")) {
       return ["Mis Medios"];
     }
     return ["Mis Medios","MRW","Correos Express","SEUR","CTT Express","DHL","GLS"];
