@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = "https://api.apivehiculo.com/v1";
-const API_KEY = process.env.APIVEHICULO_API_KEY!;
+const API_KEY = process.env.APIVEHICULO_KEY!;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
