@@ -309,15 +309,21 @@ export async function GET(request: NextRequest) {
       if (articleIds.length > 0) {
         // Limitar a 30 artículos y lanzar TODOS en paralelo (una sola ronda)
         const idsLimitados = articleIds.slice(0, 30);
-        const resultados = await Promise.all(
-          idsLimitados.map(async (id) => {
-            const detalle = await obtenerDetalleArticulo(id);
-            return detalle ? { articleId: id, ...detalle } : null;
-          })
-        );
-        const detallesValidos = resultados.filter(
-          (r): r is { articleId: number; articulo_no: string; marca: string; descripcion: string } => r !== null
-        );
+        const detallesValidos: { articleId: number; articulo_no: string; marca: string; descripcion: string }[] = [];
+        const LOTE = 10;
+        for (let i = 0; i < idsLimitados.length; i += LOTE) {
+          const lote = idsLimitados.slice(i, i + LOTE);
+          const resultados = await Promise.all(
+            lote.map(async (id) => {
+              const detalle = await obtenerDetalleArticulo(id);
+              return detalle ? { articleId: id, ...detalle } : null;
+            })
+          );
+          for (const r of resultados) {
+            if (r) detallesValidos.push(r);
+          }
+          if (i + LOTE < idsLimitados.length) await sleep(800);
+        }
 
         // Guardar caché sin bloquear la respuesta
         guardarCache(referenciaOriginal, detallesValidos).catch(() => {});
