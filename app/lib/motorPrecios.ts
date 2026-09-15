@@ -1,18 +1,16 @@
 // lib/motorPrecios.ts
 //
 // Motor de cálculo de tarifas de transporte.
-// Agencias activas: CTT, MRW, NACEX, Correos Express, DHL, SEUR.
-// GLS queda excluida hasta cerrar su tarifa.
-//
-// ⚠️ SEUR es una ESTIMACIÓN PROVISIONAL: el mapeo de zonas y la ausencia de
-// recargo de recogida no están confirmados por escrito por SEUR. Revisar en
-// cuanto lleguen facturas reales o respuesta de Yasser/ticket de soporte.
+// PENINSULA — Agencias activas: CTT, MRW, NACEX, Correos Express, DHL, SEUR, GLS.
+// ISLAS (Baleares/Canarias) — Agencias activas: DHL, Correos Express, MRW,
+// y CTT solo para Canarias (no tiene tabla propia de Baleares en el contrato).
+// SEUR, NACEX y GLS quedan excluidas en rutas insulares (sin tarifa).
 //
 // Margen comercial fijo aplicado sobre el coste real de cada agencia.
 export const MARGEN_COMERCIAL = 1.5;
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1. Provincias limítrofes y comunidades autónomas (para determinar zona)
+// 1. Provincias limítrofes y comunidades autónomas (para determinar zona PENINSULAR)
 // ─────────────────────────────────────────────────────────────────────────
 const PROVINCIAS: Record<string, { ccaa: string; limitrofes: string[] }> = {
   "Álava": { ccaa: "País Vasco", limitrofes: ["Vizcaya", "Guipúzcoa", "Navarra", "La Rioja", "Burgos"] },
@@ -94,7 +92,7 @@ function distanciaKm(a: [number, number], b: [number, number]): number {
 
 export type Zona = "Provincial" | "Regional" | "Peninsular" | "Peninsular+";
 
-/** Determina la zona tarifaria CTT/Correos Express en base a las provincias reales. */
+/** Determina la zona tarifaria CTT/Correos Express en base a las provincias reales (PENÍNSULA). */
 export function determinarZona(provinciaOrigen: string, provinciaDestino: string): Zona {
   const origen = provinciaOrigen?.trim();
   const destino = provinciaDestino?.trim();
@@ -121,7 +119,31 @@ export function determinarZona(provinciaOrigen: string, provinciaDestino: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 2. Tablas de tarifas por agencia (peso → precio por zona)
+// 1b. Detección de islas por código postal
+// ─────────────────────────────────────────────────────────────────────────
+export type TipoInsular = "baleares" | "canarias" | null;
+
+/** Clasifica un CP como Baleares, Canarias, o null si es peninsular. */
+export function detectarTipoInsular(cp: string): TipoInsular {
+  const c = (cp || "").trim();
+  if (c.startsWith("07")) return "baleares";
+  if (c.startsWith("35") || c.startsWith("38")) return "canarias";
+  return null;
+}
+
+/** Combina origen y destino: si cualquiera de los dos es insular, manda esa zona.
+ * Si ambos son insulares de distinto archipiélago, se marca "canarias" por ser
+ * la más restrictiva/cara — revisar caso a caso, es un supuesto raro. */
+export function detectarTipoInsularEnvio(cpOrigen: string, cpDestino: string): TipoInsular {
+  const o = detectarTipoInsular(cpOrigen);
+  const d = detectarTipoInsular(cpDestino);
+  if (o === "canarias" || d === "canarias") return "canarias";
+  if (o === "baleares" || d === "baleares") return "baleares";
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 2. Tablas de tarifas PENINSULARES por agencia (peso → precio por zona)
 // ─────────────────────────────────────────────────────────────────────────
 type TramoZona = { hasta: number; Provincial: number; Regional: number; Peninsular: number; "Peninsular+": number };
 
@@ -144,7 +166,6 @@ const TABLA_CTT: TramoZona[] = [
   { hasta: 15, Provincial: 7.47, Regional: 8.24, Peninsular: 8.45, "Peninsular+": 8.66 },
 ];
 const CTT_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.29, Regional: 0.36, Peninsular: 0.42, "Peninsular+": 0.48 };
-// Recargo Intercity confirmado por Lidia: 0,57€/envío, mínimo 2,43€ hasta 10kg (+0,10€/kg extra)
 function recargoIntercityCTT(pesoKg: number): number {
   if (pesoKg <= 10) return 2.43;
   return 2.43 + (pesoKg - 10) * 0.10;
@@ -161,13 +182,12 @@ const TABLA_CEX: TramoZona[] = [
   { hasta: 15, Provincial: 11.81, Regional: 13.03, Peninsular: 13.37, "Peninsular+": 13.70 },
 ];
 const CEX_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.48, Regional: 0.53, Peninsular: 0.64, "Peninsular+": 0.77 };
-// Recargo confirmado: 0,40€/envío, mínimo 2€
 function recargoIntercityCEX(): number {
   return 2.0;
 }
 
-// MRW "Entrega en Domicilio" — se usa Provincial como equivalente a Urbano/Provincial de MRW,
-// Regional = Reg.-Lim., Peninsular y Peninsular+ = Nacional (MRW no distingue "+")
+// MRW "Entrega en Domicilio" — Provincial=Urbano/Provincial, Regional=Reg.-Lim.,
+// Peninsular y Peninsular+ = Nacional
 const TABLA_MRW: TramoZona[] = [
   { hasta: 2, Provincial: 5.80, Regional: 6.33, Peninsular: 6.90, "Peninsular+": 6.90 },
   { hasta: 5, Provincial: 7.04, Regional: 8.23, Peninsular: 9.23, "Peninsular+": 9.23 },
@@ -176,11 +196,9 @@ const TABLA_MRW: TramoZona[] = [
   { hasta: 20, Provincial: 13.63, Regional: 14.09, Peninsular: 16.41, "Peninsular+": 16.41 },
 ];
 const MRW_KG_ADIC: TramoZona = { hasta: 0, Provincial: 2.32, Regional: 3.58, Peninsular: 4.60, "Peninsular+": 4.60 };
-// MRW: combustible y recogida en tercera ciudad ya incluidos en el precio (confirmado)
 
 // NACEX e-N@CEX — tarifa plana por rango de peso, sin zonas (confirmado "tercera
-// ciudad" con el delegado de zona). Sustituye a la tarifa PlusPack anterior,
-// ya que solo existe un contrato vigente con NACEX.
+// ciudad" con el delegado de zona). Sustituye a la tarifa PlusPack anterior.
 const TABLA_NACEX: { hasta: number; precio: number }[] = [
   { hasta: 2, precio: 7.50 },
   { hasta: 5, precio: 8.30 },
@@ -192,7 +210,6 @@ function precioNacex(pesoKg: number): number {
   const tramo = TABLA_NACEX.find(t => pesoKg <= t.hasta);
   if (tramo) return tramo.precio;
   const ultimo = TABLA_NACEX[TABLA_NACEX.length - 1];
-  // sin tabla de kg adicional confirmada más allá de 20kg; se extrapola de forma conservadora
   const kgExtra = Math.ceil(pesoKg - ultimo.hasta);
   return ultimo.precio + kgExtra * 0.6;
 }
@@ -211,11 +228,8 @@ function precioDHL(pesoKg: number): number {
   return base * (1 + DHL_COMBUSTIBLE);
 }
 
-// SEUR — tabla real del contrato firmado (columnas peninsulares).
-// Mapeo de zonas: Provincial→Provincial, Corto→Regional, Medio→Peninsular,
-// Largo→Peninsular+
-// Recargo de recogida fuera de domicilio CONFIRMADO por Yasser: 0,60€ fijo
-// (no es un mínimo variable como CTT, es un importe plano por envío).
+// SEUR — tabla real del contrato firmado. Recargo recogida confirmado por
+// Yasser: 0,60€. Colchón de seguridad 1,50€ por riesgo de bulto no encintable.
 const TABLA_SEUR: TramoZona[] = [
   { hasta: 1, Provincial: 4.30, Regional: 4.77, Peninsular: 4.77, "Peninsular+": 4.77 },
   { hasta: 2, Provincial: 4.76, Regional: 5.29, Peninsular: 5.29, "Peninsular+": 5.29 },
@@ -234,19 +248,13 @@ const TABLA_SEUR: TramoZona[] = [
 ];
 const SEUR_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.47, Regional: 0.51, Peninsular: 0.51, "Peninsular+": 0.70 };
 function recargoRecogidaSEUR(): number {
-  return 0.60; // confirmado por Yasser
+  return 0.60;
 }
-// Colchón de seguridad: 1,50€ fijo por riesgo de "bulto no encintable" (1,50€)
-// dado que muchas piezas de recambio tienen formas irregulares (tubos de
-// escape, paragolpes, etc.) y podrían caer en esa categoría. Revisar y
-// ajustar cuando se tengan facturas reales que confirmen la frecuencia real.
 function colchonBultoIrregularSEUR(): number {
   return 1.50;
 }
 
-// GLS — tabla "24 HORAS" (servicio estándar). Solo 3 zonas: Provincial/
-// Regional/Nacional. GLS no distingue Peninsular de Peninsular+, igual que
-// MRW, así que ambas columnas usan el mismo valor "Nacional".
+// GLS — tabla "24 HORAS". Recargo Interciudad confirmado: 3,00€ fijo.
 const TABLA_GLS: TramoZona[] = [
   { hasta: 1, Provincial: 5.40, Regional: 6.10, Peninsular: 6.70, "Peninsular+": 6.70 },
   { hasta: 3, Provincial: 5.60, Regional: 6.20, Peninsular: 7.00, "Peninsular+": 7.00 },
@@ -255,14 +263,74 @@ const TABLA_GLS: TramoZona[] = [
   { hasta: 15, Provincial: 6.50, Regional: 8.50, Peninsular: 10.50, "Peninsular+": 10.50 },
 ];
 const GLS_KG_ADIC: TramoZona = { hasta: 0, Provincial: 0.34, Regional: 0.44, Peninsular: 0.54, "Peninsular+": 0.54 };
-// Recargo Interciudad confirmado en tarifa: 3,00€ fijo por envío (siempre
-// aplica en tu caso, ya que nunca recoges en tu propia dirección)
 function recargoInterciudadGLS(): number {
   return 3.00;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 3. Función pública del motor
+// 2b. Tablas de tarifas INSULARES (Baleares / Canarias)
+// ─────────────────────────────────────────────────────────────────────────
+type TramoFlat = { hasta: number; precio: number };
+
+// Búsqueda genérica en tabla plana: si el peso supera el último tramo, se
+// extrapola con un incremento de seguridad por kg (más alto que en tablas
+// peninsulares, porque no tenemos "kg adicional" confirmado para estas rutas
+// — mejor sobreestimar aquí que perder margen en un envío grande a Canarias).
+function buscarFlatInsular(tabla: TramoFlat[], pesoKg: number, incrementoSeguridadPorKg: number): number {
+  const tramo = tabla.find(t => pesoKg <= t.hasta);
+  if (tramo) return tramo.precio;
+  const ultimo = tabla[tabla.length - 1];
+  const kgExtra = Math.ceil(pesoKg - ultimo.hasta);
+  return ultimo.precio + kgExtra * incrementoSeguridadPorKg;
+}
+
+// --- DHL Baleares (columna "Baleares" de la tarifa nacional, sin aduana) ---
+const DHL_BALEARES: TramoFlat[] = [
+  { hasta: 3, precio: 6.55 }, { hasta: 5, precio: 6.99 }, { hasta: 10, precio: 10.07 },
+  { hasta: 15, precio: 12.28 }, { hasta: 20, precio: 14.48 }, { hasta: 25, precio: 16.64 },
+  { hasta: 30, precio: 18.78 }, { hasta: 40, precio: 22.83 },
+];
+// --- DHL Canarias Aéreo (Tenerife/Las Palmas) + gestión aduanera fija ---
+const DHL_CANARIAS_AEREO: TramoFlat[] = [
+  { hasta: 3, precio: 32.34 }, { hasta: 5, precio: 43.93 }, { hasta: 10, precio: 63.54 },
+  { hasta: 15, precio: 82.44 }, { hasta: 20, precio: 94.28 }, { hasta: 25, precio: 108.60 },
+];
+const DHL_GESTION_ADUANERA_CANARIAS = 23.50; // confirmado en tabla de suplementos DHL
+
+// --- Correos Express: misma tabla para Baleares y Canarias (precios idénticos en contrato) ---
+const CEX_INSULAR: TramoFlat[] = [
+  { hasta: 1, precio: 9.21 }, { hasta: 2, precio: 9.78 }, { hasta: 3, precio: 11.34 },
+  { hasta: 4, precio: 12.90 }, { hasta: 5, precio: 14.70 }, { hasta: 10, precio: 23.40 },
+  { hasta: 15, precio: 32.39 },
+];
+
+// --- MRW Baleares (Península-Baleares, entrega domicilio) ---
+const MRW_BALEARES: TramoFlat[] = [
+  { hasta: 1, precio: 9.01 }, { hasta: 2, precio: 11.77 }, { hasta: 3, precio: 14.58 },
+  { hasta: 4, precio: 17.38 }, { hasta: 5, precio: 22.30 }, { hasta: 6, precio: 30.23 },
+  { hasta: 7, precio: 32.81 }, { hasta: 8, precio: 35.39 }, { hasta: 9, precio: 37.97 },
+  { hasta: 10, precio: 40.55 },
+];
+// --- MRW Canarias (Gran Canaria y Tenerife) ---
+const MRW_CANARIAS: TramoFlat[] = [
+  { hasta: 1, precio: 12.84 }, { hasta: 2, precio: 16.74 }, { hasta: 3, precio: 23.37 },
+  { hasta: 4, precio: 27.27 }, { hasta: 5, precio: 31.17 }, { hasta: 6, precio: 37.79 },
+  { hasta: 7, precio: 41.69 }, { hasta: 8, precio: 45.59 }, { hasta: 9, precio: 49.49 },
+  { hasta: 10, precio: 53.39 },
+];
+
+// --- CTT: solo Canarias Aéreo 24h (Tnf&Lpa). Ya incluye DUA/GAS según contrato.
+// CTT NO tiene tabla propia de Baleares (su tarifa ahí es "suma de zonas",
+// demasiado ambigua para calcular sin más datos) → excluida de Baleares.
+const CTT_CANARIAS_AEREO: TramoFlat[] = [
+  { hasta: 1, precio: 17.32 }, { hasta: 2, precio: 21.95 }, { hasta: 3, precio: 26.55 },
+  { hasta: 4, precio: 31.16 }, { hasta: 5, precio: 35.78 }, { hasta: 10, precio: 58.82 },
+  { hasta: 15, precio: 81.85 },
+];
+const CTT_KG_ADIC_CANARIAS = 4.61;
+
+// ─────────────────────────────────────────────────────────────────────────
+// 3. Función pública del motor — PENÍNSULA
 // ─────────────────────────────────────────────────────────────────────────
 export type PrecioAgencia = { key: string; precio: number };
 
@@ -304,7 +372,57 @@ export async function calcularPreciosAgencias(
     resultados.push({ key: agencia, precio: Math.round((costeReal + margen) * 100) / 100 });
   }
 
-  // Mis Medios: sin coste, siempre disponible si estaba en la lista
+  if (agenciasDisponibles.includes("Mis Medios")) {
+    resultados.push({ key: "Mis Medios", precio: 0 });
+  }
+
+  return resultados;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 4. Función pública del motor — ISLAS (Baleares / Canarias)
+// ─────────────────────────────────────────────────────────────────────────
+// Agencias con tarifa insular confirmada:
+//   Baleares: DHL, Correos Express, MRW
+//   Canarias: DHL, Correos Express, MRW, CTT
+const AGENCIAS_INSULARES: Record<Exclude<TipoInsular, null>, string[]> = {
+  baleares: ["DHL", "Correos Express", "MRW"],
+  canarias: ["DHL", "Correos Express", "MRW", "CTT Express"],
+};
+
+export async function calcularPreciosInsulares(
+  pesoKg: number,
+  tipoInsular: Exclude<TipoInsular, null>,
+  agenciasDisponibles: string[],
+  margen: number = MARGEN_COMERCIAL
+): Promise<PrecioAgencia[]> {
+  const resultados: PrecioAgencia[] = [];
+  const activas = agenciasDisponibles.filter(a => AGENCIAS_INSULARES[tipoInsular].includes(a));
+
+  for (const agencia of activas) {
+    let costeReal = 0;
+
+    if (agencia === "DHL") {
+      if (tipoInsular === "baleares") {
+        costeReal = buscarFlatInsular(DHL_BALEARES, pesoKg, 1.20);
+      } else {
+        costeReal = buscarFlatInsular(DHL_CANARIAS_AEREO, pesoKg, 4.00) + DHL_GESTION_ADUANERA_CANARIAS;
+      }
+    } else if (agencia === "Correos Express") {
+      costeReal = buscarFlatInsular(CEX_INSULAR, pesoKg, 2.30);
+    } else if (agencia === "MRW") {
+      costeReal = tipoInsular === "baleares"
+        ? buscarFlatInsular(MRW_BALEARES, pesoKg, 3.00)
+        : buscarFlatInsular(MRW_CANARIAS, pesoKg, 4.00);
+    } else if (agencia === "CTT Express" && tipoInsular === "canarias") {
+      costeReal = buscarFlatInsular(CTT_CANARIAS_AEREO, pesoKg, CTT_KG_ADIC_CANARIAS);
+    } else {
+      continue;
+    }
+
+    resultados.push({ key: agencia, precio: Math.round((costeReal + margen) * 100) / 100 });
+  }
+
   if (agenciasDisponibles.includes("Mis Medios")) {
     resultados.push({ key: "Mis Medios", precio: 0 });
   }
