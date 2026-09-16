@@ -25,23 +25,26 @@ export async function getIpdaToken(): Promise<string> {
     body: JSON.stringify({
       usr: IPDA_USER,
       pss: IPDA_PASS,
-      force: 0,
+      force: 1,
       ck: IPDA_CK,
       language: "es",
       userType: "standard",
     }),
   });
 
-  if (!res.ok) {
-    throw new Error(`IPDA login failed: ${res.status}`);
-  }
-
   const json = await res.json();
-  if (!json.success || !json.data?.token) {
-    throw new Error("IPDA login: no token in response");
+
+  if (!res.ok || !json.success || !json.data?.token) {
+    console.error("IPDA login response:", JSON.stringify(json).slice(0, 500));
+    throw new Error(`IPDA login failed: ${res.status} - ${json.error || json.message || JSON.stringify(json).slice(0, 200)}`);
   }
 
   cachedToken = json.data.token;
+  // Log datos útiles del login (sin el token)
+  const loginKeys = Object.keys(json.data).filter(k => k !== "token");
+  const loginInfo: Record<string, any> = {};
+  for (const k of loginKeys) loginInfo[k] = json.data[k];
+  console.log("[IPDA] Login OK, data keys:", JSON.stringify(loginInfo).slice(0, 500));
 
   // Decodificar exp del JWT para saber cuándo caduca
   try {
@@ -68,13 +71,11 @@ async function ipdaPost(endpoint: string, body: Record<string, any>): Promise<an
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    throw new Error(`IPDA ${endpoint}: ${res.status}`);
-  }
-
   const json = await res.json();
-  if (!json.success) {
-    throw new Error(`IPDA ${endpoint}: ${json.error || "unknown error"}`);
+
+  if (!res.ok || !json.success) {
+    console.error(`IPDA ${endpoint} response:`, JSON.stringify(json).slice(0, 500));
+    throw new Error(`IPDA ${endpoint}: ${res.status} - ${json.error || json.message || JSON.stringify(json).slice(0, 200)}`);
   }
 
   return json.data;
@@ -130,14 +131,17 @@ export async function buscarVehiculo(busqueda: string): Promise<IpdaPlateResult>
   const esVin = /^[A-HJ-NPR-Z0-9]{17}$/.test(valor);
 
   // Construir token2: "prefijo#bastidor#matricula"
+  // El prefijo puede ser el customer ID o un ID de empresa diferente
+  const IPDA_PLATE_PREFIX = process.env.IPDA_PLATE_PREFIX || String(IPDA_CUSTOMER);
   let token2: string;
   if (esVin) {
-    token2 = `${String(IPDA_CUSTOMER).padStart(6, "0")}#${valor}#`;
+    token2 = `${IPDA_PLATE_PREFIX.padStart(6, "0")}#${valor}#`;
   } else {
-    // Matrícula — puede tener formatos variados (1234ABC, 0097JTV, etc.)
     const matriculaLimpia = valor.replace(/[\s\-]/g, "");
-    token2 = `${String(IPDA_CUSTOMER).padStart(6, "0")}##${matriculaLimpia}`;
+    token2 = `${IPDA_PLATE_PREFIX.padStart(6, "0")}##${matriculaLimpia}`;
   }
+
+  console.log(`[IPDA] Buscando vehículo: token2=${token2}`);
 
   const data = await ipdaPost("/search/plate", {
     token2,
