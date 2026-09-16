@@ -61,12 +61,13 @@ const CATEGORIA_KEYWORDS: Record<number, string[]> = {
   100534: ["limpiaparabrisas", "wiper", "escobilla"],
 };
 
-// GET /api/vehiculo/piezas?carId=18902&categoryId=100118
+// GET /api/vehiculo/piezas?carId=18902&categoryId=100118&nombre=Pastillas+de+freno+delanteras
 // Busca en piezas_publicadas por palabras clave de la categoría
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const carId = searchParams.get("carId");
   const categoryId = searchParams.get("categoryId");
+  const nombreCategoria = searchParams.get("nombre") || "";
 
   if (!carId || !categoryId) {
     return NextResponse.json(
@@ -76,9 +77,24 @@ export async function GET(req: NextRequest) {
   }
 
   const catId = parseInt(categoryId, 10);
-  const keywords = CATEGORIA_KEYWORDS[catId];
+  let keywords = CATEGORIA_KEYWORDS[catId] || [];
 
-  if (!keywords || keywords.length === 0) {
+  // Si no hay keywords configuradas, usar el nombre de la categoría como búsqueda
+  if (keywords.length === 0 && nombreCategoria) {
+    keywords = [nombreCategoria.toLowerCase()];
+  }
+
+  // Añadir también palabras individuales del nombre de categoría (>3 chars) como fallback
+  if (nombreCategoria) {
+    const palabras = nombreCategoria.toLowerCase().split(/\s+/).filter((p) => p.length > 3);
+    for (const p of palabras) {
+      if (!keywords.some((kw) => kw.includes(p))) {
+        keywords.push(p);
+      }
+    }
+  }
+
+  if (keywords.length === 0) {
     return NextResponse.json({
       carId,
       categoryId,
@@ -91,13 +107,15 @@ export async function GET(req: NextRequest) {
 
   try {
     // Construir búsqueda OR con ilike para cada keyword
-    // Buscamos en nombre y referencia de piezas_publicadas
+    // Buscamos en nombre de piezas_publicadas
     const orConditions = keywords
       .map((kw) => {
         const escaped = kw.replace(/'/g, "''");
         return `nombre.ilike.%${escaped}%`;
       })
       .join(",");
+
+    console.log(`Piezas búsqueda cat=${catId} nombre="${nombreCategoria}" keywords=${JSON.stringify(keywords)} or=${orConditions}`);
 
     const { data: piezas, error: dbError } = await supabase
       .from("piezas_publicadas")
