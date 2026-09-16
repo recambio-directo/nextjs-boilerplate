@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VIN_API_HOST = "vin-decoder-mega-api.p.rapidapi.com";
+// Usa el Auto Parts Catalog (PRO $29/mes) en vez del VIN Decoder Mega API (gratuito agotado)
+const RAPIDAPI_HOST = "auto-parts-catalog.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
 
 export async function GET(req: NextRequest) {
@@ -18,56 +19,78 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`https://${VIN_API_HOST}/vin.php`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "x-rapidapi-host": VIN_API_HOST,
-        "x-rapidapi-key": RAPIDAPI_KEY,
-      },
-      body: `vin=${encodeURIComponent(vinClean)}`,
-    });
+    // Intentar v5 primero (más completo), luego v3, v2, v1
+    const versiones = ["decoder-v5", "decoder-v3", "decoder-v2", "decoder-v1"];
+    let datos: any = null;
+    let vinData: any = null;
 
-    const json = await res.json();
+    for (const version of versiones) {
+      try {
+        const url = `https://${RAPIDAPI_HOST}/vin/${version}/${encodeURIComponent(vinClean)}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-rapidapi-host": RAPIDAPI_HOST,
+            "x-rapidapi-key": RAPIDAPI_KEY,
+          },
+        });
 
-    if (!res.ok || json.code_erreur !== 200 || json.data?.erreur) {
+        if (res.ok) {
+          const json = await res.json();
+          // La respuesta puede variar según la versión
+          if (json && !json.error && !json.message?.includes("not found")) {
+            vinData = json;
+            // Puede ser un objeto directo o tener .data
+            datos = json.data || json;
+            break;
+          }
+        }
+      } catch {
+        // Intentar siguiente versión
+      }
+    }
+
+    if (!datos) {
       return NextResponse.json(
-        { error: json.data?.erreur || json.message || "Error al decodificar el bastidor" },
-        { status: res.ok ? 400 : res.status }
+        { error: "No se pudo decodificar el bastidor. Verifica que el VIN es correcto." },
+        { status: 400 }
       );
     }
 
-    const d = json.data;
+    // Normalizar campos — la estructura puede variar entre versiones
+    // Intentamos múltiples nombres de campo para máxima compatibilidad
+    const d = datos;
 
     const vehiculo = {
-      vin: d.vin || vinClean,
-      marca: d.marque || "",
-      modelo: d.modele_en || d.modele || "",
-      version: d.version || "",
-      motor: d.code_moteur || "",
-      combustible: d.energieNGC || d.type_moteur || "",
-      potencia_kw: d.puisFiscReelKW || "",
-      potencia_cv: d.puisFiscReelCH || "",
-      cilindrada: d.ccm || "",
-      cilindros: d.cylindres || "",
-      transmision: d.type_transmission || "",
-      caja_cambios: d.boite_vitesse === "M" ? "Manual" : d.boite_vitesse === "A" ? "Automática" : d.boite_vitesse || "",
-      carroceria: d.carrosserie || "",
-      color: d.couleur || "",
-      puertas: d.nb_portes || "",
-      plazas: d.nr_passagers || "",
-      peso: d.poids || "",
-      co2: d.co2 ? `${d.co2} g/km` : "",
-      fecha_inicio_modelo: d.debut_modele || "",
-      fecha_primera_matriculacion: d.date1erCir_fr || "",
-      pais: d.pays || "",
-      placa: d.plaque || "",
-      logo_marca: d.logo_marque || "",
-      foto_modelo: d.photo_modele || "",
-      tecdoc_car_id: d.tecdoc_car_id || d.k_type || "",
-      tecdoc_manu_id: d.tecdoc_manu_id || "",
-      tecdoc_model_id: d.tecdoc_model_id || "",
-      pneus: d.pneus || [],
+      vin: d.vin || d.VIN || vinClean,
+      marca: d.make || d.marque || d.manufacturer || d.brand || "",
+      modelo: d.model || d.modele || d.modele_en || "",
+      version: d.version || d.trim || d.variant || "",
+      motor: d.engine_code || d.code_moteur || d.engineCode || "",
+      combustible: d.fuel_type || d.fuel || d.energieNGC || d.type_moteur || "",
+      potencia_kw: d.power_kw || d.puisFiscReelKW || d.kw || "",
+      potencia_cv: d.power_hp || d.power_ps || d.puisFiscReelCH || d.hp || d.cv || "",
+      cilindrada: d.displacement || d.ccm || d.engine_displacement || d.capacity || "",
+      cilindros: d.cylinders || d.cylindres || d.number_of_cylinders || "",
+      transmision: d.drive_type || d.type_transmission || d.drive || "",
+      caja_cambios: normalizarCaja(d.transmission || d.gearbox || d.boite_vitesse || ""),
+      carroceria: d.body_type || d.body || d.carrosserie || "",
+      color: d.color || d.colour || d.couleur || "",
+      puertas: d.doors || d.nb_portes || d.number_of_doors || "",
+      plazas: d.seats || d.nr_passagers || d.number_of_seats || "",
+      peso: d.weight || d.poids || d.curb_weight || "",
+      co2: d.co2 ? `${d.co2} g/km` : d.co2_emission ? `${d.co2_emission} g/km` : "",
+      fecha_inicio_modelo: d.model_start || d.debut_modele || d.year_from || "",
+      fecha_primera_matriculacion: d.first_registration || d.date1erCir_fr || d.registration_date || "",
+      pais: d.country || d.pays || d.market || "",
+      placa: d.plate || d.plaque || d.license_plate || "",
+      logo_marca: d.logo || d.logo_marque || d.manufacturer_logo || "",
+      foto_modelo: d.image || d.photo || d.photo_modele || d.vehicle_image || "",
+      tecdoc_car_id: d.tecdoc_car_id || d.k_type || d.ktype || d.ktypnr || "",
+      tecdoc_manu_id: d.tecdoc_manu_id || d.manufacturer_id || "",
+      tecdoc_model_id: d.tecdoc_model_id || d.model_id || "",
+      pneus: d.tires || d.pneus || d.tyres || [],
     };
 
     return NextResponse.json(vehiculo);
@@ -75,4 +98,12 @@ export async function GET(req: NextRequest) {
     console.error("Error VIN Decoder:", err);
     return NextResponse.json({ error: "Error de conexión con el decodificador de bastidor" }, { status: 500 });
   }
+}
+
+function normalizarCaja(valor: string): string {
+  if (!valor) return "";
+  const v = valor.toUpperCase();
+  if (v === "M" || v.includes("MANUAL")) return "Manual";
+  if (v === "A" || v.includes("AUTO")) return "Automática";
+  return valor;
 }
