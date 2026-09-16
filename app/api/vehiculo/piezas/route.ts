@@ -6,8 +6,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Mapeo de categoryId a términos de búsqueda en piezas_publicadas
-// Estos son los IDs de nuestras categorías estándar predefinidas
+const RAPIDAPI_HOST = "auto-parts-catalog.p.rapidapi.com";
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
+
+// Mapeo de categoryId a términos de búsqueda en piezas_publicadas.descripcion
 const CATEGORIA_KEYWORDS: Record<number, string[]> = {
   // Motor
   100139: ["filtro aceite", "oil filter"],
@@ -61,8 +63,67 @@ const CATEGORIA_KEYWORDS: Record<number, string[]> = {
   100534: ["limpiaparabrisas", "wiper", "escobilla"],
 };
 
+// Normaliza una referencia para comparar: quita espacios, guiones, puntos, barras y pasa a mayúsculas
+function normalizarRef(ref: string): string {
+  return ref.toUpperCase().replace(/[\s\-_./]/g, "");
+}
+
+// Llama al API de cruces para una referencia aftermarket y devuelve referencias OEM y equivalentes
+async function buscarCrucesAPI(referencia: string): Promise<string[]> {
+  try {
+    const url = `https://${RAPIDAPI_HOST}/artlookup/search-for-the-oem-cross-references-through-aftermarket-parts-references/article-oem-no/${encodeURIComponent(referencia)}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "x-rapidapi-key": RAPIDAPI_KEY,
+      },
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+
+    // Extraer todas las referencias de los resultados
+    const refs = new Set<string>();
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        if (item.articleNo) refs.add(normalizarRef(item.articleNo));
+        if (item.oemNo) refs.add(normalizarRef(item.oemNo));
+        if (item.articleNumber) refs.add(normalizarRef(item.articleNumber));
+        if (item.oemNumber) refs.add(normalizarRef(item.oemNumber));
+        // Algunos formatos tienen nested arrays
+        if (Array.isArray(item.crossReferences)) {
+          for (const cr of item.crossReferences) {
+            if (cr.articleNo) refs.add(normalizarRef(cr.articleNo));
+            if (cr.oemNo) refs.add(normalizarRef(cr.oemNo));
+          }
+        }
+      }
+    } else if (typeof data === "object" && data !== null) {
+      // Puede ser un objeto con arrays internos
+      for (const key of Object.keys(data)) {
+        const val = data[key];
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item && typeof item === "object") {
+              if (item.articleNo) refs.add(normalizarRef(item.articleNo));
+              if (item.oemNo) refs.add(normalizarRef(item.oemNo));
+              if (item.referenceNumber) refs.add(normalizarRef(item.referenceNumber));
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(refs);
+  } catch (e) {
+    console.error("Error API cruces:", e);
+    return [];
+  }
+}
+
 // GET /api/vehiculo/piezas?carId=18902&categoryId=100118&nombre=Pastillas+de+freno+delanteras
-// Busca en piezas_publicadas por palabras clave de la categoría
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const carId = searchParams.get("carId");
@@ -79,12 +140,12 @@ export async function GET(req: NextRequest) {
   const catId = parseInt(categoryId, 10);
   let keywords = CATEGORIA_KEYWORDS[catId] || [];
 
-  // Si no hay keywords configuradas, usar el nombre de la categoría como búsqueda
+  // Si no hay keywords configuradas, usar el nombre de la categoría
   if (keywords.length === 0 && nombreCategoria) {
     keywords = [nombreCategoria.toLowerCase()];
   }
 
-  // Añadir también palabras individuales del nombre de categoría (>3 chars) como fallback
+  // Añadir palabras individuales del nombre (>3 chars) como fallback
   if (nombreCategoria) {
     const palabras = nombreCategoria.toLowerCase().split(/\s+/).filter((p) => p.length > 3);
     for (const p of palabras) {
@@ -98,7 +159,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       carId,
       categoryId,
-      total_tecdoc: 0,
       total_en_stock: 0,
       articulos: [],
       mensaje: "Categoría sin palabras clave configuradas",
@@ -106,23 +166,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Construir búsqueda OR con ilike para cada keyword
-    // Buscamos en nombre de piezas_publicadas
+    // ── PASO 1: Buscar en stock por keywords en descripcion ──
     const orConditions = keywords
       .map((kw) => {
         const escaped = kw.replace(/'/g, "''");
-        return `nombre.ilike.%${escaped}%`;
+        return `descripcion.ilike.%${escaped}%`;
       })
       .join(",");
 
-    console.log(`Piezas búsqueda cat=${catId} nombre="${nombreCategoria}" keywords=${JSON.stringify(keywords)} or=${orConditions}`);
+    console.log(`[Piezas] cat=${catId} keywords=${JSON.stringify(keywords)}`);
 
-    const { data: piezas, error: dbError } = await supabase
+    const { data: piezasDirectas, error: dbError } = await supabase
       .from("piezas_publicadas")
-      .select("id, referencia, referencia_normalizada, marca, nombre, tipo, precio, proveedor_id")
+      .select("id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre")
       .or(orConditions)
       .order("precio", { ascending: true })
-      .limit(100);
+      .limit(50);
 
     if (dbError) {
       console.error("Error Supabase piezas:", dbError);
@@ -132,20 +191,84 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const resultados = piezas || [];
+    const directas = piezasDirectas || [];
+    console.log(`[Piezas] Resultados directos por keyword: ${directas.length}`);
 
-    // Agrupar por referencia_normalizada para evitar duplicados
+    // ── PASO 2: Recoger referencias únicas encontradas ──
+    const refsEncontradas = new Set<string>();
+    const refOriginales = new Set<string>(); // para no duplicar en cruce
+    for (const p of directas) {
+      const refNorm = normalizarRef(p.referencia || "");
+      if (refNorm) {
+        refsEncontradas.add(refNorm);
+        refOriginales.add(refNorm);
+      }
+    }
+
+    // ── PASO 3: Para las primeras N referencias, buscar cruces en la API ──
+    // Limitamos a 5 llamadas API para no saturar
+    const refsParaCruzar = Array.from(refsEncontradas).slice(0, 5);
+    const refsCruzadas = new Set<string>();
+
+    const crucesPromesas = refsParaCruzar.map(async (ref) => {
+      const cruces = await buscarCrucesAPI(ref);
+      for (const c of cruces) {
+        // Solo añadir si no es una referencia que ya tenemos por búsqueda directa
+        if (!refOriginales.has(c)) {
+          refsCruzadas.add(c);
+        }
+      }
+    });
+
+    await Promise.all(crucesPromesas);
+
+    console.log(`[Piezas] Referencias cruzadas encontradas: ${refsCruzadas.size}`);
+
+    // ── PASO 4: Buscar las referencias cruzadas en stock ──
+    let piezasCruzadas: any[] = [];
+    if (refsCruzadas.size > 0) {
+      const refsCruzadasArr = Array.from(refsCruzadas);
+      // Buscar en lotes de 20 (límite práctico para OR conditions)
+      const lotes = [];
+      for (let i = 0; i < refsCruzadasArr.length; i += 20) {
+        lotes.push(refsCruzadasArr.slice(i, i + 20));
+      }
+
+      for (const lote of lotes) {
+        const orRefs = lote
+          .map((ref) => `referencia_normalizada.eq.${ref}`)
+          .join(",");
+
+        const { data: cruzadas } = await supabase
+          .from("piezas_publicadas")
+          .select("id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre")
+          .or(orRefs)
+          .order("precio", { ascending: true })
+          .limit(50);
+
+        if (cruzadas && cruzadas.length > 0) {
+          piezasCruzadas = piezasCruzadas.concat(cruzadas);
+        }
+      }
+
+      console.log(`[Piezas] Piezas encontradas por cruce: ${piezasCruzadas.length}`);
+    }
+
+    // ── PASO 5: Combinar resultados y agrupar ──
+    const todasLasPiezas = [...directas, ...piezasCruzadas];
+
     const agrupados = new Map<string, any>();
-    for (const p of resultados) {
-      const refNorm = (p.referencia_normalizada || p.referencia || "").toUpperCase().replace(/[\s\-_./]/g, "");
+    for (const p of todasLasPiezas) {
+      const refNorm = normalizarRef(p.referencia_normalizada || p.referencia || "");
       if (!agrupados.has(refNorm)) {
         agrupados.set(refNorm, {
           articleId: 0,
           referencia: p.referencia,
           marca: p.marca || "",
-          nombre: p.nombre || "",
+          nombre: p.descripcion || p.nombre || "",
           oems: [],
           en_stock: true,
+          fuente: refOriginales.has(refNorm) ? "keyword" : "cruce",
           stock: [],
           precio_desde: null as number | null,
         });
@@ -155,7 +278,7 @@ export async function GET(req: NextRequest) {
         id: p.id,
         referencia: p.referencia,
         marca: p.marca,
-        nombre: p.nombre,
+        nombre: p.descripcion || p.nombre || "",
         tipo: p.tipo || "IAM",
         precio: p.precio,
         proveedor_id: p.proveedor_id,
@@ -167,16 +290,23 @@ export async function GET(req: NextRequest) {
 
     const articulos = Array.from(agrupados.values());
 
-    // Ordenar por precio
-    articulos.sort((a, b) => (a.precio_desde || 999999) - (b.precio_desde || 999999));
+    // Ordenar: primero los de cruce (más relevantes), luego por precio
+    articulos.sort((a, b) => {
+      // Priorizar los encontrados por cruce (compatibilidad verificada)
+      if (a.fuente === "cruce" && b.fuente !== "cruce") return -1;
+      if (a.fuente !== "cruce" && b.fuente === "cruce") return 1;
+      return (a.precio_desde || 999999) - (b.precio_desde || 999999);
+    });
 
     return NextResponse.json({
       carId,
       categoryId,
-      total_tecdoc: 0,
       total_en_stock: articulos.length,
+      total_directos: directas.length,
+      total_por_cruce: piezasCruzadas.length,
+      refs_cruzadas: refsCruzadas.size,
       articulos,
-      fuente: "stock_local",
+      fuente: "hibrido_keyword_cruce",
     });
   } catch (err) {
     console.error("Error piezas vehículo:", err);
