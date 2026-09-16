@@ -274,7 +274,7 @@ export default function VehiculoPage() {
   const [articulos, setArticulos] = useState<ArticuloCatalogo[]>([]);
   const [loadingArticulos, setLoadingArticulos] = useState(false);
   const [infoCatalogo, setInfoCatalogo] = useState<{ total_tecdoc: number; total_en_stock: number } | null>(null);
-  const [mostrarFicha, setMostrarFicha] = useState(true);
+  const [mostrarFicha, setMostrarFicha] = useState(false);
   const [errorPiezas, setErrorPiezas] = useState<string | null>(null);
 
   useEffect(() => {
@@ -319,7 +319,7 @@ export default function VehiculoPage() {
     try {
       const carId = vehiculo?.tecdoc_car_id || "0";
       const res = await fetch(
-        `/api/vehiculo/piezas?carId=${encodeURIComponent(carId)}&categoryId=${encodeURIComponent(categoryId)}`
+        `/api/vehiculo/piezas?carId=${encodeURIComponent(carId)}&categoryId=${encodeURIComponent(categoryId)}&nombre=${encodeURIComponent(nombre)}`
       );
       const json = await res.json();
       if (res.ok) {
