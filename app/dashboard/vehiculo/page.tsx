@@ -52,6 +52,7 @@ interface PiezaStock {
   tipo: string;
   precio: number;
   proveedor_id: string;
+  proveedor_nombre: string;
 }
 
 interface ArticuloCatalogo {
@@ -61,6 +62,7 @@ interface ArticuloCatalogo {
   nombre: string;
   oems: string[];
   en_stock: boolean;
+  fuente: string;
   stock: PiezaStock[];
   precio_desde: number | null;
 }
@@ -357,7 +359,7 @@ export default function VehiculoPage() {
     setCategoriaSeleccionada(null);
     setArticulos([]);
     setInfoCatalogo(null);
-    setMostrarFicha(true);
+    setMostrarFicha(false);
     setErrorPiezas(null);
 
     try {
@@ -720,75 +722,103 @@ export default function VehiculoPage() {
                           <p style={{ fontSize: "14px" }}>No se encontraron piezas en stock para esta categoria</p>
                         </div>
                       ) : (
-                        <div style={{ display: "grid", gap: "10px" }}>
+                        <div style={{ display: "grid", gap: "12px" }}>
                           {articulos.map((art, i) => (
                             <div
-                              key={`${art.articleId}-${i}`}
+                              key={`${art.referencia}-${i}`}
                               style={{
-                                padding: "14px 16px", borderRadius: "10px",
-                                border: art.en_stock ? "1px solid rgba(22,163,74,0.3)" : "1px solid #1e293b",
-                                background: art.en_stock ? "rgba(22,163,74,0.06)" : "rgba(255,255,255,0.02)",
+                                borderRadius: "12px",
+                                border: "1px solid rgba(22,163,74,0.3)",
+                                background: "rgba(22,163,74,0.04)",
+                                overflow: "hidden",
                               }}
                             >
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                                    <span style={{
-                                      color: "#e2e8f0", fontSize: "14px", fontWeight: 700, fontFamily: "monospace",
-                                    }}>
-                                      {art.referencia}
-                                    </span>
-                                    <span style={{
-                                      background: "rgba(37,99,235,0.12)", borderRadius: "6px",
-                                      padding: "2px 8px", color: "#93c5fd", fontSize: "11px", fontWeight: 600,
-                                    }}>
-                                      {art.marca}
-                                    </span>
-                                    {art.en_stock && (
-                                      <span style={{
-                                        background: "rgba(22,163,74,0.15)", borderRadius: "6px",
-                                        padding: "2px 8px", color: "#4ade80", fontSize: "11px", fontWeight: 700,
-                                      }}>
-                                        ✓ EN STOCK
-                                      </span>
-                                    )}
-                                  </div>
-                                  {art.nombre && (
-                                    <p style={{ color: "#94a3b8", fontSize: "12px", margin: "4px 0 0" }}>{art.nombre}</p>
-                                  )}
-                                  {art.oems.length > 0 && (
-                                    <p style={{ color: "#475569", fontSize: "11px", margin: "4px 0 0" }}>
-                                      OEM: {art.oems.slice(0, 5).join(", ")}{art.oems.length > 5 ? ` (+${art.oems.length - 5})` : ""}
-                                    </p>
-                                  )}
-                                  {art.stock.length > 0 && (
-                                    <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                                      {art.stock.slice(0, 3).map((s, j) => (
-                                        <span key={j} style={{
-                                          background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.2)",
-                                          borderRadius: "6px", padding: "4px 10px", fontSize: "11px", color: "#94a3b8",
-                                        }}>
-                                          {s.referencia} · <span style={{ color: "#4ade80", fontWeight: 700 }}>{s.precio.toFixed(2)}€</span>
-                                          {s.tipo === "OEM" && " (OEM)"}
-                                        </span>
-                                      ))}
-                                      {art.stock.length > 3 && (
-                                        <span style={{ fontSize: "11px", color: "#475569", padding: "4px 0" }}>
-                                          +{art.stock.length - 3} mas
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
+                              {/* Cabecera del artículo */}
+                              <div style={{
+                                padding: "14px 16px",
+                                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                                display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+                              }}>
+                                <span style={{ color: "#e2e8f0", fontSize: "15px", fontWeight: 700, fontFamily: "monospace" }}>
+                                  {art.referencia}
+                                </span>
+                                <span style={{
+                                  background: "rgba(37,99,235,0.12)", borderRadius: "6px",
+                                  padding: "2px 8px", color: "#93c5fd", fontSize: "11px", fontWeight: 600,
+                                }}>
+                                  {art.marca}
+                                </span>
+                                {art.fuente === "cruce" && (
+                                  <span style={{
+                                    background: "rgba(168,85,247,0.12)", borderRadius: "6px",
+                                    padding: "2px 8px", color: "#c084fc", fontSize: "10px", fontWeight: 600,
+                                  }}>
+                                    CRUCE
+                                  </span>
+                                )}
+                                {art.nombre && (
+                                  <span style={{ color: "#94a3b8", fontSize: "12px", marginLeft: "4px" }}>
+                                    {art.nombre}
+                                  </span>
+                                )}
                                 {art.precio_desde !== null && (
-                                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                    <div style={{ color: "#64748b", fontSize: "10px", fontWeight: 600 }}>DESDE</div>
-                                    <div style={{ color: "#4ade80", fontSize: "20px", fontWeight: 800 }}>
-                                      {art.precio_desde.toFixed(2)}€
-                                    </div>
-                                  </div>
+                                  <span style={{ marginLeft: "auto", color: "#4ade80", fontSize: "16px", fontWeight: 800 }}>
+                                    desde {art.precio_desde.toFixed(2)}€
+                                  </span>
                                 )}
                               </div>
+
+                              {/* Lista de vendedores */}
+                              {art.stock.length > 0 && (
+                                <div style={{ padding: "0" }}>
+                                  {/* Cabecera tabla */}
+                                  <div style={{
+                                    display: "grid", gridTemplateColumns: "1fr 100px 90px 100px",
+                                    padding: "8px 16px", background: "rgba(255,255,255,0.03)",
+                                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                                  }}>
+                                    <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Vendedor</span>
+                                    <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Referencia</span>
+                                    <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Tipo</span>
+                                    <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Precio</span>
+                                  </div>
+                                  {/* Filas de vendedores */}
+                                  {art.stock.map((s: PiezaStock, j: number) => (
+                                    <div
+                                      key={j}
+                                      style={{
+                                        display: "grid", gridTemplateColumns: "1fr 100px 90px 100px",
+                                        padding: "10px 16px", alignItems: "center",
+                                        borderBottom: j < art.stock.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                        transition: "background 0.15s",
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                                    >
+                                      <div>
+                                        <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>
+                                          {s.proveedor_nombre || s.proveedor_id || "Proveedor"}
+                                        </span>
+                                      </div>
+                                      <span style={{ color: "#94a3b8", fontSize: "12px", fontFamily: "monospace" }}>
+                                        {s.referencia}
+                                      </span>
+                                      <span style={{
+                                        display: "inline-block", fontSize: "10px", fontWeight: 600, padding: "2px 8px",
+                                        borderRadius: "4px",
+                                        background: s.tipo === "OEM" ? "rgba(234,179,8,0.12)" : "rgba(37,99,235,0.1)",
+                                        color: s.tipo === "OEM" ? "#fde047" : "#93c5fd",
+                                        width: "fit-content",
+                                      }}>
+                                        {s.tipo || "IAM"}
+                                      </span>
+                                      <span style={{ color: "#4ade80", fontSize: "15px", fontWeight: 800, textAlign: "right" }}>
+                                        {s.precio != null ? `${s.precio.toFixed(2)}€` : "—"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
