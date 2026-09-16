@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Usa el Auto Parts Catalog (PRO $29/mes) para decodificar VIN
 const RAPIDAPI_HOST = "auto-parts-catalog.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
 
@@ -19,15 +18,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Probar todas las versiones del decoder
+    // Probar versiones del decoder
     const versiones = ["decoder-v5", "decoder-v3", "decoder-v2", "decoder-v1", "all-in-one"];
-    let respuestaOk: any = null;
+    let merged: Record<string, any> = {};
+    let usedVersion = "";
 
     for (const version of versiones) {
       try {
         const url = `https://${RAPIDAPI_HOST}/vin/${version}/${encodeURIComponent(vinClean)}`;
-        console.log(`Probando VIN ${version}: ${url}`);
-
         const res = await fetch(url, {
           method: "GET",
           headers: {
@@ -37,66 +35,90 @@ export async function GET(req: NextRequest) {
           },
         });
 
+        if (!res.ok) continue;
         const json = await res.json();
-        console.log(`VIN ${version} status:${res.status} keys:${JSON.stringify(Object.keys(json)).slice(0,200)}`);
-        console.log(`VIN ${version} sample:${JSON.stringify(json).slice(0,500)}`);
+        if (!json) continue;
 
-        if (res.ok && json) {
-          respuestaOk = { version, json };
-          // Si esta versión tiene datos útiles, usarla
-          const str = JSON.stringify(json);
-          if (str.length > 100) break; // Tiene contenido real
+        // La API devuelve { "vin-data-1": { content: "JSON_STRING", ... }, "vin-data-2": ... }
+        // Cada "content" es un JSON string que hay que parsear y mergear
+        for (const [key, val] of Object.entries(json)) {
+          const entry = val as any;
+          if (entry && typeof entry === "object" && typeof entry.content === "string") {
+            try {
+              const parsed = JSON.parse(entry.content);
+              console.log(`VIN ${version} ${key}: ${JSON.stringify(parsed).slice(0, 800)}`);
+              if (typeof parsed === "object" && parsed !== null) {
+                merged = { ...merged, ...parsed };
+              }
+            } catch {
+              console.log(`VIN ${version} ${key} content not JSON: ${entry.content.slice(0, 200)}`);
+            }
+          } else if (entry && typeof entry === "object") {
+            // Puede que sea un objeto directo sin content wrapper
+            console.log(`VIN ${version} ${key} direct: ${JSON.stringify(entry).slice(0, 400)}`);
+            merged = { ...merged, ...entry };
+          }
+        }
+
+        // Si no tiene vin-data-* keys, puede ser un objeto plano
+        if (!Object.keys(json).some((k: string) => k.startsWith("vin-data"))) {
+          const d = json.data || json.decode || json.result || json;
+          if (typeof d === "object") {
+            console.log(`VIN ${version} flat: ${JSON.stringify(d).slice(0, 800)}`);
+            merged = { ...merged, ...d };
+          }
+        }
+
+        if (Object.keys(merged).length > 2) {
+          usedVersion = version;
+          break;
         }
       } catch (e) {
         console.error(`VIN ${version} error:`, e);
       }
     }
 
-    if (!respuestaOk) {
+    if (Object.keys(merged).length === 0) {
       return NextResponse.json(
         { error: "No se pudo decodificar el bastidor. Verifica que el VIN es correcto." },
         { status: 400 }
       );
     }
 
-    const { version, json } = respuestaOk;
-    // Aplanar: puede ser json directamente, json.data, json.decode, etc.
-    const d = json.data || json.decode || json.result || json;
+    const d = merged;
+    console.log(`VIN merged keys: ${JSON.stringify(Object.keys(d)).slice(0, 500)}`);
 
-    console.log(`VIN usando ${version}, tipo datos: ${typeof d}, keys: ${JSON.stringify(Object.keys(d)).slice(0,300)}`);
-
-    // Mapeo exhaustivo — probamos todos los nombres posibles de cada campo
     const vehiculo = {
-      vin: extraer(d, ["vin", "VIN"]) || vinClean,
-      marca: extraer(d, ["make", "Make", "marque", "manufacturer", "brand", "Manufacturer", "mfrName"]),
-      modelo: extraer(d, ["model", "Model", "modele", "modele_en", "modelName"]),
-      version: extraer(d, ["version", "trim", "Trim", "variant", "subModel", "series"]),
-      motor: extraer(d, ["engine_code", "engineCode", "code_moteur", "Engine", "engineType"]),
-      combustible: extraer(d, ["fuel_type", "fuelType", "fuel", "energieNGC", "type_moteur", "FuelType", "fuelTypePrimary"]),
-      potencia_kw: extraer(d, ["power_kw", "powerKw", "puisFiscReelKW", "kw", "enginePowerKw"]),
-      potencia_cv: extraer(d, ["power_hp", "powerHp", "power_ps", "puisFiscReelCH", "hp", "cv", "horsepower", "enginePowerHp"]),
-      cilindrada: extraer(d, ["displacement", "Displacement", "ccm", "engine_displacement", "capacity", "engineDisplacement", "DisplacementCC"]),
-      cilindros: extraer(d, ["cylinders", "Cylinders", "cylindres", "number_of_cylinders", "numberOfCylinders"]),
-      transmision: extraer(d, ["drive_type", "driveType", "type_transmission", "drive", "DriveType"]),
-      caja_cambios: normalizarCaja(extraer(d, ["transmission", "Transmission", "gearbox", "boite_vitesse", "transmissionStyle"])),
-      carroceria: extraer(d, ["body_type", "bodyType", "body", "carrosserie", "BodyClass", "bodyClass"]),
-      color: extraer(d, ["color", "Color", "colour", "couleur", "exteriorColor"]),
-      puertas: extraer(d, ["doors", "Doors", "nb_portes", "number_of_doors", "numberOfDoors"]),
-      plazas: extraer(d, ["seats", "Seats", "nr_passagers", "number_of_seats", "numberOfSeats"]),
-      peso: extraer(d, ["weight", "Weight", "poids", "curb_weight", "curbWeight"]),
-      co2: formatCO2(extraer(d, ["co2", "CO2", "co2_emission"])),
-      fecha_inicio_modelo: extraer(d, ["model_start", "modelStart", "debut_modele", "year_from", "ModelYear", "modelYear", "year"]),
-      fecha_primera_matriculacion: extraer(d, ["first_registration", "firstRegistration", "date1erCir_fr", "registration_date"]),
-      pais: extraer(d, ["country", "Country", "pays", "market", "PlantCountry"]),
-      placa: extraer(d, ["plate", "Plate", "plaque", "license_plate"]),
-      logo_marca: extraer(d, ["logo", "logo_marque", "manufacturer_logo", "makeLogo"]),
-      foto_modelo: extraer(d, ["image", "photo", "photo_modele", "vehicle_image", "modelImage"]),
-      tecdoc_car_id: extraer(d, ["tecdoc_car_id", "tecdocCarId", "k_type", "ktype", "ktypnr", "kType"]),
-      tecdoc_manu_id: extraer(d, ["tecdoc_manu_id", "tecdocManuId", "manufacturer_id"]),
-      tecdoc_model_id: extraer(d, ["tecdoc_model_id", "tecdocModelId", "model_id"]),
-      pneus: extraerArray(d, ["tires", "pneus", "tyres", "Tires"]),
-      _debug_version: version,
-      _debug_keys: Object.keys(d).slice(0, 30),
+      vin: d.vin || d.VIN || vinClean,
+      marca: d.manufacturer || d.make || d.Make || d.marque || d.brand || d.mfrName || "",
+      modelo: d.model || d.Model || d.modele || d.modele_en || d.modelName || "",
+      version: d.version || d.trim || d.Trim || d.variant || d.subModel || d.series || "",
+      motor: d.engine_code || d.engineCode || d.code_moteur || d.Engine || d.engineType || d.engine || "",
+      combustible: d.fuel_type || d.fuelType || d.fuel || d.energieNGC || d.type_moteur || d.FuelType || d.fuelTypePrimary || "",
+      potencia_kw: d.power_kw || d.powerKw || d.puisFiscReelKW || d.kw || d.enginePowerKw || "",
+      potencia_cv: d.power_hp || d.powerHp || d.power_ps || d.puisFiscReelCH || d.hp || d.cv || d.horsepower || d.enginePowerHp || "",
+      cilindrada: d.displacement || d.Displacement || d.ccm || d.engine_displacement || d.capacity || d.engineDisplacement || d.DisplacementCC || "",
+      cilindros: d.cylinders || d.Cylinders || d.cylindres || d.number_of_cylinders || d.numberOfCylinders || "",
+      transmision: d.drive_type || d.driveType || d.type_transmission || d.drive || d.DriveType || "",
+      caja_cambios: normalizarCaja(d.transmission || d.Transmission || d.gearbox || d.boite_vitesse || d.transmissionStyle || ""),
+      carroceria: d.body_type || d.bodyType || d.body || d.carrosserie || d.BodyClass || d.bodyClass || "",
+      color: d.color || d.Color || d.colour || d.couleur || d.exteriorColor || "",
+      puertas: d.doors || d.Doors || d.nb_portes || d.number_of_doors || d.numberOfDoors || "",
+      plazas: d.seats || d.Seats || d.nr_passagers || d.number_of_seats || d.numberOfSeats || "",
+      peso: d.weight || d.Weight || d.poids || d.curb_weight || d.curbWeight || "",
+      co2: formatCO2(d.co2 || d.CO2 || d.co2_emission || ""),
+      anyo_modelo: d.modelYear || d.model_year || d.year || d.ModelYear || d.year_from || d.model_start || "",
+      region: d.region || d.country || d.Country || d.pays || d.market || d.PlantCountry || "",
+      wmi: d.wmi || "",
+      placa: d.plate || d.Plate || d.plaque || d.license_plate || "",
+      logo_marca: d.logo || d.logo_marque || d.manufacturer_logo || d.makeLogo || "",
+      foto_modelo: d.image || d.photo || d.photo_modele || d.vehicle_image || d.modelImage || "",
+      tecdoc_car_id: d.tecdoc_car_id || d.tecdocCarId || d.k_type || d.ktype || d.ktypnr || d.kType || "",
+      tecdoc_manu_id: d.tecdoc_manu_id || d.tecdocManuId || d.manufacturer_id || "",
+      tecdoc_model_id: d.tecdoc_model_id || d.tecdocModelId || d.model_id || "",
+      pneus: d.tires || d.pneus || d.tyres || d.Tires || [],
+      _debug_version: usedVersion,
+      _debug_keys: Object.keys(d).slice(0, 50),
     };
 
     return NextResponse.json(vehiculo);
@@ -104,36 +126,6 @@ export async function GET(req: NextRequest) {
     console.error("Error VIN Decoder:", err);
     return NextResponse.json({ error: "Error de conexión con el decodificador de bastidor" }, { status: 500 });
   }
-}
-
-// Extrae el primer valor no vacío de una lista de posibles keys (también busca anidado)
-function extraer(obj: any, keys: string[]): string {
-  if (!obj || typeof obj !== "object") return "";
-  for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
-      return String(obj[key]);
-    }
-  }
-  // Buscar un nivel anidado
-  for (const val of Object.values(obj)) {
-    if (val && typeof val === "object" && !Array.isArray(val)) {
-      for (const key of keys) {
-        const nested = val as Record<string, any>;
-        if (nested[key] !== undefined && nested[key] !== null && nested[key] !== "") {
-          return String(nested[key]);
-        }
-      }
-    }
-  }
-  return "";
-}
-
-function extraerArray(obj: any, keys: string[]): any[] {
-  if (!obj || typeof obj !== "object") return [];
-  for (const key of keys) {
-    if (Array.isArray(obj[key])) return obj[key];
-  }
-  return [];
 }
 
 function normalizarCaja(valor: string): string {
@@ -146,5 +138,6 @@ function normalizarCaja(valor: string): string {
 
 function formatCO2(val: string): string {
   if (!val) return "";
-  return val.includes("g/km") ? val : `${val} g/km`;
+  const s = String(val);
+  return s.includes("g/km") ? s : `${s} g/km`;
 }
