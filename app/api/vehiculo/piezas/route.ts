@@ -6,11 +6,63 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const RAPIDAPI_HOST = "auto-parts-catalog.p.rapidapi.com";
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
+// Mapeo de categoryId a términos de búsqueda en piezas_publicadas
+// Estos son los IDs de nuestras categorías estándar predefinidas
+const CATEGORIA_KEYWORDS: Record<number, string[]> = {
+  // Motor
+  100139: ["filtro aceite", "oil filter"],
+  100140: ["filtro aire", "air filter"],
+  100046: ["correa distribucion", "timing belt", "correa dentada"],
+  100048: ["bujia", "spark plug"],
+  100062: ["junta culata", "head gasket"],
+  100009: ["bomba agua", "water pump"],
+  100338: ["termostato", "thermostat"],
+  // Frenos
+  100118: ["pastilla freno", "brake pad", "pastillas delant"],
+  100117: ["pastilla freno tras", "brake pad rear", "pastillas tras"],
+  100110: ["disco freno", "brake disc", "disco delant"],
+  100111: ["disco freno tras", "brake disc rear", "disco tras"],
+  100437: ["pinza freno", "brake caliper"],
+  100116: ["zapata freno", "brake shoe", "zapata"],
+  // Suspensión
+  100288: ["amortiguador delant", "shock absorber front"],
+  100289: ["amortiguador tras", "shock absorber rear"],
+  100349: ["rotula", "ball joint"],
+  100343: ["silentblock", "silent block", "casquillo"],
+  100292: ["muelle suspension", "spring", "muelle"],
+  100308: ["bieleta estabilizador", "stabilizer link", "bieleta"],
+  // Embrague
+  100200: ["kit embrague", "clutch kit"],
+  100204: ["volante motor", "flywheel", "volante bimasa"],
+  100201: ["disco embrague", "clutch disc"],
+  // Refrigeración
+  100444: ["radiador", "radiator"],
+  100446: ["ventilador", "fan", "electroventilador"],
+  // Electricidad
+  100378: ["bateria", "battery"],
+  100379: ["alternador", "alternator"],
+  100380: ["motor arranque", "starter motor", "arranque"],
+  100049: ["bobina encendido", "ignition coil"],
+  // Escape
+  100468: ["catalizador", "catalytic converter"],
+  100474: ["filtro particulas", "dpf", "fap"],
+  100466: ["silenciador", "muffler", "escape"],
+  100152: ["sonda lambda", "oxygen sensor", "lambda"],
+  // Filtros
+  100141: ["filtro combustible", "fuel filter", "filtro gasoil", "filtro gasolina"],
+  100142: ["filtro habitaculo", "cabin filter", "filtro polen", "filtro interior"],
+  // Iluminación
+  100483: ["faro", "headlight", "faro delantero"],
+  100484: ["piloto trasero", "tail light", "piloto"],
+  100500: ["lampara", "bombilla", "bulb"],
+  // Carrocería
+  100520: ["espejo retrovisor", "mirror", "retrovisor"],
+  100522: ["parachoques", "bumper"],
+  100534: ["limpiaparabrisas", "wiper", "escobilla"],
+};
 
-// Devuelve las piezas compatibles con un vehículo para una categoría dada
-// GET /api/vehiculo/piezas?carId=18902&categoryId=100456
+// GET /api/vehiculo/piezas?carId=18902&categoryId=100118
+// Busca en piezas_publicadas por palabras clave de la categoría
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const carId = searchParams.get("carId");
@@ -23,145 +75,96 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const catId = parseInt(categoryId, 10);
+  const keywords = CATEGORIA_KEYWORDS[catId];
+
+  if (!keywords || keywords.length === 0) {
+    return NextResponse.json({
+      carId,
+      categoryId,
+      total_tecdoc: 0,
+      total_en_stock: 0,
+      articulos: [],
+      mensaje: "Categoría sin palabras clave configuradas",
+    });
+  }
+
   try {
-    // 1. Obtener artículos de TecDoc para este vehículo + categoría
-    const url = `https://${RAPIDAPI_HOST}/api/articles/list/type-id/1/vehicle-id/${encodeURIComponent(carId)}/category-id/${encodeURIComponent(categoryId)}/lang-id/5`;
+    // Construir búsqueda OR con ilike para cada keyword
+    // Buscamos en nombre y referencia de piezas_publicadas
+    const orConditions = keywords
+      .map((kw) => {
+        const escaped = kw.replace(/'/g, "''");
+        return `nombre.ilike.%${escaped}%`;
+      })
+      .join(",");
 
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-rapidapi-host": RAPIDAPI_HOST,
-        "x-rapidapi-key": RAPIDAPI_KEY,
-      },
-    });
+    const { data: piezas, error: dbError } = await supabase
+      .from("piezas_publicadas")
+      .select("id, referencia, referencia_normalizada, marca, nombre, tipo, precio, proveedor_id")
+      .or(orConditions)
+      .order("precio", { ascending: true })
+      .limit(100);
 
-    if (!res.ok) {
-      console.error("Error TecDoc piezas:", res.status, await res.text());
+    if (dbError) {
+      console.error("Error Supabase piezas:", dbError);
       return NextResponse.json(
-        { error: "Error al obtener piezas del catálogo" },
-        { status: res.status }
+        { error: "Error al buscar piezas en stock" },
+        { status: 500 }
       );
     }
 
-    const data = await res.json();
+    const resultados = piezas || [];
 
-    // Normalizar artículos de TecDoc
-    interface ArticuloRaw {
-      articleId?: number;
-      articleNo?: string;
-      supplierName?: string;
-      articleProductName?: string;
-      oem?: string[];
-      oemNumbers?: { articleNumber: string; mfrName: string }[];
-      [key: string]: any;
-    }
-
-    const articulos: ArticuloRaw[] = Array.isArray(data) ? data : data?.articles || data?.data || [];
-
-    // Extraer todas las referencias (OEM + IAM) para buscar en nuestro stock
-    const referenciasOEM = new Set<string>();
-    const referenciasIAM = new Set<string>();
-
-    function normalizar(ref: string): string {
-      return ref.toUpperCase().replace(/[\s\-_./]/g, "");
-    }
-
-    const articulosNormalizados = articulos.map((art) => {
-      const refIAM = art.articleNo || "";
-      const marca = art.supplierName || "";
-      const nombre = art.articleProductName || "";
-
-      if (refIAM) referenciasIAM.add(normalizar(refIAM));
-
-      // Recoger OEMs asociados
-      const oems: string[] = [];
-      if (art.oemNumbers && Array.isArray(art.oemNumbers)) {
-        for (const o of art.oemNumbers) {
-          if (o.articleNumber) {
-            oems.push(o.articleNumber);
-            referenciasOEM.add(normalizar(o.articleNumber));
-          }
-        }
+    // Agrupar por referencia_normalizada para evitar duplicados
+    const agrupados = new Map<string, any>();
+    for (const p of resultados) {
+      const refNorm = (p.referencia_normalizada || p.referencia || "").toUpperCase().replace(/[\s\-_./]/g, "");
+      if (!agrupados.has(refNorm)) {
+        agrupados.set(refNorm, {
+          articleId: 0,
+          referencia: p.referencia,
+          marca: p.marca || "",
+          nombre: p.nombre || "",
+          oems: [],
+          en_stock: true,
+          stock: [],
+          precio_desde: null as number | null,
+        });
       }
-      if (art.oem && Array.isArray(art.oem)) {
-        for (const o of art.oem) {
-          oems.push(o);
-          referenciasOEM.add(normalizar(o));
-        }
-      }
-
-      return {
-        articleId: art.articleId,
-        referencia: refIAM,
-        marca,
-        nombre,
-        oems,
-      };
-    });
-
-    // 2. Buscar en nuestro stock (piezas_publicadas) qué tenemos disponible
-    const todasRefs = [...Array.from(referenciasOEM), ...Array.from(referenciasIAM)];
-
-    let stockDisponible: any[] = [];
-    if (todasRefs.length > 0) {
-      // Supabase limita .in() a ~300 items, dividimos si es necesario
-      const chunks: string[][] = [];
-      for (let i = 0; i < todasRefs.length; i += 200) {
-        chunks.push(todasRefs.slice(i, i + 200));
-      }
-
-      const resultados = await Promise.all(
-        chunks.map((chunk) =>
-          supabase
-            .from("piezas_publicadas")
-            .select("id, referencia, referencia_normalizada, marca, nombre, tipo, precio, proveedor_id")
-            .in("referencia_normalizada", chunk)
-            .order("precio", { ascending: true })
-        )
-      );
-
-      for (const r of resultados) {
-        if (r.data) stockDisponible.push(...r.data);
+      const grupo = agrupados.get(refNorm)!;
+      grupo.stock.push({
+        id: p.id,
+        referencia: p.referencia,
+        marca: p.marca,
+        nombre: p.nombre,
+        tipo: p.tipo || "IAM",
+        precio: p.precio,
+        proveedor_id: p.proveedor_id,
+      });
+      if (grupo.precio_desde === null || p.precio < grupo.precio_desde) {
+        grupo.precio_desde = p.precio;
       }
     }
 
-    // 3. Enriquecer artículos de TecDoc con info de nuestro stock
-    const articulosEnriquecidos = articulosNormalizados.map((art) => {
-      const refNorm = normalizar(art.referencia);
-      const oemsNorm = art.oems.map(normalizar);
+    const articulos = Array.from(agrupados.values());
 
-      // Stock que coincide con la referencia IAM o sus OEMs
-      const enStock = stockDisponible.filter(
-        (p) =>
-          p.referencia_normalizada === refNorm ||
-          oemsNorm.includes(p.referencia_normalizada)
-      );
-
-      return {
-        ...art,
-        en_stock: enStock.length > 0,
-        stock: enStock,
-        precio_desde: enStock.length > 0 ? Math.min(...enStock.map((p: any) => p.precio)) : null,
-      };
-    });
-
-    // Ordenar: primero los que tenemos en stock, luego por nombre
-    articulosEnriquecidos.sort((a, b) => {
-      if (a.en_stock && !b.en_stock) return -1;
-      if (!a.en_stock && b.en_stock) return 1;
-      return (a.nombre || "").localeCompare(b.nombre || "");
-    });
+    // Ordenar por precio
+    articulos.sort((a, b) => (a.precio_desde || 999999) - (b.precio_desde || 999999));
 
     return NextResponse.json({
       carId,
       categoryId,
-      total_tecdoc: articulosNormalizados.length,
-      total_en_stock: articulosEnriquecidos.filter((a) => a.en_stock).length,
-      articulos: articulosEnriquecidos,
+      total_tecdoc: 0,
+      total_en_stock: articulos.length,
+      articulos,
+      fuente: "stock_local",
     });
   } catch (err) {
     console.error("Error piezas vehículo:", err);
-    return NextResponse.json({ error: "Error de conexión con el catálogo de piezas" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error de conexión con la base de datos" },
+      { status: 500 }
+    );
   }
 }
