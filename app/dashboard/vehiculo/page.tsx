@@ -23,9 +23,11 @@ interface DatosVehiculo {
   plazas: string;
   peso: string;
   co2: string;
-  fecha_inicio_modelo: string;
-  fecha_primera_matriculacion: string;
+  anyo_modelo: string;
+  tipo_vehiculo: string;
+  region: string;
   pais: string;
+  fabricante_nombre: string;
   placa: string;
   logo_marca: string;
   foto_modelo: string;
@@ -198,7 +200,6 @@ function ArbolCategorias({
               }}
               onClick={() => {
                 if (tieneHijos) toggleExpandir(cat.id);
-                // Solo seleccionar hojas (sin hijos) o si es categoría con hijos y el usuario la clica
                 if (!tieneHijos) {
                   onSeleccionar(cat.id, cat.nombre);
                 }
@@ -210,7 +211,6 @@ function ArbolCategorias({
                 if (!seleccionado) e.currentTarget.style.background = "transparent";
               }}
             >
-              {/* Icono o flecha */}
               {esRaiz && cat.icono ? (
                 <span style={{ fontSize: "16px", width: "20px", textAlign: "center", flexShrink: 0 }}>
                   {cat.icono}
@@ -230,13 +230,11 @@ function ArbolCategorias({
               }}>
                 {cat.nombre}
               </span>
-              {/* Flecha para raíz con hijos */}
               {esRaiz && tieneHijos && (
                 <span style={{ color: "#475569", fontSize: "10px", flexShrink: 0 }}>
                   {expandido ? "▲" : "▼"}
                 </span>
               )}
-              {/* Indicador de hijos */}
               {tieneHijos && !esRaiz && (
                 <span style={{ color: "#475569", fontSize: "10px" }}>
                   {cat.hijos.length}
@@ -289,7 +287,7 @@ export default function VehiculoPage() {
     checkAcceso();
   }, []);
 
-  // Cargar categorías cuando tenemos tecdoc_car_id
+  // Cargar categorías — ya no depende de tecdoc_car_id, usa carId "0" como fallback
   const cargarCategorias = async (carId: string) => {
     setLoadingCategorias(true);
     setCategorias([]);
@@ -298,7 +296,7 @@ export default function VehiculoPage() {
     setInfoCatalogo(null);
     setErrorPiezas(null);
     try {
-      const res = await fetch(`/api/vehiculo/categorias?carId=${encodeURIComponent(carId)}`);
+      const res = await fetch(`/api/vehiculo/categorias?carId=${encodeURIComponent(carId || "0")}`);
       const json = await res.json();
       if (res.ok && json.categorias) {
         setCategorias(json.categorias);
@@ -310,9 +308,8 @@ export default function VehiculoPage() {
     }
   };
 
-  // Cargar piezas de una categoría
+  // Cargar piezas de una categoría — ya no requiere tecdoc_car_id
   const cargarPiezas = async (categoryId: number, nombre: string) => {
-    if (!vehiculo?.tecdoc_car_id) return;
     setCategoriaSeleccionada(categoryId);
     setNombreCategoria(nombre);
     setLoadingArticulos(true);
@@ -320,8 +317,9 @@ export default function VehiculoPage() {
     setInfoCatalogo(null);
     setErrorPiezas(null);
     try {
+      const carId = vehiculo?.tecdoc_car_id || "0";
       const res = await fetch(
-        `/api/vehiculo/piezas?carId=${encodeURIComponent(vehiculo.tecdoc_car_id)}&categoryId=${encodeURIComponent(categoryId)}`
+        `/api/vehiculo/piezas?carId=${encodeURIComponent(carId)}&categoryId=${encodeURIComponent(categoryId)}`
       );
       const json = await res.json();
       if (res.ok) {
@@ -370,10 +368,8 @@ export default function VehiculoPage() {
         setError(json.error || "No se pudo decodificar el bastidor");
       } else {
         setVehiculo(json);
-        // Si tiene tecdoc_car_id, cargar categorías automáticamente
-        if (json.tecdoc_car_id) {
-          cargarCategorias(json.tecdoc_car_id);
-        }
+        // Cargar categorías SIEMPRE — el endpoint de piezas busca por keywords, no necesita carId real
+        cargarCategorias(json.tecdoc_car_id || "0");
       }
     } catch {
       setError("Error de conexion");
@@ -465,7 +461,7 @@ export default function VehiculoPage() {
         {/* Vehiculo decodificado */}
         {vehiculo && (
           <>
-            {/* Cabecera vehiculo — siempre visible */}
+            {/* Cabecera vehiculo */}
             <div style={{
               background: "linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(16,185,129,0.1) 100%)",
               border: "1px solid rgba(37,99,235,0.2)", borderRadius: "16px",
@@ -487,7 +483,7 @@ export default function VehiculoPage() {
                   <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
                     {vehiculo.version}
                     {vehiculo.motor && ` · ${vehiculo.motor}`}
-                    {vehiculo.fecha_primera_matriculacion && ` · ${vehiculo.fecha_primera_matriculacion}`}
+                    {vehiculo.anyo_modelo && ` · ${vehiculo.anyo_modelo}`}
                   </p>
                 </div>
                 {vehiculo.placa && (
@@ -502,6 +498,11 @@ export default function VehiculoPage() {
 
               {/* Tags rápidos */}
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "16px", alignItems: "center" }}>
+                {vehiculo.anyo_modelo && (
+                  <span style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
+                    📅 {vehiculo.anyo_modelo}
+                  </span>
+                )}
                 {vehiculo.combustible && (
                   <span style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
                     ⛽ {vehiculo.combustible}
@@ -522,13 +523,17 @@ export default function VehiculoPage() {
                     📐 {vehiculo.cilindrada}
                   </span>
                 )}
+                {vehiculo.carroceria && (
+                  <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>
+                    🚘 {vehiculo.carroceria}
+                  </span>
+                )}
                 {vehiculo.tecdoc_car_id && (
                   <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#64748b", fontSize: "12px", fontWeight: 600 }}>
                     TecDoc: {vehiculo.tecdoc_car_id}
                   </span>
                 )}
 
-                {/* Botón toggle ficha técnica */}
                 <button
                   onClick={() => setMostrarFicha(!mostrarFicha)}
                   style={{
@@ -545,7 +550,6 @@ export default function VehiculoPage() {
             {/* Ficha técnica (colapsable) */}
             {mostrarFicha && (
               <div style={{ marginBottom: "20px" }}>
-                {/* Foto */}
                 {vehiculo.foto_modelo && (
                   <div style={{
                     background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
@@ -585,6 +589,7 @@ export default function VehiculoPage() {
                       <Dato icon="👥" label="Plazas" value={vehiculo.plazas} />
                       <Dato icon="⚖️" label="Peso" value={vehiculo.peso} />
                       <Dato icon="🎨" label="Color" value={vehiculo.color} />
+                      <Dato icon="🚗" label="Tipo vehiculo" value={vehiculo.tipo_vehiculo} />
                     </div>
                   </div>
 
@@ -594,9 +599,10 @@ export default function VehiculoPage() {
                     <div style={{ display: "grid", gap: "8px" }}>
                       <Dato icon="🔠" label="VIN" value={vehiculo.vin} />
                       <Dato icon="🔢" label="Matricula" value={vehiculo.placa} />
-                      <Dato icon="📅" label="Matriculacion" value={vehiculo.fecha_primera_matriculacion} />
-                      <Dato icon="📅" label="Inicio modelo" value={vehiculo.fecha_inicio_modelo} />
-                      <Dato icon="🌍" label="Pais" value={vehiculo.pais} />
+                      <Dato icon="📅" label="Año modelo" value={vehiculo.anyo_modelo} />
+                      <Dato icon="🌍" label="Region" value={vehiculo.region} />
+                      <Dato icon="🏭" label="Pais fabricacion" value={vehiculo.pais} />
+                      <Dato icon="🏢" label="Fabricante" value={vehiculo.fabricante_nombre} />
                     </div>
                   </div>
                 </div>
@@ -604,212 +610,194 @@ export default function VehiculoPage() {
             )}
 
             {/* ═══════════════════════════════════════════════ */}
-            {/* CATÁLOGO DE PIEZAS                             */}
+            {/* CATÁLOGO DE PIEZAS — SIEMPRE VISIBLE           */}
             {/* ═══════════════════════════════════════════════ */}
-            {vehiculo.tecdoc_car_id ? (
-              <div>
+            <div>
+              <div style={{
+                display: "flex", alignItems: "center", gap: "12px",
+                marginBottom: "16px", padding: "16px 20px",
+                background: "linear-gradient(135deg, rgba(22,163,74,0.08) 0%, rgba(37,99,235,0.08) 100%)",
+                border: "1px solid rgba(22,163,74,0.2)", borderRadius: "14px",
+              }}>
+                <span style={{ fontSize: "24px" }}>📦</span>
+                <div>
+                  <h2 style={{ color: "#e2e8f0", fontSize: "18px", fontWeight: 800, margin: 0 }}>
+                    Catalogo de piezas
+                  </h2>
+                  <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>
+                    Selecciona una categoria para ver las piezas disponibles en stock
+                  </p>
+                </div>
+                {loadingCategorias && (
+                  <span style={{
+                    marginLeft: "auto", display: "inline-block", width: "20px", height: "20px",
+                    border: "2px solid rgba(37,99,235,0.3)", borderTop: "2px solid #2563eb",
+                    borderRadius: "50%", animation: "spin 0.8s linear infinite",
+                  }} />
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "16px", minHeight: "400px" }}>
+                {/* Panel izquierdo: Categorías */}
                 <div style={{
-                  display: "flex", alignItems: "center", gap: "12px",
-                  marginBottom: "16px", padding: "16px 20px",
-                  background: "linear-gradient(135deg, rgba(22,163,74,0.08) 0%, rgba(37,99,235,0.08) 100%)",
-                  border: "1px solid rgba(22,163,74,0.2)", borderRadius: "14px",
+                  background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
+                  borderRadius: "14px", padding: "12px", overflowY: "auto", maxHeight: "70vh",
                 }}>
-                  <span style={{ fontSize: "24px" }}>📦</span>
-                  <div>
-                    <h2 style={{ color: "#e2e8f0", fontSize: "18px", fontWeight: 800, margin: 0 }}>
-                      Catalogo de piezas
-                    </h2>
-                    <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>
-                      Selecciona una categoria para ver las piezas compatibles con este vehiculo
+                  <div style={{ padding: "8px 12px", marginBottom: "8px", borderBottom: "1px solid #1e293b" }}>
+                    <p style={{ color: "#94a3b8", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>
+                      Categorias ({categorias.length})
                     </p>
                   </div>
-                  {loadingCategorias && (
-                    <span style={{
-                      marginLeft: "auto", display: "inline-block", width: "20px", height: "20px",
-                      border: "2px solid rgba(37,99,235,0.3)", borderTop: "2px solid #2563eb",
-                      borderRadius: "50%", animation: "spin 0.8s linear infinite",
-                    }} />
+                  {categorias.length > 0 ? (
+                    <ArbolCategorias
+                      categorias={categorias}
+                      categoriaSeleccionada={categoriaSeleccionada}
+                      onSeleccionar={cargarPiezas}
+                    />
+                  ) : loadingCategorias ? (
+                    <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "20px" }}>
+                      Cargando categorias...
+                    </p>
+                  ) : (
+                    <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "20px" }}>
+                      No se encontraron categorias
+                    </p>
                   )}
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "16px", minHeight: "400px" }}>
-                  {/* Panel izquierdo: Categorías */}
-                  <div style={{
-                    background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
-                    borderRadius: "14px", padding: "12px", overflowY: "auto", maxHeight: "70vh",
-                  }}>
-                    <div style={{ padding: "8px 12px", marginBottom: "8px", borderBottom: "1px solid #1e293b" }}>
-                      <p style={{ color: "#94a3b8", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>
-                        Categorias ({categorias.length})
+                {/* Panel derecho: Piezas */}
+                <div style={{
+                  background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
+                  borderRadius: "14px", padding: "20px", overflowY: "auto", maxHeight: "70vh",
+                }}>
+                  {!categoriaSeleccionada && !loadingArticulos && (
+                    <div style={{ textAlign: "center", padding: "60px 20px", color: "#334155" }}>
+                      <div style={{ fontSize: "48px", marginBottom: "12px" }}>👈</div>
+                      <p style={{ fontSize: "15px", color: "#475569" }}>Selecciona una categoria para ver las piezas</p>
+                    </div>
+                  )}
+
+                  {loadingArticulos && (
+                    <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                      <span style={{
+                        display: "inline-block", width: "28px", height: "28px",
+                        border: "3px solid rgba(37,99,235,0.3)", borderTop: "3px solid #2563eb",
+                        borderRadius: "50%", animation: "spin 0.8s linear infinite",
+                      }} />
+                      <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "12px" }}>Buscando piezas en stock...</p>
+                    </div>
+                  )}
+
+                  {errorPiezas && !loadingArticulos && (
+                    <div style={{
+                      background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                      borderRadius: "10px", padding: "16px", textAlign: "center",
+                    }}>
+                      <p style={{ color: "#fca5a5", fontSize: "13px", margin: 0 }}>⚠️ {errorPiezas}</p>
+                      <p style={{ color: "#64748b", fontSize: "12px", margin: "8px 0 0" }}>
+                        Es posible que esta categoria no tenga piezas en stock
                       </p>
                     </div>
-                    {categorias.length > 0 ? (
-                      <ArbolCategorias
-                        categorias={categorias}
-                        categoriaSeleccionada={categoriaSeleccionada}
-                        onSeleccionar={cargarPiezas}
-                      />
-                    ) : loadingCategorias ? (
-                      <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "20px" }}>
-                        Cargando categorias...
-                      </p>
-                    ) : (
-                      <p style={{ color: "#475569", fontSize: "13px", textAlign: "center", padding: "20px" }}>
-                        No se encontraron categorias
-                      </p>
-                    )}
-                  </div>
+                  )}
 
-                  {/* Panel derecho: Piezas */}
-                  <div style={{
-                    background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
-                    borderRadius: "14px", padding: "20px", overflowY: "auto", maxHeight: "70vh",
-                  }}>
-                    {!categoriaSeleccionada && !loadingArticulos && (
-                      <div style={{ textAlign: "center", padding: "60px 20px", color: "#334155" }}>
-                        <div style={{ fontSize: "48px", marginBottom: "12px" }}>👈</div>
-                        <p style={{ fontSize: "15px", color: "#475569" }}>Selecciona una categoria para ver las piezas</p>
-                      </div>
-                    )}
-
-                    {loadingArticulos && (
-                      <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                        <span style={{
-                          display: "inline-block", width: "28px", height: "28px",
-                          border: "3px solid rgba(37,99,235,0.3)", borderTop: "3px solid #2563eb",
-                          borderRadius: "50%", animation: "spin 0.8s linear infinite",
-                        }} />
-                        <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "12px" }}>Buscando piezas compatibles...</p>
-                      </div>
-                    )}
-
-                    {/* Error al buscar piezas */}
-                    {errorPiezas && !loadingArticulos && (
-                      <div style={{
-                        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
-                        borderRadius: "10px", padding: "16px", textAlign: "center",
-                      }}>
-                        <p style={{ color: "#fca5a5", fontSize: "13px", margin: 0 }}>⚠️ {errorPiezas}</p>
-                        <p style={{ color: "#64748b", fontSize: "12px", margin: "8px 0 0" }}>
-                          Es posible que esta categoria no tenga piezas catalogadas para este vehiculo
-                        </p>
-                      </div>
-                    )}
-
-                    {categoriaSeleccionada && !loadingArticulos && !errorPiezas && (
-                      <>
-                        {/* Header de resultados */}
-                        <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid #1e293b" }}>
-                          <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 6px" }}>
-                            {nombreCategoria}
-                          </h3>
-                          {infoCatalogo && (
-                            <div style={{ display: "flex", gap: "16px" }}>
-                              <span style={{ color: "#94a3b8", fontSize: "12px" }}>
-                                📋 {infoCatalogo.total_tecdoc} referencias TecDoc
-                              </span>
-                              <span style={{ color: infoCatalogo.total_en_stock > 0 ? "#4ade80" : "#64748b", fontSize: "12px", fontWeight: 600 }}>
-                                ✅ {infoCatalogo.total_en_stock} en stock
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {articulos.length === 0 ? (
-                          <div style={{ textAlign: "center", padding: "40px 20px", color: "#475569" }}>
-                            <p style={{ fontSize: "14px" }}>No se encontraron piezas en esta categoria para este vehiculo</p>
+                  {categoriaSeleccionada && !loadingArticulos && !errorPiezas && (
+                    <>
+                      <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid #1e293b" }}>
+                        <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 6px" }}>
+                          {nombreCategoria}
+                        </h3>
+                        {infoCatalogo && (
+                          <div style={{ display: "flex", gap: "16px" }}>
+                            <span style={{ color: infoCatalogo.total_en_stock > 0 ? "#4ade80" : "#64748b", fontSize: "12px", fontWeight: 600 }}>
+                              ✅ {infoCatalogo.total_en_stock} en stock
+                            </span>
                           </div>
-                        ) : (
-                          <div style={{ display: "grid", gap: "10px" }}>
-                            {articulos.map((art, i) => (
-                              <div
-                                key={`${art.articleId}-${i}`}
-                                style={{
-                                  padding: "14px 16px", borderRadius: "10px",
-                                  border: art.en_stock ? "1px solid rgba(22,163,74,0.3)" : "1px solid #1e293b",
-                                  background: art.en_stock ? "rgba(22,163,74,0.06)" : "rgba(255,255,255,0.02)",
-                                }}
-                              >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                                  <div style={{ flex: 1 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        )}
+                      </div>
+
+                      {articulos.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "40px 20px", color: "#475569" }}>
+                          <p style={{ fontSize: "14px" }}>No se encontraron piezas en stock para esta categoria</p>
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gap: "10px" }}>
+                          {articulos.map((art, i) => (
+                            <div
+                              key={`${art.articleId}-${i}`}
+                              style={{
+                                padding: "14px 16px", borderRadius: "10px",
+                                border: art.en_stock ? "1px solid rgba(22,163,74,0.3)" : "1px solid #1e293b",
+                                background: art.en_stock ? "rgba(22,163,74,0.06)" : "rgba(255,255,255,0.02)",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                    <span style={{
+                                      color: "#e2e8f0", fontSize: "14px", fontWeight: 700, fontFamily: "monospace",
+                                    }}>
+                                      {art.referencia}
+                                    </span>
+                                    <span style={{
+                                      background: "rgba(37,99,235,0.12)", borderRadius: "6px",
+                                      padding: "2px 8px", color: "#93c5fd", fontSize: "11px", fontWeight: 600,
+                                    }}>
+                                      {art.marca}
+                                    </span>
+                                    {art.en_stock && (
                                       <span style={{
-                                        color: "#e2e8f0", fontSize: "14px", fontWeight: 700, fontFamily: "monospace",
+                                        background: "rgba(22,163,74,0.15)", borderRadius: "6px",
+                                        padding: "2px 8px", color: "#4ade80", fontSize: "11px", fontWeight: 700,
                                       }}>
-                                        {art.referencia}
+                                        ✓ EN STOCK
                                       </span>
-                                      <span style={{
-                                        background: "rgba(37,99,235,0.12)", borderRadius: "6px",
-                                        padding: "2px 8px", color: "#93c5fd", fontSize: "11px", fontWeight: 600,
-                                      }}>
-                                        {art.marca}
-                                      </span>
-                                      {art.en_stock && (
-                                        <span style={{
-                                          background: "rgba(22,163,74,0.15)", borderRadius: "6px",
-                                          padding: "2px 8px", color: "#4ade80", fontSize: "11px", fontWeight: 700,
+                                    )}
+                                  </div>
+                                  {art.nombre && (
+                                    <p style={{ color: "#94a3b8", fontSize: "12px", margin: "4px 0 0" }}>{art.nombre}</p>
+                                  )}
+                                  {art.oems.length > 0 && (
+                                    <p style={{ color: "#475569", fontSize: "11px", margin: "4px 0 0" }}>
+                                      OEM: {art.oems.slice(0, 5).join(", ")}{art.oems.length > 5 ? ` (+${art.oems.length - 5})` : ""}
+                                    </p>
+                                  )}
+                                  {art.stock.length > 0 && (
+                                    <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                      {art.stock.slice(0, 3).map((s, j) => (
+                                        <span key={j} style={{
+                                          background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.2)",
+                                          borderRadius: "6px", padding: "4px 10px", fontSize: "11px", color: "#94a3b8",
                                         }}>
-                                          ✓ EN STOCK
+                                          {s.referencia} · <span style={{ color: "#4ade80", fontWeight: 700 }}>{s.precio.toFixed(2)}€</span>
+                                          {s.tipo === "OEM" && " (OEM)"}
+                                        </span>
+                                      ))}
+                                      {art.stock.length > 3 && (
+                                        <span style={{ fontSize: "11px", color: "#475569", padding: "4px 0" }}>
+                                          +{art.stock.length - 3} mas
                                         </span>
                                       )}
                                     </div>
-                                    {art.nombre && (
-                                      <p style={{ color: "#94a3b8", fontSize: "12px", margin: "4px 0 0" }}>{art.nombre}</p>
-                                    )}
-                                    {art.oems.length > 0 && (
-                                      <p style={{ color: "#475569", fontSize: "11px", margin: "4px 0 0" }}>
-                                        OEM: {art.oems.slice(0, 5).join(", ")}{art.oems.length > 5 ? ` (+${art.oems.length - 5})` : ""}
-                                      </p>
-                                    )}
-                                    {/* Detalle stock */}
-                                    {art.stock.length > 0 && (
-                                      <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                                        {art.stock.slice(0, 3).map((s, j) => (
-                                          <span key={j} style={{
-                                            background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.2)",
-                                            borderRadius: "6px", padding: "4px 10px", fontSize: "11px", color: "#94a3b8",
-                                          }}>
-                                            {s.referencia} · <span style={{ color: "#4ade80", fontWeight: 700 }}>{s.precio.toFixed(2)}€</span>
-                                            {s.tipo === "OEM" && " (OEM)"}
-                                          </span>
-                                        ))}
-                                        {art.stock.length > 3 && (
-                                          <span style={{ fontSize: "11px", color: "#475569", padding: "4px 0" }}>
-                                            +{art.stock.length - 3} mas
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Precio */}
-                                  {art.precio_desde !== null && (
-                                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                      <div style={{ color: "#64748b", fontSize: "10px", fontWeight: 600 }}>DESDE</div>
-                                      <div style={{ color: "#4ade80", fontSize: "20px", fontWeight: 800 }}>
-                                        {art.precio_desde.toFixed(2)}€
-                                      </div>
-                                    </div>
                                   )}
                                 </div>
+                                {art.precio_desde !== null && (
+                                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                    <div style={{ color: "#64748b", fontSize: "10px", fontWeight: 600 }}>DESDE</div>
+                                    <div style={{ color: "#4ade80", fontSize: "20px", fontWeight: 800 }}>
+                                      {art.precio_desde.toFixed(2)}€
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div style={{
-                background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)",
-                borderRadius: "14px", padding: "20px", textAlign: "center",
-              }}>
-                <p style={{ color: "#fde047", fontSize: "14px", margin: 0 }}>
-                  ⚠️ Este vehiculo no tiene TecDoc Car ID — no se puede consultar el catalogo de piezas
-                </p>
-              </div>
-            )}
+            </div>
           </>
         )}
 
