@@ -1,199 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
+import { obtenerCategorias } from "../../../lib/ipda";
 
-const RAPIDAPI_HOST = "auto-parts-catalog.p.rapidapi.com";
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
-
-// Categorías principales TecDoc (assemblyGroupNodeId estándar)
-// Estas son las categorías más comunes para recambios de automóvil
-const CATEGORIAS_PRINCIPALES = [
-  {
-    id: 100001,
-    nombre: "Motor",
-    icono: "🔧",
-    hijos: [
-      { id: 100139, nombre: "Filtro de aceite", hijos: [] },
-      { id: 100140, nombre: "Filtro de aire", hijos: [] },
-      { id: 100046, nombre: "Correa de distribución", hijos: [] },
-      { id: 100048, nombre: "Bujías de encendido", hijos: [] },
-      { id: 100062, nombre: "Junta de culata", hijos: [] },
-      { id: 100009, nombre: "Bomba de agua", hijos: [] },
-      { id: 100338, nombre: "Termostato", hijos: [] },
-    ],
-  },
-  {
-    id: 100002,
-    nombre: "Frenos",
-    icono: "🛑",
-    hijos: [
-      { id: 100118, nombre: "Pastillas de freno delanteras", hijos: [] },
-      { id: 100117, nombre: "Pastillas de freno traseras", hijos: [] },
-      { id: 100110, nombre: "Discos de freno delanteros", hijos: [] },
-      { id: 100111, nombre: "Discos de freno traseros", hijos: [] },
-      { id: 100437, nombre: "Pinzas de freno", hijos: [] },
-      { id: 100116, nombre: "Zapatas de freno", hijos: [] },
-    ],
-  },
-  {
-    id: 100003,
-    nombre: "Suspensión y dirección",
-    icono: "🔩",
-    hijos: [
-      { id: 100288, nombre: "Amortiguadores delanteros", hijos: [] },
-      { id: 100289, nombre: "Amortiguadores traseros", hijos: [] },
-      { id: 100349, nombre: "Rótulas", hijos: [] },
-      { id: 100343, nombre: "Silentblocks", hijos: [] },
-      { id: 100292, nombre: "Muelles de suspensión", hijos: [] },
-      { id: 100308, nombre: "Bieletas estabilizadoras", hijos: [] },
-    ],
-  },
-  {
-    id: 100005,
-    nombre: "Embrague",
-    icono: "⚙️",
-    hijos: [
-      { id: 100200, nombre: "Kit de embrague", hijos: [] },
-      { id: 100204, nombre: "Volante motor", hijos: [] },
-      { id: 100201, nombre: "Disco de embrague", hijos: [] },
-    ],
-  },
-  {
-    id: 100006,
-    nombre: "Refrigeración",
-    icono: "❄️",
-    hijos: [
-      { id: 100444, nombre: "Radiador", hijos: [] },
-      { id: 100009, nombre: "Bomba de agua", hijos: [] },
-      { id: 100338, nombre: "Termostato", hijos: [] },
-      { id: 100446, nombre: "Ventilador", hijos: [] },
-    ],
-  },
-  {
-    id: 100007,
-    nombre: "Electricidad",
-    icono: "⚡",
-    hijos: [
-      { id: 100378, nombre: "Batería", hijos: [] },
-      { id: 100379, nombre: "Alternador", hijos: [] },
-      { id: 100380, nombre: "Motor de arranque", hijos: [] },
-      { id: 100048, nombre: "Bujías", hijos: [] },
-      { id: 100049, nombre: "Bobina de encendido", hijos: [] },
-    ],
-  },
-  {
-    id: 100008,
-    nombre: "Escape",
-    icono: "💨",
-    hijos: [
-      { id: 100468, nombre: "Catalizador", hijos: [] },
-      { id: 100474, nombre: "Filtro de partículas", hijos: [] },
-      { id: 100466, nombre: "Silenciador", hijos: [] },
-      { id: 100152, nombre: "Sonda lambda", hijos: [] },
-    ],
-  },
-  {
-    id: 100009,
-    nombre: "Filtros",
-    icono: "🔍",
-    hijos: [
-      { id: 100139, nombre: "Filtro de aceite", hijos: [] },
-      { id: 100140, nombre: "Filtro de aire", hijos: [] },
-      { id: 100141, nombre: "Filtro de combustible", hijos: [] },
-      { id: 100142, nombre: "Filtro de habitáculo", hijos: [] },
-    ],
-  },
-  {
-    id: 100010,
-    nombre: "Iluminación",
-    icono: "💡",
-    hijos: [
-      { id: 100483, nombre: "Faro delantero", hijos: [] },
-      { id: 100484, nombre: "Piloto trasero", hijos: [] },
-      { id: 100500, nombre: "Lámparas / bombillas", hijos: [] },
-    ],
-  },
-  {
-    id: 100011,
-    nombre: "Carrocería",
-    icono: "🚗",
-    hijos: [
-      { id: 100520, nombre: "Espejo retrovisor", hijos: [] },
-      { id: 100522, nombre: "Parachoques", hijos: [] },
-      { id: 100534, nombre: "Limpiaparabrisas", hijos: [] },
-    ],
-  },
-];
-
-// GET /api/vehiculo/categorias?carId=18902
-// Intenta primero la API de TecDoc; si falla (404/plan no incluido),
-// devuelve las categorías estándar predefinidas.
+// GET /api/vehiculo/categorias?vehicleId=135598
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const carId = searchParams.get("carId");
+  const vehicleId = searchParams.get("vehicleId") || searchParams.get("carId");
 
-  if (!carId) {
+  if (!vehicleId) {
     return NextResponse.json(
-      { error: "Falta el parámetro 'carId' (tecdoc_car_id)" },
+      { error: "Falta el parámetro 'vehicleId'" },
       { status: 400 }
     );
   }
 
-  // Intentar TecDoc API primero (puede fallar si el plan no lo incluye)
   try {
-    const variantes = [
-      `https://${RAPIDAPI_HOST}/api/category/type-id/1/products-groups-variant-2/${encodeURIComponent(carId)}/lang-id/5`,
-      `https://${RAPIDAPI_HOST}/api/category/type-id/1/products-groups-variant-1/${encodeURIComponent(carId)}/lang-id/5`,
-    ];
+    const data = await obtenerCategorias(vehicleId);
 
-    for (const url of variantes) {
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "x-rapidapi-host": RAPIDAPI_HOST,
-            "x-rapidapi-key": RAPIDAPI_KEY,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-
-          interface CategoriaRaw {
-            assemblyGroupNodeId?: number;
-            id?: number;
-            assemblyGroupName?: string;
-            name?: string;
-            subGroups?: CategoriaRaw[];
-            children?: CategoriaRaw[];
-          }
-
-          function normalizarCategorias(cats: CategoriaRaw[]): any[] {
-            if (!Array.isArray(cats)) return [];
-            return cats.map((cat) => ({
-              id: cat.assemblyGroupNodeId || cat.id,
-              nombre: cat.assemblyGroupName || cat.name || "",
-              hijos: normalizarCategorias(cat.subGroups || cat.children || []),
-            }));
-          }
-
-          const categorias = normalizarCategorias(data);
-          if (categorias.length > 0) {
-            return NextResponse.json({ carId, categorias, fuente: "tecdoc" });
-          }
-        }
-      } catch {
-        // Continuar con la siguiente variante
-      }
+    // El tree de IPDA devuelve una estructura anidada
+    // Normalizar a nuestro formato { id, nombre, hijos[], icono }
+    interface NodoIPDA {
+      id?: string | number;
+      nodeId?: string | number;
+      name?: string;
+      text?: string;
+      children?: NodoIPDA[];
+      items?: NodoIPDA[];
+      hasChildren?: boolean;
+      genericId?: string;
     }
-  } catch {
-    // Si TecDoc falla completamente, usamos categorías estándar
-  }
 
-  // Fallback: categorías estándar predefinidas
-  console.log("TecDoc categorías no disponible, usando categorías estándar");
-  return NextResponse.json({
-    carId,
-    categorias: CATEGORIAS_PRINCIPALES,
-    fuente: "estandar",
-  });
+    const ICONOS: Record<string, string> = {
+      "motor": "🔧",
+      "freno": "🛑",
+      "suspension": "🔩",
+      "direccion": "🔩",
+      "embrague": "⚙️",
+      "refrigeracion": "❄️",
+      "electric": "⚡",
+      "escape": "💨",
+      "filtro": "🔍",
+      "ilumina": "💡",
+      "carroceria": "🚗",
+      "aceite": "🛢️",
+      "neumatico": "🛞",
+      "climatiza": "❄️",
+      "transmis": "⚙️",
+      "combustible": "⛽",
+    };
+
+    function inferirIcono(nombre: string): string {
+      const n = nombre.toLowerCase();
+      for (const [key, icon] of Object.entries(ICONOS)) {
+        if (n.includes(key)) return icon;
+      }
+      return "📦";
+    }
+
+    function normalizarNodos(nodos: any[]): any[] {
+      if (!Array.isArray(nodos)) return [];
+      return nodos.map((n: any) => {
+        const id = n.id || n.nodeId || n.assemblyGroupNodeId || "";
+        const nombre = n.name || n.text || n.assemblyGroupName || "";
+        const hijos = normalizarNodos(n.children || n.items || []);
+        return {
+          id: String(id),
+          nombre,
+          hijos,
+          icono: hijos.length > 0 ? inferirIcono(nombre) : undefined,
+          genericId: n.genericId || n.generic || undefined,
+          hasChildren: n.hasChildren || hijos.length > 0,
+        };
+      });
+    }
+
+    let categorias: any[];
+    if (Array.isArray(data)) {
+      categorias = normalizarNodos(data);
+    } else if (data && typeof data === "object") {
+      // Puede venir como { tree: [...] } o directamente como array
+      const arr = data.tree || data.categories || data.nodes || data.items || data;
+      categorias = normalizarNodos(Array.isArray(arr) ? arr : []);
+    } else {
+      categorias = [];
+    }
+
+    return NextResponse.json({
+      vehicleId,
+      categorias,
+      total: categorias.length,
+      fuente: "ipda_tecdoc",
+    });
+  } catch (err) {
+    console.error("Error categorías IPDA:", err);
+    return NextResponse.json(
+      { error: "Error al obtener categorías del vehículo" },
+      { status: 500 }
+    );
+  }
 }
