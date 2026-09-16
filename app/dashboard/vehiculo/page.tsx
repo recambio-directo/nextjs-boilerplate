@@ -4,44 +4,45 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
 // ── TIPOS ──
-interface DatosVehiculo {
-  vin: string;
+interface VehiculoVariante {
+  id: string;
+  nombre_completo: string;
   marca: string;
   modelo: string;
-  version: string;
   motor: string;
   combustible: string;
   potencia_kw: string;
   potencia_cv: string;
   cilindrada: string;
   cilindros: string;
-  transmision: string;
-  caja_cambios: string;
+  traccion: string;
   carroceria: string;
-  color: string;
-  puertas: string;
-  plazas: string;
-  peso: string;
-  co2: string;
-  anyo_modelo: string;
+  inyeccion: string;
+  catalizador: string;
+  valvulas: string;
+  desde: string;
+  hasta: string;
+  capacidad_motor: string;
+  transmision: string;
+}
+
+interface InfoVehiculo {
+  vin: string;
+  matricula_info: string;
+  marca_dgt: string;
+  combustible_dgt: string;
+  fecha_matriculacion: string;
   tipo_vehiculo: string;
-  region: string;
-  pais: string;
-  fabricante_nombre: string;
-  placa: string;
-  logo_marca: string;
-  foto_modelo: string;
-  tecdoc_car_id: string;
-  tecdoc_manu_id: string;
-  tecdoc_model_id: string;
-  pneus: any[];
+  cilindrada_dgt: string;
 }
 
 interface Categoria {
-  id: number;
+  id: string;
   nombre: string;
   hijos: Categoria[];
   icono?: string;
+  genericId?: string;
+  hasChildren?: boolean;
 }
 
 interface PiezaStock {
@@ -56,14 +57,21 @@ interface PiezaStock {
 }
 
 interface ArticuloCatalogo {
-  articleId: number;
   referencia: string;
+  referencia_propia: string;
   marca: string;
   nombre: string;
-  oems: string[];
-  en_stock: boolean;
-  stock: PiezaStock[];
-  precio_desde: number | null;
+  descripcion: string;
+  imagen: string;
+  imagen_logo: string;
+  pvp: number | null;
+  pvp_neto: number | null;
+  descuento: string;
+  ean: string;
+  stock_ipda: { cantidad: number; color: string; texto: string };
+  en_stock_marketplace: boolean;
+  stock_marketplace: PiezaStock[];
+  precio_marketplace_desde: number | null;
 }
 
 // ════════════════════════════════════════════════════════
@@ -71,12 +79,12 @@ interface ArticuloCatalogo {
 // ════════════════════════════════════════════════════════
 function LandingVehiculo() {
   const ventajas = [
-    { icon: "🔍", titulo: "Identifica cualquier vehiculo", desc: "Introduce el numero de bastidor (VIN) y obtén todos los datos técnicos al instante" },
+    { icon: "🔍", titulo: "Identifica cualquier vehiculo", desc: "Introduce el bastidor (VIN) o la matricula y obtén todos los datos técnicos al instante" },
     { icon: "🔧", titulo: "Datos de motor completos", desc: "Codigo motor, cilindrada, potencia, combustible, emisiones..." },
-    { icon: "📦", titulo: "Catalogo de piezas", desc: "Navega por categorias de piezas compatibles con el vehiculo decodificado" },
+    { icon: "📦", titulo: "Catalogo de piezas TecDoc", desc: "Piezas compatibles verificadas por TecDoc para el vehiculo exacto" },
     { icon: "💰", titulo: "Precios y stock en tiempo real", desc: "Ve directamente qué piezas hay disponibles en la red de proveedores y a qué precio" },
     { icon: "📋", titulo: "Ficha técnica completa", desc: "VIN, motor, transmision, carroceria, neumaticos, peso, emisiones..." },
-    { icon: "⚡", titulo: "Conexion TecDoc", desc: "Catalogo profesional conectado a la base de datos TecDoc con millones de referencias" },
+    { icon: "⚡", titulo: "Conexion TecDoc profesional", desc: "Base de datos TecDoc real con millones de referencias verificadas" },
   ];
 
   return (
@@ -92,7 +100,7 @@ function LandingVehiculo() {
             Catalogo de Vehiculos
           </h1>
           <p style={{ color: "#94a3b8", fontSize: "17px", margin: "0 0 28px", maxWidth: "600px", marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
-            Decodifica vehiculos por bastidor (VIN), consulta sus datos técnicos y navega el catalogo completo de piezas compatibles con precios en tiempo real.
+            Decodifica vehiculos por bastidor (VIN) o matricula, consulta sus datos técnicos y navega el catalogo completo de piezas compatibles con precios en tiempo real.
           </p>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "8px",
@@ -154,7 +162,7 @@ function LandingVehiculo() {
 }
 
 // ════════════════════════════════════════════════════════
-// COMPONENTE: Árbol de categorías (con iconos)
+// COMPONENTE: Árbol de categorías
 // ════════════════════════════════════════════════════════
 function ArbolCategorias({
   categorias,
@@ -163,13 +171,13 @@ function ArbolCategorias({
   nivel = 0,
 }: {
   categorias: Categoria[];
-  categoriaSeleccionada: number | null;
-  onSeleccionar: (id: number, nombre: string) => void;
+  categoriaSeleccionada: string | null;
+  onSeleccionar: (cat: Categoria) => void;
   nivel?: number;
 }) {
-  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
-  const toggleExpandir = (id: number) => {
+  const toggleExpandir = (id: string) => {
     setExpandidos((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -201,8 +209,8 @@ function ArbolCategorias({
               }}
               onClick={() => {
                 if (tieneHijos) toggleExpandir(cat.id);
-                if (!tieneHijos) {
-                  onSeleccionar(cat.id, cat.nombre);
+                if (!tieneHijos || cat.genericId) {
+                  onSeleccionar(cat);
                 }
               }}
               onMouseEnter={(e) => {
@@ -263,14 +271,19 @@ function ArbolCategorias({
 export default function VehiculoPage() {
   const [vehiculoActivo, setVehiculoActivo] = useState<boolean | null>(null);
   const [input, setInput] = useState("");
+  const [tipoBusqueda, setTipoBusqueda] = useState<"vin" | "matricula">("matricula");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [vehiculo, setVehiculo] = useState<DatosVehiculo | null>(null);
+
+  // Resultados búsqueda
+  const [infoVehiculo, setInfoVehiculo] = useState<InfoVehiculo | null>(null);
+  const [variantes, setVariantes] = useState<VehiculoVariante[]>([]);
+  const [varianteSeleccionada, setVarianteSeleccionada] = useState<VehiculoVariante | null>(null);
 
   // Catálogo
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(false);
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [nombreCategoria, setNombreCategoria] = useState("");
   const [articulos, setArticulos] = useState<ArticuloCatalogo[]>([]);
   const [loadingArticulos, setLoadingArticulos] = useState(false);
@@ -288,8 +301,8 @@ export default function VehiculoPage() {
     checkAcceso();
   }, []);
 
-  // Cargar categorías — ya no depende de tecdoc_car_id, usa carId "0" como fallback
-  const cargarCategorias = async (carId: string) => {
+  // Cargar categorías para el vehículo seleccionado
+  const cargarCategorias = async (vehicleId: string) => {
     setLoadingCategorias(true);
     setCategorias([]);
     setCategoriaSeleccionada(null);
@@ -297,7 +310,7 @@ export default function VehiculoPage() {
     setInfoCatalogo(null);
     setErrorPiezas(null);
     try {
-      const res = await fetch(`/api/vehiculo/categorias?carId=${encodeURIComponent(carId || "0")}`);
+      const res = await fetch(`/api/vehiculo/categorias?vehicleId=${encodeURIComponent(vehicleId)}`);
       const json = await res.json();
       if (res.ok && json.categorias) {
         setCategorias(json.categorias);
@@ -309,19 +322,23 @@ export default function VehiculoPage() {
     }
   };
 
-  // Cargar piezas de una categoría — ya no requiere tecdoc_car_id
-  const cargarPiezas = async (categoryId: number, nombre: string) => {
-    setCategoriaSeleccionada(categoryId);
-    setNombreCategoria(nombre);
+  // Cargar piezas de una categoría
+  const cargarPiezas = async (cat: Categoria) => {
+    if (!varianteSeleccionada) return;
+    setCategoriaSeleccionada(cat.id);
+    setNombreCategoria(cat.nombre);
     setLoadingArticulos(true);
     setArticulos([]);
     setInfoCatalogo(null);
     setErrorPiezas(null);
     try {
-      const carId = vehiculo?.tecdoc_car_id || "0";
-      const res = await fetch(
-        `/api/vehiculo/piezas?carId=${encodeURIComponent(carId)}&categoryId=${encodeURIComponent(categoryId)}&nombre=${encodeURIComponent(nombre)}`
-      );
+      const params = new URLSearchParams({
+        vehicleId: varianteSeleccionada.id,
+        nodoId: cat.id,
+        genericoId: cat.genericId || "",
+        nombre: cat.nombre,
+      });
+      const res = await fetch(`/api/vehiculo/piezas?${params.toString()}`);
       const json = await res.json();
       if (res.ok) {
         setArticulos(json.articulos || []);
@@ -334,6 +351,18 @@ export default function VehiculoPage() {
     } finally {
       setLoadingArticulos(false);
     }
+  };
+
+  // Seleccionar variante del vehículo
+  const seleccionarVariante = (v: VehiculoVariante) => {
+    setVarianteSeleccionada(v);
+    setCategorias([]);
+    setCategoriaSeleccionada(null);
+    setArticulos([]);
+    setInfoCatalogo(null);
+    setErrorPiezas(null);
+    setMostrarFicha(false);
+    cargarCategorias(v.id);
   };
 
   if (vehiculoActivo === null) {
@@ -349,11 +378,13 @@ export default function VehiculoPage() {
   }
 
   const buscar = async () => {
-    const valor = input.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "");
+    const valor = input.trim();
     if (!valor) return;
     setLoading(true);
     setError(null);
-    setVehiculo(null);
+    setInfoVehiculo(null);
+    setVariantes([]);
+    setVarianteSeleccionada(null);
     setCategorias([]);
     setCategoriaSeleccionada(null);
     setArticulos([]);
@@ -362,15 +393,19 @@ export default function VehiculoPage() {
     setErrorPiezas(null);
 
     try {
-      const res = await fetch(`/api/vehiculo?vin=${encodeURIComponent(valor)}`);
+      const res = await fetch(`/api/vehiculo?busqueda=${encodeURIComponent(valor)}`);
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || "No se pudo decodificar el bastidor");
+        setError(json.error || "No se pudo encontrar el vehículo");
       } else {
-        setVehiculo(json);
-        // Cargar categorías SIEMPRE — el endpoint de piezas busca por keywords, no necesita carId real
-        cargarCategorias(json.tecdoc_car_id || "0");
+        setInfoVehiculo(json.info);
+        setVariantes(json.vehiculos || []);
+
+        // Si solo hay una variante, seleccionarla automáticamente
+        if (json.vehiculos && json.vehiculos.length === 1) {
+          seleccionarVariante(json.vehiculos[0]);
+        }
       }
     } catch {
       setError("Error de conexion");
@@ -402,49 +437,80 @@ export default function VehiculoPage() {
             🚗 Catalogo de Vehiculos
           </h1>
           <p style={{ color: "#64748b", fontSize: "14px", margin: 0 }}>
-            Decodifica por bastidor (VIN) y navega el catalogo de piezas compatibles
+            Busca por bastidor (VIN) o matricula y navega el catalogo de piezas compatibles
           </p>
         </div>
 
-        {/* Buscador */}
+        {/* Buscador con toggle VIN/Matrícula */}
         <div style={{
           background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b",
           borderRadius: "16px", padding: "20px", marginBottom: "20px",
         }}>
+          {/* Toggle tipo búsqueda */}
+          <div style={{ display: "flex", gap: "4px", marginBottom: "12px", background: "#0f172a", borderRadius: "10px", padding: "4px", width: "fit-content" }}>
+            <button
+              onClick={() => { setTipoBusqueda("matricula"); setInput(""); }}
+              style={{
+                padding: "8px 20px", borderRadius: "8px", border: "none",
+                background: tipoBusqueda === "matricula" ? "#2563eb" : "transparent",
+                color: tipoBusqueda === "matricula" ? "#fff" : "#64748b",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              🚘 Matricula
+            </button>
+            <button
+              onClick={() => { setTipoBusqueda("vin"); setInput(""); }}
+              style={{
+                padding: "8px 20px", borderRadius: "8px", border: "none",
+                background: tipoBusqueda === "vin" ? "#2563eb" : "transparent",
+                color: tipoBusqueda === "vin" ? "#fff" : "#64748b",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              🔠 Bastidor (VIN)
+            </button>
+          </div>
+
           <div style={{ display: "flex", gap: "12px" }}>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && buscar()}
-              placeholder="Introduce el bastidor (VIN) — Ej: WVWZZZ1KZAM123456"
-              maxLength={17}
+              placeholder={tipoBusqueda === "vin"
+                ? "Introduce el bastidor (VIN) — Ej: VF37ABHY6GN509536"
+                : "Introduce la matricula — Ej: 0097JTV"
+              }
+              maxLength={tipoBusqueda === "vin" ? 17 : 10}
               style={{
                 flex: 1, padding: "14px 16px", borderRadius: "10px",
                 border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0",
-                fontSize: "16px", fontWeight: 600, letterSpacing: "2px",
+                fontSize: "16px", fontWeight: 600, letterSpacing: tipoBusqueda === "vin" ? "2px" : "3px",
                 outline: "none", textTransform: "uppercase", fontFamily: "monospace",
               }}
             />
             <button
               onClick={buscar}
-              disabled={loading || input.trim().length < 17}
+              disabled={loading || input.trim().length < (tipoBusqueda === "vin" ? 17 : 4)}
               style={{
                 padding: "14px 28px", borderRadius: "10px", border: "none",
                 background: loading ? "#1e40af" : "#2563eb", color: "#fff",
                 fontSize: "15px", fontWeight: 700, cursor: loading ? "wait" : "pointer",
-                opacity: input.trim().length < 17 ? 0.5 : 1,
+                opacity: input.trim().length < (tipoBusqueda === "vin" ? 17 : 4) ? 0.5 : 1,
                 display: "flex", alignItems: "center", gap: "8px", whiteSpace: "nowrap",
               }}
             >
               {loading ? (
                 <span style={{ display: "inline-block", width: "18px", height: "18px", border: "2px solid rgba(255,255,255,0.3)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-              ) : "🔍"} Decodificar
+              ) : "🔍"} Buscar
             </button>
           </div>
-          <p style={{ color: "#475569", fontSize: "12px", margin: "8px 0 0", paddingLeft: "4px" }}>
-            {input.trim().length}/17 caracteres
-          </p>
+          {tipoBusqueda === "vin" && (
+            <p style={{ color: "#475569", fontSize: "12px", margin: "8px 0 0", paddingLeft: "4px" }}>
+              {input.trim().length}/17 caracteres
+            </p>
+          )}
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
 
@@ -459,8 +525,111 @@ export default function VehiculoPage() {
           </div>
         )}
 
-        {/* Vehiculo decodificado */}
-        {vehiculo && (
+        {/* Info DGT del vehículo */}
+        {infoVehiculo && (
+          <div style={{
+            background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
+            borderRadius: "12px", padding: "16px 20px", marginBottom: "16px",
+            display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center",
+          }}>
+            <span style={{ color: "#64748b", fontSize: "12px", fontWeight: 600 }}>📋 DGT:</span>
+            {infoVehiculo.marca_dgt && <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>{infoVehiculo.marca_dgt}</span>}
+            {infoVehiculo.matricula_info && <span style={{ color: "#94a3b8", fontSize: "12px" }}>{infoVehiculo.matricula_info}</span>}
+            {infoVehiculo.combustible_dgt && (
+              <span style={{ background: "rgba(37,99,235,0.1)", borderRadius: "6px", padding: "2px 8px", color: "#93c5fd", fontSize: "11px" }}>
+                ⛽ {infoVehiculo.combustible_dgt}
+              </span>
+            )}
+            {infoVehiculo.cilindrada_dgt && (
+              <span style={{ background: "rgba(168,85,247,0.1)", borderRadius: "6px", padding: "2px 8px", color: "#c084fc", fontSize: "11px" }}>
+                📐 {infoVehiculo.cilindrada_dgt}cc
+              </span>
+            )}
+            {infoVehiculo.fecha_matriculacion && (
+              <span style={{ color: "#64748b", fontSize: "12px" }}>📅 {infoVehiculo.fecha_matriculacion}</span>
+            )}
+            {infoVehiculo.vin && (
+              <span style={{ color: "#475569", fontSize: "11px", fontFamily: "monospace", marginLeft: "auto" }}>VIN: {infoVehiculo.vin}</span>
+            )}
+          </div>
+        )}
+
+        {/* Selector de variante (si hay más de una) */}
+        {variantes.length > 1 && !varianteSeleccionada && (
+          <div style={{
+            background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)",
+            borderRadius: "14px", padding: "20px", marginBottom: "20px",
+          }}>
+            <h3 style={{ color: "#fde047", fontSize: "15px", fontWeight: 700, margin: "0 0 4px" }}>
+              ⚠️ Se encontraron {variantes.length} variantes
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: "13px", margin: "0 0 16px" }}>
+              Selecciona la variante exacta de tu vehiculo:
+            </p>
+            <div style={{ display: "grid", gap: "8px" }}>
+              {variantes.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => seleccionarVariante(v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "12px",
+                    padding: "14px 18px", borderRadius: "10px",
+                    border: "1px solid #334155", background: "rgba(255,255,255,0.03)",
+                    color: "#e2e8f0", fontSize: "14px", cursor: "pointer",
+                    textAlign: "left", width: "100%",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(37,99,235,0.1)";
+                    e.currentTarget.style.borderColor = "rgba(37,99,235,0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                    e.currentTarget.style.borderColor = "#334155";
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, marginBottom: "4px" }}>{v.nombre_completo}</div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {v.motor && (
+                        <span style={{ color: "#93c5fd", fontSize: "11px", background: "rgba(37,99,235,0.1)", borderRadius: "4px", padding: "1px 6px" }}>
+                          🔧 {v.motor}
+                        </span>
+                      )}
+                      {v.combustible && (
+                        <span style={{ color: "#fde047", fontSize: "11px", background: "rgba(234,179,8,0.1)", borderRadius: "4px", padding: "1px 6px" }}>
+                          ⛽ {v.combustible}
+                        </span>
+                      )}
+                      {v.potencia_cv && (
+                        <span style={{ color: "#4ade80", fontSize: "11px", background: "rgba(22,163,74,0.1)", borderRadius: "4px", padding: "1px 6px" }}>
+                          ⚡ {v.potencia_cv} CV / {v.potencia_kw} kW
+                        </span>
+                      )}
+                      {v.carroceria && (
+                        <span style={{ color: "#94a3b8", fontSize: "11px", background: "rgba(255,255,255,0.05)", borderRadius: "4px", padding: "1px 6px" }}>
+                          🚘 {v.carroceria}
+                        </span>
+                      )}
+                      {v.traccion && (
+                        <span style={{ color: "#c084fc", fontSize: "11px", background: "rgba(168,85,247,0.1)", borderRadius: "4px", padding: "1px 6px" }}>
+                          🛞 {v.traccion}
+                        </span>
+                      )}
+                      <span style={{ color: "#64748b", fontSize: "11px" }}>
+                        {v.desde}{v.hasta ? ` — ${v.hasta}` : " →"}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: "#2563eb", fontSize: "18px" }}>→</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Vehiculo seleccionado */}
+        {varianteSeleccionada && (
           <>
             {/* Cabecera vehiculo */}
             <div style={{
@@ -469,71 +638,64 @@ export default function VehiculoPage() {
               padding: "24px 28px", marginBottom: "20px",
             }}>
               <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
-                {vehiculo.logo_marca && (
-                  <img
-                    src={vehiculo.logo_marca}
-                    alt={vehiculo.marca}
-                    style={{ width: "52px", height: "52px", objectFit: "contain", borderRadius: "10px", background: "rgba(255,255,255,0.1)", padding: "6px" }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                )}
                 <div style={{ flex: 1 }}>
                   <h2 style={{ color: "#e2e8f0", fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>
-                    {vehiculo.marca} {vehiculo.modelo}
+                    {varianteSeleccionada.nombre_completo}
                   </h2>
                   <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
-                    {vehiculo.version}
-                    {vehiculo.motor && ` · ${vehiculo.motor}`}
-                    {vehiculo.anyo_modelo && ` · ${vehiculo.anyo_modelo}`}
+                    Motor: {varianteSeleccionada.motor}
+                    {varianteSeleccionada.desde && ` · Desde: ${varianteSeleccionada.desde}`}
                   </p>
                 </div>
-                {vehiculo.placa && (
-                  <div style={{
-                    background: "#2563eb", borderRadius: "10px", padding: "8px 16px",
-                    color: "#fff", fontSize: "16px", fontWeight: 800, letterSpacing: "2px", fontFamily: "monospace",
-                  }}>
-                    {vehiculo.placa}
-                  </div>
+                {variantes.length > 1 && (
+                  <button
+                    onClick={() => {
+                      setVarianteSeleccionada(null);
+                      setCategorias([]);
+                      setCategoriaSeleccionada(null);
+                      setArticulos([]);
+                    }}
+                    style={{
+                      padding: "8px 16px", borderRadius: "8px", border: "1px solid #334155",
+                      background: "transparent", color: "#94a3b8", fontSize: "12px",
+                      fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    ← Cambiar variante
+                  </button>
                 )}
               </div>
 
               {/* Tags rápidos */}
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "16px", alignItems: "center" }}>
-                {vehiculo.anyo_modelo && (
+                {varianteSeleccionada.combustible && (
                   <span style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
-                    📅 {vehiculo.anyo_modelo}
+                    ⛽ {varianteSeleccionada.combustible}
                   </span>
                 )}
-                {vehiculo.combustible && (
-                  <span style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
-                    ⛽ {vehiculo.combustible}
-                  </span>
-                )}
-                {vehiculo.potencia_cv && (
+                {varianteSeleccionada.potencia_cv && (
                   <span style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#fde047", fontSize: "12px", fontWeight: 600 }}>
-                    ⚡ {vehiculo.potencia_cv}
+                    ⚡ {varianteSeleccionada.potencia_cv} CV / {varianteSeleccionada.potencia_kw} kW
                   </span>
                 )}
-                {vehiculo.caja_cambios && (
-                  <span style={{ background: "rgba(22,163,106,0.1)", border: "1px solid rgba(22,163,106,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#4ade80", fontSize: "12px", fontWeight: 600 }}>
-                    ⚙️ {vehiculo.caja_cambios}
-                  </span>
-                )}
-                {vehiculo.cilindrada && (
+                {varianteSeleccionada.cilindrada && (
                   <span style={{ background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "8px", padding: "5px 12px", color: "#c084fc", fontSize: "12px", fontWeight: 600 }}>
-                    📐 {vehiculo.cilindrada}
+                    📐 {varianteSeleccionada.cilindrada} cc
                   </span>
                 )}
-                {vehiculo.carroceria && (
+                {varianteSeleccionada.carroceria && (
                   <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>
-                    🚘 {vehiculo.carroceria}
+                    🚘 {varianteSeleccionada.carroceria}
                   </span>
                 )}
-                {vehiculo.tecdoc_car_id && (
-                  <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#64748b", fontSize: "12px", fontWeight: 600 }}>
-                    TecDoc: {vehiculo.tecdoc_car_id}
+                {varianteSeleccionada.traccion && (
+                  <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>
+                    🛞 {varianteSeleccionada.traccion}
                   </span>
                 )}
+                <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#64748b", fontSize: "12px", fontWeight: 600 }}>
+                  TecDoc: {varianteSeleccionada.id}
+                </span>
 
                 <button
                   onClick={() => setMostrarFicha(!mostrarFicha)}
@@ -551,67 +713,49 @@ export default function VehiculoPage() {
             {/* Ficha técnica (colapsable) */}
             {mostrarFicha && (
               <div style={{ marginBottom: "20px" }}>
-                {vehiculo.foto_modelo && (
-                  <div style={{
-                    background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b",
-                    borderRadius: "14px", padding: "16px", marginBottom: "16px", textAlign: "center",
-                  }}>
-                    <img
-                      src={vehiculo.foto_modelo}
-                      alt={`${vehiculo.marca} ${vehiculo.modelo}`}
-                      style={{ maxWidth: "100%", maxHeight: "250px", objectFit: "contain", borderRadius: "8px" }}
-                      onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
-                    />
-                  </div>
-                )}
-
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-                  {/* Motor */}
                   <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "20px" }}>
                     <h3 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 12px" }}>🔧 Motor</h3>
                     <div style={{ display: "grid", gap: "8px" }}>
-                      <Dato icon="🏷️" label="Codigo motor" value={vehiculo.motor} />
-                      <Dato icon="⛽" label="Combustible" value={vehiculo.combustible} />
-                      <Dato icon="📐" label="Cilindrada" value={vehiculo.cilindrada} />
-                      <Dato icon="🔩" label="Cilindros" value={vehiculo.cilindros} />
-                      <Dato icon="⚡" label="Potencia" value={vehiculo.potencia_cv && vehiculo.potencia_kw ? `${vehiculo.potencia_cv} (${vehiculo.potencia_kw})` : vehiculo.potencia_cv || vehiculo.potencia_kw} />
-                      <Dato icon="🌿" label="CO2" value={vehiculo.co2} />
+                      <Dato icon="🏷️" label="Codigo motor" value={varianteSeleccionada.motor} />
+                      <Dato icon="⛽" label="Combustible" value={varianteSeleccionada.combustible} />
+                      <Dato icon="💉" label="Inyeccion" value={varianteSeleccionada.inyeccion} />
+                      <Dato icon="📐" label="Cilindrada" value={varianteSeleccionada.cilindrada ? `${varianteSeleccionada.cilindrada} cc` : ""} />
+                      <Dato icon="🔩" label="Cilindros" value={varianteSeleccionada.cilindros} />
+                      <Dato icon="⚡" label="Potencia" value={varianteSeleccionada.potencia_cv ? `${varianteSeleccionada.potencia_cv} CV / ${varianteSeleccionada.potencia_kw} kW` : ""} />
+                      <Dato icon="🔧" label="Valvulas" value={varianteSeleccionada.valvulas} />
+                      <Dato icon="🌿" label="Catalizador" value={varianteSeleccionada.catalizador} />
                     </div>
                   </div>
-
-                  {/* Carrocería */}
                   <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "20px" }}>
-                    <h3 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 12px" }}>🚘 Carroceria</h3>
+                    <h3 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 12px" }}>🚘 Vehiculo</h3>
                     <div style={{ display: "grid", gap: "8px" }}>
-                      <Dato icon="🏎️" label="Carroceria" value={vehiculo.carroceria} />
-                      <Dato icon="⚙️" label="Cambio" value={vehiculo.caja_cambios} />
-                      <Dato icon="🛞" label="Traccion" value={vehiculo.transmision} />
-                      <Dato icon="🚪" label="Puertas" value={vehiculo.puertas} />
-                      <Dato icon="👥" label="Plazas" value={vehiculo.plazas} />
-                      <Dato icon="⚖️" label="Peso" value={vehiculo.peso} />
-                      <Dato icon="🎨" label="Color" value={vehiculo.color} />
-                      <Dato icon="🚗" label="Tipo vehiculo" value={vehiculo.tipo_vehiculo} />
+                      <Dato icon="🏎️" label="Carroceria" value={varianteSeleccionada.carroceria} />
+                      <Dato icon="🛞" label="Traccion" value={varianteSeleccionada.traccion} />
+                      <Dato icon="⚙️" label="Transmision" value={varianteSeleccionada.transmision} />
+                      <Dato icon="📐" label="Capacidad motor" value={varianteSeleccionada.capacidad_motor ? `${varianteSeleccionada.capacidad_motor} cc` : ""} />
+                      <Dato icon="📅" label="Desde" value={varianteSeleccionada.desde} />
+                      <Dato icon="📅" label="Hasta" value={varianteSeleccionada.hasta || "Actualidad"} />
                     </div>
                   </div>
-
-                  {/* Identificación */}
-                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "20px" }}>
-                    <h3 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 12px" }}>📋 Identificacion</h3>
-                    <div style={{ display: "grid", gap: "8px" }}>
-                      <Dato icon="🔠" label="VIN" value={vehiculo.vin} />
-                      <Dato icon="🔢" label="Matricula" value={vehiculo.placa} />
-                      <Dato icon="📅" label="Año modelo" value={vehiculo.anyo_modelo} />
-                      <Dato icon="🌍" label="Region" value={vehiculo.region} />
-                      <Dato icon="🏭" label="Pais fabricacion" value={vehiculo.pais} />
-                      <Dato icon="🏢" label="Fabricante" value={vehiculo.fabricante_nombre} />
+                  {infoVehiculo && (
+                    <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e293b", borderRadius: "14px", padding: "20px" }}>
+                      <h3 style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 700, margin: "0 0 12px" }}>📋 Identificacion</h3>
+                      <div style={{ display: "grid", gap: "8px" }}>
+                        <Dato icon="🔠" label="VIN / Bastidor" value={infoVehiculo.vin} />
+                        <Dato icon="📅" label="Fecha matriculacion" value={infoVehiculo.fecha_matriculacion} />
+                        <Dato icon="🏷️" label="Tipo" value={infoVehiculo.tipo_vehiculo} />
+                        <Dato icon="🏢" label="Marca DGT" value={infoVehiculo.marca_dgt} />
+                        <Dato icon="⛽" label="Combustible DGT" value={infoVehiculo.combustible_dgt} />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* ═══════════════════════════════════════════════ */}
-            {/* CATÁLOGO DE PIEZAS — SIEMPRE VISIBLE           */}
+            {/* CATÁLOGO DE PIEZAS                              */}
             {/* ═══════════════════════════════════════════════ */}
             <div>
               <div style={{
@@ -626,7 +770,7 @@ export default function VehiculoPage() {
                     Catalogo de piezas
                   </h2>
                   <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>
-                    Selecciona una categoria para ver las piezas disponibles en stock
+                    Piezas compatibles verificadas por TecDoc para {varianteSeleccionada.nombre_completo}
                   </p>
                 </div>
                 {loadingCategorias && (
@@ -685,7 +829,7 @@ export default function VehiculoPage() {
                         border: "3px solid rgba(37,99,235,0.3)", borderTop: "3px solid #2563eb",
                         borderRadius: "50%", animation: "spin 0.8s linear infinite",
                       }} />
-                      <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "12px" }}>Buscando piezas en stock...</p>
+                      <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "12px" }}>Buscando piezas compatibles...</p>
                     </div>
                   )}
 
@@ -695,9 +839,6 @@ export default function VehiculoPage() {
                       borderRadius: "10px", padding: "16px", textAlign: "center",
                     }}>
                       <p style={{ color: "#fca5a5", fontSize: "13px", margin: 0 }}>⚠️ {errorPiezas}</p>
-                      <p style={{ color: "#64748b", fontSize: "12px", margin: "8px 0 0" }}>
-                        Es posible que esta categoria no tenga piezas en stock
-                      </p>
                     </div>
                   )}
 
@@ -709,8 +850,11 @@ export default function VehiculoPage() {
                         </h3>
                         {infoCatalogo && (
                           <div style={{ display: "flex", gap: "16px" }}>
+                            <span style={{ color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
+                              📋 {infoCatalogo.total_tecdoc} refs TecDoc
+                            </span>
                             <span style={{ color: infoCatalogo.total_en_stock > 0 ? "#4ade80" : "#64748b", fontSize: "12px", fontWeight: 600 }}>
-                              ✅ {infoCatalogo.total_en_stock} en stock
+                              ✅ {infoCatalogo.total_en_stock} en stock marketplace
                             </span>
                           </div>
                         )}
@@ -718,7 +862,7 @@ export default function VehiculoPage() {
 
                       {articulos.length === 0 ? (
                         <div style={{ textAlign: "center", padding: "40px 20px", color: "#475569" }}>
-                          <p style={{ fontSize: "14px" }}>No se encontraron piezas en stock para esta categoria</p>
+                          <p style={{ fontSize: "14px" }}>No se encontraron piezas para esta categoria</p>
                         </div>
                       ) : (
                         <div style={{ display: "grid", gap: "12px" }}>
@@ -727,8 +871,12 @@ export default function VehiculoPage() {
                               key={`${art.referencia}-${i}`}
                               style={{
                                 borderRadius: "12px",
-                                border: "1px solid rgba(22,163,74,0.3)",
-                                background: "rgba(22,163,74,0.04)",
+                                border: art.en_stock_marketplace
+                                  ? "1px solid rgba(22,163,74,0.3)"
+                                  : "1px solid #1e293b",
+                                background: art.en_stock_marketplace
+                                  ? "rgba(22,163,74,0.04)"
+                                  : "rgba(255,255,255,0.02)",
                                 overflow: "hidden",
                               }}
                             >
@@ -738,6 +886,14 @@ export default function VehiculoPage() {
                                 borderBottom: "1px solid rgba(255,255,255,0.06)",
                                 display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
                               }}>
+                                {art.imagen_logo && (
+                                  <img
+                                    src={art.imagen_logo}
+                                    alt={art.marca}
+                                    style={{ height: "24px", objectFit: "contain" }}
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                  />
+                                )}
                                 <span style={{ color: "#e2e8f0", fontSize: "15px", fontWeight: 700, fontFamily: "monospace" }}>
                                   {art.referencia}
                                 </span>
@@ -752,17 +908,58 @@ export default function VehiculoPage() {
                                     {art.nombre}
                                   </span>
                                 )}
-                                {art.precio_desde !== null && (
-                                  <span style={{ marginLeft: "auto", color: "#4ade80", fontSize: "16px", fontWeight: 800 }}>
-                                    desde {art.precio_desde.toFixed(2)}€
+                                {art.en_stock_marketplace ? (
+                                  <span style={{
+                                    marginLeft: "auto", background: "rgba(22,163,74,0.15)",
+                                    borderRadius: "6px", padding: "3px 10px",
+                                    color: "#4ade80", fontSize: "12px", fontWeight: 700,
+                                  }}>
+                                    ✅ En stock
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    marginLeft: "auto", color: "#64748b", fontSize: "11px",
+                                  }}>
+                                    Sin stock marketplace
                                   </span>
                                 )}
                               </div>
 
-                              {/* Lista de vendedores */}
-                              {art.stock.length > 0 && (
+                              {/* Descripcion / características */}
+                              {art.descripcion && (
+                                <div style={{ padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                  <p style={{ color: "#64748b", fontSize: "11px", margin: 0, lineHeight: 1.5 }}>
+                                    {art.descripcion}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Precios TecDoc (PVP del fabricante) */}
+                              {art.pvp_neto !== null && (
+                                <div style={{
+                                  padding: "8px 16px",
+                                  borderBottom: art.stock_marketplace.length > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                  display: "flex", gap: "12px", alignItems: "center",
+                                }}>
+                                  <span style={{ color: "#64748b", fontSize: "11px" }}>PVP: {art.pvp !== null ? `${Number(art.pvp).toFixed(2)}€` : "—"}</span>
+                                  {art.descuento && <span style={{ color: "#64748b", fontSize: "11px" }}>Dto: {art.descuento}%</span>}
+                                  <span style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 600 }}>Neto: {art.pvp_neto.toFixed(2)}€</span>
+                                  {art.stock_ipda.cantidad > 0 && (
+                                    <span style={{
+                                      background: art.stock_ipda.color === "verde" ? "rgba(22,163,74,0.12)" : "rgba(234,179,8,0.12)",
+                                      borderRadius: "4px", padding: "1px 8px",
+                                      color: art.stock_ipda.color === "verde" ? "#4ade80" : "#fde047",
+                                      fontSize: "11px", fontWeight: 600,
+                                    }}>
+                                      Stock: {art.stock_ipda.texto}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Lista de vendedores del marketplace */}
+                              {art.stock_marketplace.length > 0 && (
                                 <div>
-                                  {/* Cabecera tabla */}
                                   <div style={{
                                     display: "grid", gridTemplateColumns: "1fr 110px 70px 90px 120px",
                                     padding: "8px 16px", background: "rgba(255,255,255,0.03)",
@@ -774,24 +971,21 @@ export default function VehiculoPage() {
                                     <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Precio</span>
                                     <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "center" }}>Accion</span>
                                   </div>
-                                  {/* Filas de vendedores */}
-                                  {art.stock.map((s: PiezaStock, j: number) => (
+                                  {art.stock_marketplace.map((s, j) => (
                                     <div
                                       key={j}
                                       style={{
                                         display: "grid", gridTemplateColumns: "1fr 110px 70px 90px 120px",
                                         padding: "10px 16px", alignItems: "center",
-                                        borderBottom: j < art.stock.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                        borderBottom: j < art.stock_marketplace.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                                         transition: "background 0.15s",
                                       }}
                                       onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
                                       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                                     >
-                                      <div>
-                                        <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>
-                                          {s.proveedor_nombre || s.proveedor_id || "Proveedor"}
-                                        </span>
-                                      </div>
+                                      <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>
+                                        {s.proveedor_nombre || s.proveedor_id || "Proveedor"}
+                                      </span>
                                       <span style={{ color: "#94a3b8", fontSize: "12px", fontFamily: "monospace" }}>
                                         {s.referencia}
                                       </span>
@@ -810,14 +1004,12 @@ export default function VehiculoPage() {
                                       <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
                                         <button
                                           onClick={() => {
-                                            // TODO: integrar con carrito real
                                             alert(`Pieza ${s.referencia} de ${s.proveedor_nombre || "proveedor"} añadida al carrito (${s.precio?.toFixed(2)}€)`);
                                           }}
                                           style={{
                                             padding: "5px 10px", borderRadius: "6px", border: "none",
                                             background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff",
-                                            fontSize: "11px", fontWeight: 700, cursor: "pointer",
-                                            whiteSpace: "nowrap",
+                                            fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                                           }}
                                           title="Añadir al carrito"
                                         >
@@ -825,14 +1017,12 @@ export default function VehiculoPage() {
                                         </button>
                                         <button
                                           onClick={() => {
-                                            // TODO: integrar con sistema de mensajes/contacto
                                             alert(`Contactar con ${s.proveedor_nombre || "proveedor"} por la pieza ${s.referencia}`);
                                           }}
                                           style={{
                                             padding: "5px 10px", borderRadius: "6px",
                                             border: "1px solid #334155", background: "transparent",
-                                            color: "#94a3b8", fontSize: "11px", fontWeight: 600, cursor: "pointer",
-                                            whiteSpace: "nowrap",
+                                            color: "#94a3b8", fontSize: "11px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
                                           }}
                                           title="Contactar proveedor"
                                         >
@@ -856,10 +1046,10 @@ export default function VehiculoPage() {
         )}
 
         {/* Estado vacío */}
-        {!vehiculo && !error && !loading && (
+        {!varianteSeleccionada && variantes.length === 0 && !error && !loading && (
           <div style={{ textAlign: "center", padding: "60px 20px", color: "#334155" }}>
             <div style={{ fontSize: "64px", marginBottom: "16px" }}>🔍</div>
-            <p style={{ fontSize: "16px", color: "#475569" }}>Introduce un numero de bastidor (VIN) para decodificar el vehiculo y consultar piezas compatibles</p>
+            <p style={{ fontSize: "16px", color: "#475569" }}>Introduce un bastidor (VIN) o matricula para buscar el vehiculo y consultar piezas compatibles</p>
           </div>
         )}
 
