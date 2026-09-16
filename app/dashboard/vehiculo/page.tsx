@@ -62,7 +62,6 @@ interface ArticuloCatalogo {
   nombre: string;
   oems: string[];
   en_stock: boolean;
-  fuente: string;
   stock: PiezaStock[];
   precio_desde: number | null;
 }
@@ -748,16 +747,8 @@ export default function VehiculoPage() {
                                 }}>
                                   {art.marca}
                                 </span>
-                                {art.fuente === "cruce" && (
-                                  <span style={{
-                                    background: "rgba(168,85,247,0.12)", borderRadius: "6px",
-                                    padding: "2px 8px", color: "#c084fc", fontSize: "10px", fontWeight: 600,
-                                  }}>
-                                    CRUCE
-                                  </span>
-                                )}
                                 {art.nombre && (
-                                  <span style={{ color: "#94a3b8", fontSize: "12px", marginLeft: "4px" }}>
+                                  <span style={{ color: "#94a3b8", fontSize: "12px" }}>
                                     {art.nombre}
                                   </span>
                                 )}
@@ -770,10 +761,10 @@ export default function VehiculoPage() {
 
                               {/* Lista de vendedores */}
                               {art.stock.length > 0 && (
-                                <div style={{ padding: "0" }}>
+                                <div>
                                   {/* Cabecera tabla */}
                                   <div style={{
-                                    display: "grid", gridTemplateColumns: "1fr 100px 90px 100px",
+                                    display: "grid", gridTemplateColumns: "1fr 110px 70px 90px 120px",
                                     padding: "8px 16px", background: "rgba(255,255,255,0.03)",
                                     borderBottom: "1px solid rgba(255,255,255,0.05)",
                                   }}>
@@ -781,13 +772,14 @@ export default function VehiculoPage() {
                                     <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Referencia</span>
                                     <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>Tipo</span>
                                     <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Precio</span>
+                                    <span style={{ color: "#64748b", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "center" }}>Accion</span>
                                   </div>
                                   {/* Filas de vendedores */}
                                   {art.stock.map((s: PiezaStock, j: number) => (
                                     <div
                                       key={j}
                                       style={{
-                                        display: "grid", gridTemplateColumns: "1fr 100px 90px 100px",
+                                        display: "grid", gridTemplateColumns: "1fr 110px 70px 90px 120px",
                                         padding: "10px 16px", alignItems: "center",
                                         borderBottom: j < art.stock.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                                         transition: "background 0.15s",
@@ -815,6 +807,38 @@ export default function VehiculoPage() {
                                       <span style={{ color: "#4ade80", fontSize: "15px", fontWeight: 800, textAlign: "right" }}>
                                         {s.precio != null ? `${s.precio.toFixed(2)}€` : "—"}
                                       </span>
+                                      <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                                        <button
+                                          onClick={() => {
+                                            // TODO: integrar con carrito real
+                                            alert(`Pieza ${s.referencia} de ${s.proveedor_nombre || "proveedor"} añadida al carrito (${s.precio?.toFixed(2)}€)`);
+                                          }}
+                                          style={{
+                                            padding: "5px 10px", borderRadius: "6px", border: "none",
+                                            background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff",
+                                            fontSize: "11px", fontWeight: 700, cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                          title="Añadir al carrito"
+                                        >
+                                          🛒 Pedir
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            // TODO: integrar con sistema de mensajes/contacto
+                                            alert(`Contactar con ${s.proveedor_nombre || "proveedor"} por la pieza ${s.referencia}`);
+                                          }}
+                                          style={{
+                                            padding: "5px 10px", borderRadius: "6px",
+                                            border: "1px solid #334155", background: "transparent",
+                                            color: "#94a3b8", fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                          title="Contactar proveedor"
+                                        >
+                                          💬
+                                        </button>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
