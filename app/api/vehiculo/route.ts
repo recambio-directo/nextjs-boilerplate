@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Probar versiones del decoder
     const versiones = ["decoder-v5", "decoder-v3", "decoder-v2", "decoder-v1", "all-in-one"];
     let merged: Record<string, any> = {};
     let usedVersion = "";
@@ -39,37 +38,45 @@ export async function GET(req: NextRequest) {
         const json = await res.json();
         if (!json) continue;
 
-        // La API devuelve { "vin-data-1": { content: "JSON_STRING", ... }, "vin-data-2": ... }
-        // Cada "content" es un JSON string que hay que parsear y mergear
+        // La API devuelve { "vin-data-1": { content: "JSON_STRING" }, "vin-data-2": ..., "vin-data-3": ... }
         for (const [key, val] of Object.entries(json)) {
           const entry = val as any;
           if (entry && typeof entry === "object" && typeof entry.content === "string") {
             try {
               const parsed = JSON.parse(entry.content);
-              console.log(`VIN ${version} ${key}: ${JSON.stringify(parsed).slice(0, 800)}`);
-              if (typeof parsed === "object" && parsed !== null) {
+
+              // vin-data-3 es un array de { title, information: { key: value } }
+              if (Array.isArray(parsed)) {
+                for (const item of parsed) {
+                  if (item && typeof item === "object" && item.information && typeof item.information === "object") {
+                    // Aplanar: "Model year" → "Model year": "2016"
+                    for (const [infoKey, infoVal] of Object.entries(item.information)) {
+                      if (infoVal && typeof infoVal === "string") {
+                        // Guardar con key normalizado (sin espacios, lowercase)
+                        const normKey = infoKey.toLowerCase().replace(/\s+/g, "_");
+                        if (!merged[normKey]) merged[normKey] = infoVal;
+                      }
+                    }
+                  }
+                }
+              } else if (typeof parsed === "object" && parsed !== null) {
                 merged = { ...merged, ...parsed };
               }
             } catch {
-              console.log(`VIN ${version} ${key} content not JSON: ${entry.content.slice(0, 200)}`);
+              // content no es JSON válido
             }
-          } else if (entry && typeof entry === "object") {
-            // Puede que sea un objeto directo sin content wrapper
-            console.log(`VIN ${version} ${key} direct: ${JSON.stringify(entry).slice(0, 400)}`);
-            merged = { ...merged, ...entry };
           }
         }
 
-        // Si no tiene vin-data-* keys, puede ser un objeto plano
+        // Si no tiene vin-data-* keys, puede ser un objeto plano directo
         if (!Object.keys(json).some((k: string) => k.startsWith("vin-data"))) {
           const d = json.data || json.decode || json.result || json;
-          if (typeof d === "object") {
-            console.log(`VIN ${version} flat: ${JSON.stringify(d).slice(0, 800)}`);
+          if (typeof d === "object" && !Array.isArray(d)) {
             merged = { ...merged, ...d };
           }
         }
 
-        if (Object.keys(merged).length > 2) {
+        if (Object.keys(merged).length > 3) {
           usedVersion = version;
           break;
         }
@@ -86,7 +93,15 @@ export async function GET(req: NextRequest) {
     }
 
     const d = merged;
-    console.log(`VIN merged keys: ${JSON.stringify(Object.keys(d)).slice(0, 500)}`);
+
+    // Extraer modelo del año (puede ser array [1986,2016] o string)
+    let anyoModelo = "";
+    const my = d.modelYear || d.model_year || d.ModelYear || d.year || d.model_year_from || "";
+    if (Array.isArray(my)) {
+      anyoModelo = my.length > 1 ? String(my[my.length - 1]) : String(my[0]);
+    } else if (my) {
+      anyoModelo = String(my);
+    }
 
     const vehiculo = {
       vin: d.vin || d.VIN || vinClean,
@@ -101,24 +116,24 @@ export async function GET(req: NextRequest) {
       cilindros: d.cylinders || d.Cylinders || d.cylindres || d.number_of_cylinders || d.numberOfCylinders || "",
       transmision: d.drive_type || d.driveType || d.type_transmission || d.drive || d.DriveType || "",
       caja_cambios: normalizarCaja(d.transmission || d.Transmission || d.gearbox || d.boite_vitesse || d.transmissionStyle || ""),
-      carroceria: d.body_type || d.bodyType || d.body || d.carrosserie || d.BodyClass || d.bodyClass || "",
+      carroceria: d.body_type || d.bodyType || d.body || d.body_class || d.bodyClass || d.BodyClass || d.carrosserie || "",
       color: d.color || d.Color || d.colour || d.couleur || d.exteriorColor || "",
       puertas: d.doors || d.Doors || d.nb_portes || d.number_of_doors || d.numberOfDoors || "",
       plazas: d.seats || d.Seats || d.nr_passagers || d.number_of_seats || d.numberOfSeats || "",
       peso: d.weight || d.Weight || d.poids || d.curb_weight || d.curbWeight || "",
       co2: formatCO2(d.co2 || d.CO2 || d.co2_emission || ""),
-      anyo_modelo: d.modelYear || d.model_year || d.year || d.ModelYear || d.year_from || d.model_start || "",
-      region: d.region || d.country || d.Country || d.pays || d.market || d.PlantCountry || "",
-      wmi: d.wmi || "",
+      anyo_modelo: anyoModelo,
+      tipo_vehiculo: d.vehicle_type || d.vehicleType || "",
+      region: d.region || "",
+      pais: d.country || d.Country || d.pays || d.market || d.PlantCountry || d.manufactured_in || "",
+      fabricante_nombre: d.manufacturer_name || d.manufacturerName || "",
       placa: d.plate || d.Plate || d.plaque || d.license_plate || "",
       logo_marca: d.logo || d.logo_marque || d.manufacturer_logo || d.makeLogo || "",
       foto_modelo: d.image || d.photo || d.photo_modele || d.vehicle_image || d.modelImage || "",
       tecdoc_car_id: d.tecdoc_car_id || d.tecdocCarId || d.k_type || d.ktype || d.ktypnr || d.kType || "",
       tecdoc_manu_id: d.tecdoc_manu_id || d.tecdocManuId || d.manufacturer_id || "",
       tecdoc_model_id: d.tecdoc_model_id || d.tecdocModelId || d.model_id || "",
-      pneus: d.tires || d.pneus || d.tyres || d.Tires || [],
-      _debug_version: usedVersion,
-      _debug_keys: Object.keys(d).slice(0, 50),
+      pneus: extraerArray(d, ["tires", "pneus", "tyres", "Tires"]),
     };
 
     return NextResponse.json(vehiculo);
@@ -126,6 +141,14 @@ export async function GET(req: NextRequest) {
     console.error("Error VIN Decoder:", err);
     return NextResponse.json({ error: "Error de conexión con el decodificador de bastidor" }, { status: 500 });
   }
+}
+
+function extraerArray(obj: any, keys: string[]): any[] {
+  if (!obj || typeof obj !== "object") return [];
+  for (const key of keys) {
+    if (Array.isArray(obj[key])) return obj[key];
+  }
+  return [];
 }
 
 function normalizarCaja(valor: string): string {
