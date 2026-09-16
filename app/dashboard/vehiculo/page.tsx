@@ -39,6 +39,7 @@ interface Categoria {
   id: number;
   nombre: string;
   hijos: Categoria[];
+  icono?: string;
 }
 
 interface PiezaStock {
@@ -150,7 +151,7 @@ function LandingVehiculo() {
 }
 
 // ════════════════════════════════════════════════════════
-// COMPONENTE: Árbol de categorías
+// COMPONENTE: Árbol de categorías (con iconos)
 // ════════════════════════════════════════════════════════
 function ArbolCategorias({
   categorias,
@@ -180,41 +181,67 @@ function ArbolCategorias({
         const tieneHijos = cat.hijos && cat.hijos.length > 0;
         const expandido = expandidos.has(cat.id);
         const seleccionado = categoriaSeleccionada === cat.id;
+        const esRaiz = nivel === 0;
 
         return (
           <div key={cat.id}>
             <div
               style={{
                 display: "flex", alignItems: "center", gap: "8px",
-                padding: "10px 12px", paddingLeft: `${12 + nivel * 20}px`,
+                padding: esRaiz ? "12px 12px" : "8px 12px",
+                paddingLeft: `${12 + nivel * 20}px`,
                 cursor: "pointer", borderRadius: "8px",
                 background: seleccionado ? "rgba(37,99,235,0.15)" : "transparent",
                 border: seleccionado ? "1px solid rgba(37,99,235,0.3)" : "1px solid transparent",
                 transition: "all 0.15s",
+                marginBottom: esRaiz ? "2px" : "0",
               }}
               onClick={() => {
                 if (tieneHijos) toggleExpandir(cat.id);
-                onSeleccionar(cat.id, cat.nombre);
+                // Solo seleccionar hojas (sin hijos) o si es categoría con hijos y el usuario la clica
+                if (!tieneHijos) {
+                  onSeleccionar(cat.id, cat.nombre);
+                }
               }}
               onMouseEnter={(e) => {
-                if (!seleccionado) e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                if (!seleccionado) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
               }}
               onMouseLeave={(e) => {
                 if (!seleccionado) e.currentTarget.style.background = "transparent";
               }}
             >
-              {tieneHijos && (
-                <span style={{ color: "#64748b", fontSize: "12px", width: "16px", textAlign: "center", flexShrink: 0 }}>
+              {/* Icono o flecha */}
+              {esRaiz && cat.icono ? (
+                <span style={{ fontSize: "16px", width: "20px", textAlign: "center", flexShrink: 0 }}>
+                  {cat.icono}
+                </span>
+              ) : tieneHijos ? (
+                <span style={{ color: "#64748b", fontSize: "10px", width: "16px", textAlign: "center", flexShrink: 0 }}>
                   {expandido ? "▼" : "▶"}
                 </span>
+              ) : (
+                <span style={{ width: "16px", flexShrink: 0 }} />
               )}
-              {!tieneHijos && <span style={{ width: "16px", flexShrink: 0 }} />}
               <span style={{
-                color: seleccionado ? "#93c5fd" : "#e2e8f0",
-                fontSize: "13px", fontWeight: seleccionado ? 700 : 500,
+                color: seleccionado ? "#93c5fd" : esRaiz ? "#e2e8f0" : "#cbd5e1",
+                fontSize: esRaiz ? "14px" : "13px",
+                fontWeight: seleccionado ? 700 : esRaiz ? 600 : 500,
+                flex: 1,
               }}>
                 {cat.nombre}
               </span>
+              {/* Flecha para raíz con hijos */}
+              {esRaiz && tieneHijos && (
+                <span style={{ color: "#475569", fontSize: "10px", flexShrink: 0 }}>
+                  {expandido ? "▲" : "▼"}
+                </span>
+              )}
+              {/* Indicador de hijos */}
+              {tieneHijos && !esRaiz && (
+                <span style={{ color: "#475569", fontSize: "10px" }}>
+                  {cat.hijos.length}
+                </span>
+              )}
             </div>
             {tieneHijos && expandido && (
               <ArbolCategorias
@@ -250,6 +277,7 @@ export default function VehiculoPage() {
   const [loadingArticulos, setLoadingArticulos] = useState(false);
   const [infoCatalogo, setInfoCatalogo] = useState<{ total_tecdoc: number; total_en_stock: number } | null>(null);
   const [mostrarFicha, setMostrarFicha] = useState(true);
+  const [errorPiezas, setErrorPiezas] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAcceso = async () => {
@@ -268,6 +296,7 @@ export default function VehiculoPage() {
     setCategoriaSeleccionada(null);
     setArticulos([]);
     setInfoCatalogo(null);
+    setErrorPiezas(null);
     try {
       const res = await fetch(`/api/vehiculo/categorias?carId=${encodeURIComponent(carId)}`);
       const json = await res.json();
@@ -289,6 +318,7 @@ export default function VehiculoPage() {
     setLoadingArticulos(true);
     setArticulos([]);
     setInfoCatalogo(null);
+    setErrorPiezas(null);
     try {
       const res = await fetch(
         `/api/vehiculo/piezas?carId=${encodeURIComponent(vehiculo.tecdoc_car_id)}&categoryId=${encodeURIComponent(categoryId)}`
@@ -297,9 +327,11 @@ export default function VehiculoPage() {
       if (res.ok) {
         setArticulos(json.articulos || []);
         setInfoCatalogo({ total_tecdoc: json.total_tecdoc, total_en_stock: json.total_en_stock });
+      } else {
+        setErrorPiezas(json.error || "Error al buscar piezas");
       }
     } catch {
-      console.error("Error cargando piezas");
+      setErrorPiezas("Error de conexion al buscar piezas");
     } finally {
       setLoadingArticulos(false);
     }
@@ -328,6 +360,7 @@ export default function VehiculoPage() {
     setArticulos([]);
     setInfoCatalogo(null);
     setMostrarFicha(true);
+    setErrorPiezas(null);
 
     try {
       const res = await fetch(`/api/vehiculo?vin=${encodeURIComponent(valor)}`);
@@ -650,7 +683,20 @@ export default function VehiculoPage() {
                       </div>
                     )}
 
-                    {categoriaSeleccionada && !loadingArticulos && (
+                    {/* Error al buscar piezas */}
+                    {errorPiezas && !loadingArticulos && (
+                      <div style={{
+                        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                        borderRadius: "10px", padding: "16px", textAlign: "center",
+                      }}>
+                        <p style={{ color: "#fca5a5", fontSize: "13px", margin: 0 }}>⚠️ {errorPiezas}</p>
+                        <p style={{ color: "#64748b", fontSize: "12px", margin: "8px 0 0" }}>
+                          Es posible que esta categoria no tenga piezas catalogadas para este vehiculo
+                        </p>
+                      </div>
+                    )}
+
+                    {categoriaSeleccionada && !loadingArticulos && !errorPiezas && (
                       <>
                         {/* Header de resultados */}
                         <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid #1e293b" }}>
