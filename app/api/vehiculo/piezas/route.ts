@@ -282,6 +282,7 @@ export async function GET(req: NextRequest) {
         tipo: p.tipo || "IAM",
         precio: p.precio,
         proveedor_id: p.proveedor_id,
+        proveedor_nombre: p.proveedor_nombre || "",
       });
       if (grupo.precio_desde === null || p.precio < grupo.precio_desde) {
         grupo.precio_desde = p.precio;
