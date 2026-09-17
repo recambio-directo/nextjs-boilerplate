@@ -130,16 +130,17 @@ export async function buscarVehiculo(busqueda: string): Promise<IpdaPlateResult>
   // Determinar si es VIN (17 chars alfanumérico) o matrícula
   const esVin = /^[A-HJ-NPR-Z0-9]{17}$/.test(valor);
 
-  // Construir token2: "idInstalacion#bastidor#matricula"
-  // idInstalacion = 75 (NO es el customer 10811, es el ID de instalación IPDA)
+  // Construir token2: "idInstalacion#claveInstalacion#matricula"
+  // idInstalacion = 75, claveInstalacion = 6T8AZS9G (ambos requeridos por IPDA)
   const IPDA_PLATE_PREFIX = process.env.IPDA_PLATE_PREFIX || "75";
+  const IPDA_PLATE_KEY = process.env.IPDA_PLATE_KEY || "6T8AZS9G";
   const prefijo = IPDA_PLATE_PREFIX.padStart(6, "0");
   let token2: string;
   if (esVin) {
     token2 = `${prefijo}#${valor}#`;
   } else {
     const matriculaLimpia = valor.replace(/[\s\-]/g, "");
-    token2 = `${prefijo}##${matriculaLimpia}`;
+    token2 = `${prefijo}#${IPDA_PLATE_KEY}#${matriculaLimpia}`;
   }
 
   console.log(`[IPDA] Buscando vehículo: token2=${token2}`);
