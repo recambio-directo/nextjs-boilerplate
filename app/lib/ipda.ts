@@ -62,7 +62,10 @@ export async function getIpdaToken(): Promise<string> {
 
 async function ipdaPost(endpoint: string, body: Record<string, any>): Promise<any> {
   const token = await getIpdaToken();
-  const res = await fetch(`${IPDA_BASE}${endpoint}`, {
+  const url = `${IPDA_BASE}${endpoint}`;
+  console.log(`[IPDA] POST ${endpoint}`, JSON.stringify(body).slice(0, 300));
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -70,6 +73,13 @@ async function ipdaPost(endpoint: string, body: Record<string, any>): Promise<an
     },
     body: JSON.stringify(body),
   });
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    console.error(`[IPDA] ${endpoint} returned non-JSON (${contentType}):`, text.slice(0, 300));
+    throw new Error(`IPDA ${endpoint}: respuesta no JSON (${res.status})`);
+  }
 
   const json = await res.json();
 
@@ -164,7 +174,7 @@ export interface IpdaTreeNode {
 }
 
 export async function obtenerCategorias(vehicleId: string): Promise<any> {
-  return await ipdaPost("/tree", {
+  return await ipdaPost("/assemblygroup/tree", {
     area: 1,
     vehicle: vehicleId,
     language: 8,
