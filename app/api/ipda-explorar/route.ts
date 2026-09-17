@@ -1,86 +1,134 @@
 // app/api/ipda-explorar/route.ts
-// Ruta temporal para descubrir qué endpoints de cruces tiene IPDA
-// BORRAR DESPUÉS DE PROBAR
-
+// Ruta temporal para descubrir endpoints de cruces IPDA — BORRAR DESPUÉS
 import { NextRequest, NextResponse } from "next/server";
 import { getIpdaToken } from "../../lib/ipda";
 
 const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
 
-async function probarEndpoint(token: string, endpoint: string, body: Record<string, any>) {
+async function probar(token: string, method: string, endpoint: string, body?: Record<string, any>) {
   try {
-    const res = await fetch(`${IPDA_BASE}${endpoint}`, {
-      method: "POST",
+    const opts: RequestInit = {
+      method,
       headers: { "Content-Type": "application/json", "App-Token": token },
-      body: JSON.stringify(body),
-    });
+    };
+    if (method === "POST" && body) opts.body = JSON.stringify(body);
+    const url = method === "GET" && body
+      ? `${IPDA_BASE}${endpoint}?${new URLSearchParams(body as any).toString()}`
+      : `${IPDA_BASE}${endpoint}`;
+    const res = await fetch(url, opts);
     const text = await res.text();
     let json: any = null;
     try { json = JSON.parse(text); } catch {}
     return {
+      method,
       endpoint,
       status: res.status,
       ok: res.ok,
       success: json?.success ?? null,
-      dataKeys: json?.data ? (Array.isArray(json.data) ? `array[${json.data.length}]` : Object.keys(json.data)) : null,
-      preview: (json ? JSON.stringify(json) : text).slice(0, 800),
+      preview: (json ? JSON.stringify(json) : text).slice(0, 1000),
     };
   } catch (e: any) {
-    return { endpoint, error: e.message };
+    return { method, endpoint, error: e.message };
   }
 }
 
 export async function GET(req: NextRequest) {
-  const ref = req.nextUrl.searchParams.get("ref") || "04465-33450"; // OEM Toyota de prueba
+  const ref = req.nextUrl.searchParams.get("ref") || "04465-33450";
 
   try {
     const token = await getIpdaToken();
 
-    // Probar todos los endpoints típicos de TecDoc/IPDA para cruces
     const resultados = await Promise.all([
-      // Búsqueda de artículo por número OEM
-      probarEndpoint(token, "/article/search", { articleNo: ref, language: 8 }),
-      probarEndpoint(token, "/article/search", { oem: ref, language: 8 }),
-      probarEndpoint(token, "/article/search", { query: ref, language: 8 }),
-      probarEndpoint(token, "/article/search", { searchText: ref, area: 1, language: 8 }),
+      // ── GET endpoints (query params) ──
+      probar(token, "GET", `/article/search`, { articleNo: ref, language: "8" }),
+      probar(token, "GET", `/article/search`, { oem: ref, language: "8" }),
+      probar(token, "GET", `/article/search`, { query: ref }),
+      probar(token, "GET", `/oem/search`, { oemNo: ref }),
+      probar(token, "GET", `/oem/list`, { oemNo: ref }),
+      probar(token, "GET", `/reference/search`, { reference: ref }),
+      probar(token, "GET", `/reference/oem`, { oem: ref }),
+      probar(token, "GET", `/reference/cross`, { reference: ref }),
+      probar(token, "GET", `/search/article`, { query: ref }),
+      probar(token, "GET", `/search/oem`, { query: ref }),
+      probar(token, "GET", `/search/reference`, { query: ref }),
 
-      // Búsqueda OEM directa
-      probarEndpoint(token, "/oem/search", { oemNo: ref, language: 8 }),
-      probarEndpoint(token, "/oem/search", { articleNo: ref, language: 8 }),
-      probarEndpoint(token, "/oem/list", { oemNo: ref, language: 8 }),
+      // ── Endpoints ya conocidos con params de cruce ──
+      // reference/list sin vehicleId pero con referencia
+      probar(token, "POST", `/reference/list`, {
+        area: "1",
+        tipoBusqueda: "searchByOem",
+        userId: 83647,
+        almacen: "01",
+        customer: 10811,
+        company: 1,
+        oem: ref,
+        language: 8,
+      }),
+      probar(token, "POST", `/reference/list`, {
+        area: "1",
+        tipoBusqueda: "searchByArticle",
+        userId: 83647,
+        almacen: "01",
+        customer: 10811,
+        company: 1,
+        articleNo: ref,
+        language: 8,
+      }),
+      probar(token, "POST", `/reference/list`, {
+        area: "1",
+        tipoBusqueda: "loadOem",
+        userId: 83647,
+        almacen: "01",
+        customer: 10811,
+        company: 1,
+        oem: ref,
+        language: 8,
+      }),
 
-      // Cross-references / equivalencias
-      probarEndpoint(token, "/reference/search", { reference: ref, language: 8, area: 1 }),
-      probarEndpoint(token, "/reference/search", { articleNo: ref, language: 8, area: 1 }),
-      probarEndpoint(token, "/reference/oem", { oem: ref, language: 8 }),
-      probarEndpoint(token, "/reference/cross", { reference: ref, language: 8 }),
-      probarEndpoint(token, "/reference/equivalences", { reference: ref, language: 8 }),
+      // ── Isi Condal specific patterns ──
+      probar(token, "POST", `/search/article`, { query: ref, language: 8, area: 1 }),
+      probar(token, "POST", `/search/oem`, { query: ref, language: 8, area: 1 }),
+      probar(token, "POST", `/search/oem`, { oem: ref, language: 8, area: 1 }),
+      probar(token, "POST", `/search/reference`, { query: ref, language: 8, area: 1 }),
+      probar(token, "POST", `/search/article`, { oem: ref, language: 8, area: 1, customer: 10811, company: 1, userId: 83647, almacen: "01" }),
 
-      // Artículo completo
-      probarEndpoint(token, "/article/details", { articleNo: ref, language: 8 }),
-      probarEndpoint(token, "/article/info", { articleNo: ref, language: 8 }),
+      // ── Probar el endpoint raíz para listar rutas disponibles ──
+      probar(token, "GET", `/`, {}),
+      probar(token, "GET", `/routes`, {}),
+      probar(token, "GET", `/help`, {}),
+      probar(token, "GET", `/api`, {}),
 
-      // Search genérico
-      probarEndpoint(token, "/search/article", { query: ref, language: 8, area: 1 }),
-      probarEndpoint(token, "/search/reference", { query: ref, language: 8, area: 1 }),
-      probarEndpoint(token, "/search/oem", { query: ref, language: 8, area: 1 }),
-
-      // Otros endpoints comunes
-      probarEndpoint(token, "/catalog/search", { query: ref, language: 8 }),
-      probarEndpoint(token, "/product/search", { reference: ref }),
-      probarEndpoint(token, "/article/oem-cross", { oemNo: ref, language: 8 }),
+      // ── Equivalences / cross-references ──
+      probar(token, "POST", `/equivalences/search`, { reference: ref, language: 8 }),
+      probar(token, "POST", `/cross/search`, { oem: ref, language: 8 }),
+      probar(token, "POST", `/oem/equivalences`, { oem: ref, language: 8 }),
+      probar(token, "POST", `/article/oem`, { articleNo: ref, language: 8 }),
+      probar(token, "POST", `/article/equivalences`, { articleNo: ref, language: 8 }),
+      probar(token, "GET", `/article/oem`, { articleNo: ref, language: "8" }),
+      probar(token, "GET", `/equivalences`, { reference: ref }),
     ]);
 
-    // Separar los que devolvieron algo útil de los que dieron error/404
-    const exitosos = resultados.filter(r => r.ok || (r.status && r.status < 404));
-    const fallidos = resultados.filter(r => !r.ok && (!r.status || r.status >= 404));
+    // Separar por status
+    const exitosos = resultados.filter(r => r.status && r.status < 400);
+    const _405 = resultados.filter(r => r.status === 405);
+    const _404 = resultados.filter(r => r.status === 404);
+    const otros = resultados.filter(r => r.status && r.status >= 400 && r.status !== 404 && r.status !== 405);
+    const errores = resultados.filter(r => r.error);
 
     return NextResponse.json({
       referencia_probada: ref,
       token_ok: true,
+      resumen: {
+        exitosos: exitosos.length,
+        "405_method_not_allowed": _405.length,
+        "404_not_found": _404.length,
+        otros_errores: otros.length + errores.length,
+      },
       exitosos,
-      fallidos_resumen: fallidos.map(f => `${f.endpoint} → ${f.status || f.error}`),
-    }, { status: 200 });
+      otros_interesantes: otros,
+      _404: _404.map(r => `${r.method} ${r.endpoint}`),
+      _405: _405.map(r => `${r.method} ${r.endpoint}`),
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
