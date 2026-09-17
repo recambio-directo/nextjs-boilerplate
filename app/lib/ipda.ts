@@ -254,3 +254,68 @@ export async function obtenerReferencias(
     vehicleId,
   });
 }
+
+// ══════════════════════════════════════════════════════════════
+// Buscar equivalencias/cruces por referencia OEM o IAM
+// Usa tipoBusqueda "loadByReferencia" con buscarIncEquiv=1
+// Devuelve las piezas equivalentes de TecDoc (IPDA)
+// ══════════════════════════════════════════════════════════════
+export interface IpdaEquivalencia {
+  referencia: string;
+  nombre: string;
+  marca: string;        // nombreDlnr
+  dlnr: string;
+  descripcion: string;  // txtrefpropia
+  grafico: string;
+  graficoLogo: string;
+  stockCantidad: number;
+  stockColor: string;
+  ref_ean: string;
+}
+
+export async function buscarEquivalenciasIPDA(
+  referencia: string
+): Promise<IpdaEquivalencia[]> {
+  try {
+    const data = await ipdaPost("/reference/list", {
+      area: null,
+      tipoBusqueda: "loadByReferencia",
+      userId: parseInt(process.env.IPDA_USER_ID || "83647", 10),
+      almacen: "01",
+      customer: IPDA_CUSTOMER,
+      company: 1,
+      buscarRefer: referencia,
+      buscarIncEquiv: 1,
+      buscarTipo: "",
+      dlnr: null,
+      dlnrLista: null,
+      groups: null,
+      partial: false,
+      showAll: 0,
+    });
+
+    const refs = data?.refs;
+    if (!Array.isArray(refs) || refs.length === 0) {
+      console.log(`[IPDA] buscarEquivalencias: 0 resultados para "${referencia}"`);
+      return [];
+    }
+
+    console.log(`[IPDA] buscarEquivalencias: ${refs.length} resultados para "${referencia}"`);
+
+    return refs.map((r: any) => ({
+      referencia: r.referencia,
+      nombre: r.nombre,
+      marca: r.nombreDlnr,
+      dlnr: r.dlnr,
+      descripcion: r.txtrefpropia || r.nombre,
+      grafico: r.grafico || "",
+      graficoLogo: r.graficoLogo || "",
+      stockCantidad: r.stockCantidad ?? 0,
+      stockColor: r.stockColor || "rojo",
+      ref_ean: r.ref_ean || "",
+    }));
+  } catch (error: any) {
+    console.error(`[IPDA] buscarEquivalencias error para "${referencia}":`, error.message);
+    return [];
+  }
+}
