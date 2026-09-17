@@ -36,10 +36,16 @@ interface InfoVehiculo {
   cilindrada_dgt: string;
 }
 
+interface GenericoPieza {
+  id: string;
+  nombre: string;
+}
+
 interface Categoria {
   id: string;
   nombre: string;
   hijos: Categoria[];
+  generics?: GenericoPieza[];
   icono?: string;
   genericId?: string;
   hasChildren?: boolean;
@@ -190,12 +196,14 @@ function ArbolCategorias({
     <>
       {categorias.map((cat) => {
         const tieneHijos = cat.hijos && cat.hijos.length > 0;
+        const tieneGenerics = cat.generics && cat.generics.length > 0;
+        const esExpandible = tieneHijos || tieneGenerics;
         const expandido = expandidos.has(cat.id);
         const seleccionado = categoriaSeleccionada === cat.id;
         const esRaiz = nivel === 0;
 
         return (
-          <div key={cat.id}>
+          <div key={cat.id || cat.nombre}>
             <div
               style={{
                 display: "flex", alignItems: "center", gap: "8px",
@@ -208,8 +216,10 @@ function ArbolCategorias({
                 marginBottom: esRaiz ? "2px" : "0",
               }}
               onClick={() => {
-                if (tieneHijos) toggleExpandir(cat.id);
-                if (!tieneHijos || cat.genericId) {
+                if (esExpandible) {
+                  toggleExpandir(cat.id);
+                } else {
+                  // Hoja sin hijos ni genéricos: seleccionar directamente
                   onSeleccionar(cat);
                 }
               }}
@@ -224,7 +234,7 @@ function ArbolCategorias({
                 <span style={{ fontSize: "16px", width: "20px", textAlign: "center", flexShrink: 0 }}>
                   {cat.icono}
                 </span>
-              ) : tieneHijos ? (
+              ) : esExpandible ? (
                 <span style={{ color: "#64748b", fontSize: "10px", width: "16px", textAlign: "center", flexShrink: 0 }}>
                   {expandido ? "▼" : "▶"}
                 </span>
@@ -239,24 +249,67 @@ function ArbolCategorias({
               }}>
                 {cat.nombre}
               </span>
-              {esRaiz && tieneHijos && (
+              {esExpandible && (
                 <span style={{ color: "#475569", fontSize: "10px", flexShrink: 0 }}>
                   {expandido ? "▲" : "▼"}
                 </span>
               )}
-              {tieneHijos && !esRaiz && (
-                <span style={{ color: "#475569", fontSize: "10px" }}>
-                  {cat.hijos.length}
-                </span>
-              )}
             </div>
-            {tieneHijos && expandido && (
+            {expandido && tieneHijos && (
               <ArbolCategorias
                 categorias={cat.hijos}
                 categoriaSeleccionada={categoriaSeleccionada}
                 onSeleccionar={onSeleccionar}
                 nivel={nivel + 1}
               />
+            )}
+            {expandido && tieneGenerics && !tieneHijos && (
+              <>
+                {cat.generics!.map((gen) => {
+                  const genKey = `${cat.id}_${gen.id}`;
+                  const genSeleccionado = categoriaSeleccionada === genKey;
+                  return (
+                    <div
+                      key={genKey}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "8px",
+                        padding: "7px 12px",
+                        paddingLeft: `${12 + (nivel + 1) * 20}px`,
+                        cursor: "pointer", borderRadius: "8px",
+                        background: genSeleccionado ? "rgba(37,99,235,0.15)" : "transparent",
+                        border: genSeleccionado ? "1px solid rgba(37,99,235,0.3)" : "1px solid transparent",
+                        transition: "all 0.15s",
+                      }}
+                      onClick={() => {
+                        onSeleccionar({
+                          id: cat.id,
+                          nombre: gen.nombre,
+                          hijos: [],
+                          genericId: gen.id,
+                          icono: cat.icono,
+                          hasChildren: false,
+                        });
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!genSeleccionado) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!genSeleccionado) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <span style={{ width: "16px", flexShrink: 0 }} />
+                      <span style={{
+                        color: genSeleccionado ? "#93c5fd" : "#94a3b8",
+                        fontSize: "13px",
+                        fontWeight: genSeleccionado ? 600 : 400,
+                        flex: 1,
+                      }}>
+                        {gen.nombre}
+                      </span>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
         );
@@ -325,7 +378,9 @@ export default function VehiculoPage() {
   // Cargar piezas de una categoría
   const cargarPiezas = async (cat: Categoria) => {
     if (!varianteSeleccionada) return;
-    setCategoriaSeleccionada(cat.id);
+    // ID visual: nodoId_genericId para distinguir genéricos del mismo nodo
+    const selKey = cat.genericId ? `${cat.id}_${cat.genericId}` : cat.id;
+    setCategoriaSeleccionada(selKey);
     setNombreCategoria(cat.nombre);
     setLoadingArticulos(true);
     setArticulos([]);

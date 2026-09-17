@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obtenerCategorias } from "../../../lib/ipda";
 
-// GET /api/vehiculo/categorias?vehicleId=135598
+// GET /api/vehiculo/categorias?vehicleId=34941
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const vehicleId = searchParams.get("vehicleId") || searchParams.get("carId");
@@ -16,36 +16,31 @@ export async function GET(req: NextRequest) {
   try {
     const data = await obtenerCategorias(vehicleId);
 
-    // El tree de IPDA devuelve una estructura anidada
-    // Normalizar a nuestro formato { id, nombre, hijos[], icono }
-    interface NodoIPDA {
-      id?: string | number;
-      nodeId?: string | number;
-      name?: string;
-      text?: string;
-      children?: NodoIPDA[];
-      items?: NodoIPDA[];
-      hasChildren?: boolean;
-      genericId?: string;
-    }
+    // IPDA devuelve: { tree: [...], list: [...] }
+    // Cada nodo del tree: { label, node, generics: [{id, label}], records: [subnodos] }
 
     const ICONOS: Record<string, string> = {
       "motor": "🔧",
       "freno": "🛑",
-      "suspension": "🔩",
-      "direccion": "🔩",
+      "suspens": "🔩",
+      "direcci": "🔩",
       "embrague": "⚙️",
-      "refrigeracion": "❄️",
-      "electric": "⚡",
+      "refriger": "❄️",
+      "electr": "⚡",
       "escape": "💨",
       "filtro": "🔍",
-      "ilumina": "💡",
-      "carroceria": "🚗",
+      "ilumin": "💡",
+      "carrocer": "🚗",
       "aceite": "🛢️",
-      "neumatico": "🛞",
-      "climatiza": "❄️",
+      "neumat": "🛞",
+      "climatiz": "❄️",
       "transmis": "⚙️",
-      "combustible": "⛽",
+      "combusti": "⛽",
+      "accesori": "🎒",
+      "rueda": "🛞",
+      "correa": "⚙️",
+      "junta": "🔧",
+      "tubo": "🔧",
     };
 
     function inferirIcono(nombre: string): string {
@@ -59,36 +54,39 @@ export async function GET(req: NextRequest) {
     function normalizarNodos(nodos: any[]): any[] {
       if (!Array.isArray(nodos)) return [];
       return nodos.map((n: any) => {
-        const id = n.id || n.nodeId || n.assemblyGroupNodeId || "";
-        const nombre = n.name || n.text || n.assemblyGroupName || "";
-        const hijos = normalizarNodos(n.children || n.items || []);
+        // IPDA usa: label (nombre), node (id del nodo), records (subnodos), generics (piezas genéricas)
+        const id = n.node || n.id || n.nodeId || "";
+        const nombre = n.label || n.name || n.text || "";
+        const hijos = normalizarNodos(n.records || n.children || []);
+
+        // Si tiene generics, son las piezas genéricas de este nodo (hojas)
+        const generics = Array.isArray(n.generics)
+          ? n.generics.map((g: any) => ({
+              id: String(g.id || ""),
+              nombre: g.label || g.name || "",
+            }))
+          : [];
+
         return {
           id: String(id),
           nombre,
           hijos,
-          icono: hijos.length > 0 ? inferirIcono(nombre) : undefined,
-          genericId: n.genericId || n.generic || undefined,
-          hasChildren: n.hasChildren || hijos.length > 0,
+          generics,
+          icono: inferirIcono(nombre),
+          hasChildren: hijos.length > 0 || generics.length > 0,
         };
       });
     }
 
-    // Log para debug: ver estructura real de la respuesta
-    console.log("[IPDA] tree response type:", typeof data, Array.isArray(data) ? "array" : "");
-    console.log("[IPDA] tree response keys:", data && typeof data === "object" ? Object.keys(data).slice(0, 20) : "N/A");
-    console.log("[IPDA] tree sample:", JSON.stringify(data).slice(0, 500));
-
     let categorias: any[];
-    if (Array.isArray(data)) {
-      categorias = normalizarNodos(data);
-    } else if (data && typeof data === "object") {
-      // Puede venir como { tree: [...] } o directamente como array
-      const arr = data.tree || data.categories || data.nodes || data.items || data;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const arr = data.tree || data.categories || [];
       categorias = normalizarNodos(Array.isArray(arr) ? arr : []);
+    } else if (Array.isArray(data)) {
+      categorias = normalizarNodos(data);
     } else {
       categorias = [];
     }
-    console.log("[IPDA] categorias normalizadas:", categorias.length, "sample:", JSON.stringify(categorias[0] || {}).slice(0, 300));
 
     return NextResponse.json({
       vehicleId,
