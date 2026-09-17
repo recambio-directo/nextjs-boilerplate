@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 // ── TIPOS ──
@@ -337,7 +338,9 @@ function ArbolCategorias({
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════
 export default function VehiculoPage() {
+  const router = useRouter();
   const [vehiculoActivo, setVehiculoActivo] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [tipoBusqueda, setTipoBusqueda] = useState<"vin" | "matricula">("matricula");
   const [loading, setLoading] = useState(false);
@@ -358,16 +361,64 @@ export default function VehiculoPage() {
   const [infoCatalogo, setInfoCatalogo] = useState<{ total_tecdoc: number; total_en_stock: number } | null>(null);
   const [mostrarFicha, setMostrarFicha] = useState(false);
   const [errorPiezas, setErrorPiezas] = useState<string | null>(null);
+  const [cestaMensaje, setCestaMensaje] = useState<string | null>(null);
+  const [abriendo, setAbriendo] = useState(false);
 
   useEffect(() => {
     const checkAcceso = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setVehiculoActivo(false); return; }
+      setUserId(user.id);
       const { data: perfil } = await supabase.from("usuarios").select("vehiculo_activo").eq("id", user.id).single();
       setVehiculoActivo(perfil?.vehiculo_activo === true);
     };
     checkAcceso();
   }, []);
+
+  // ── Añadir pieza a la cesta (tabla cesta en Supabase) ──
+  const pedirPieza = async (stock: PiezaStock, refTecdoc: string) => {
+    if (!userId) { alert("Inicia sesión para añadir a la cesta"); return; }
+    if (stock.proveedor_id === userId) { alert("No puedes añadir tus propias piezas"); return; }
+    const { error: err } = await supabase.from("cesta").insert({
+      user_id: userId,
+      referencia: stock.referencia || refTecdoc,
+      descripcion: stock.nombre || refTecdoc,
+      precio: stock.precio,
+      impuesto: 0,
+      cantidad: 1,
+      stock: 99,
+      proveedor_id: stock.proveedor_id,
+      proveedor_nombre: stock.proveedor_nombre,
+    });
+    if (err) { alert("Error al añadir a la cesta"); return; }
+    setCestaMensaje(`${stock.referencia}_${stock.proveedor_id}`);
+    setTimeout(() => setCestaMensaje(null), 2500);
+  };
+
+  // ── Abrir chat con proveedor ──
+  const contactarProveedor = async (stock: PiezaStock) => {
+    if (!userId) { alert("Inicia sesión para contactar"); return; }
+    if (!stock.proveedor_id) return;
+    setAbriendo(true);
+    try {
+      const { data: conv1 } = await supabase.from("conversaciones").select("id")
+        .eq("user1_id", userId).eq("user2_id", stock.proveedor_id).maybeSingle();
+      const { data: conv2 } = await supabase.from("conversaciones").select("id")
+        .eq("user1_id", stock.proveedor_id).eq("user2_id", userId).maybeSingle();
+      const convExistente = conv1 || conv2;
+      if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
+      const { data: nuevaConv, error: err } = await supabase.from("conversaciones").insert({
+        user1_id: userId,
+        user2_id: stock.proveedor_id,
+        referencia: stock.referencia,
+        ultimo_mensaje: "",
+        updated_at: new Date().toISOString(),
+      }).select("id").single();
+      if (!err && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
+    } finally {
+      setAbriendo(false);
+    }
+  };
 
   // Cargar categorías para el vehículo seleccionado
   const cargarCategorias = async (vehicleId: string) => {
@@ -1073,22 +1124,22 @@ export default function VehiculoPage() {
                                       </span>
                                       <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
                                         <button
-                                          onClick={() => {
-                                            alert(`Pieza ${s.referencia} de ${s.proveedor_nombre || "proveedor"} añadida al carrito (${s.precio?.toFixed(2)}€)`);
-                                          }}
+                                          onClick={() => pedirPieza(s, art.referencia)}
+                                          disabled={cestaMensaje === `${s.referencia}_${s.proveedor_id}`}
                                           style={{
                                             padding: "5px 10px", borderRadius: "6px", border: "none",
-                                            background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff",
+                                            background: cestaMensaje === `${s.referencia}_${s.proveedor_id}`
+                                              ? "#065f46" : "linear-gradient(135deg,#16a34a,#15803d)",
+                                            color: "#fff",
                                             fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                                           }}
                                           title="Añadir al carrito"
                                         >
-                                          🛒 Pedir
+                                          {cestaMensaje === `${s.referencia}_${s.proveedor_id}` ? "✅ Añadido" : "🛒 Pedir"}
                                         </button>
                                         <button
-                                          onClick={() => {
-                                            alert(`Contactar con ${s.proveedor_nombre || "proveedor"} por la pieza ${s.referencia}`);
-                                          }}
+                                          onClick={() => contactarProveedor(s)}
+                                          disabled={abriendo}
                                           style={{
                                             padding: "5px 10px", borderRadius: "6px",
                                             border: "1px solid #334155", background: "transparent",
