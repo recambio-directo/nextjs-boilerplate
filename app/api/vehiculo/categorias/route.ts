@@ -73,6 +73,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Log para debug: ver estructura real de la respuesta
+    console.log("[IPDA] tree response type:", typeof data, Array.isArray(data) ? "array" : "");
+    console.log("[IPDA] tree response keys:", data && typeof data === "object" ? Object.keys(data).slice(0, 20) : "N/A");
+    console.log("[IPDA] tree sample:", JSON.stringify(data).slice(0, 500));
+
     let categorias: any[];
     if (Array.isArray(data)) {
       categorias = normalizarNodos(data);
@@ -83,6 +88,7 @@ export async function GET(req: NextRequest) {
     } else {
       categorias = [];
     }
+    console.log("[IPDA] categorias normalizadas:", categorias.length, "sample:", JSON.stringify(categorias[0] || {}).slice(0, 300));
 
     return NextResponse.json({
       vehicleId,
