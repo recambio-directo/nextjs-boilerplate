@@ -227,6 +227,15 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      <div style={{ padding: "16px 16px 0" }}>
+        <Link href="/dashboard/vehiculo" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(16,185,129,0.12) 100%)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 16, padding: "20px 18px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 60, opacity: 0.12 }}>🚗</div>
+          <div style={{ display: "inline-block", background: "rgba(37,99,235,0.25)", color: "#60a5fa", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>NUEVO</div>
+          <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
+          <p style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>Busca por matrícula o bastidor y encuentra piezas compatibles con precios en tiempo real</p>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 800 }}>Explorar catálogo →</span>
+        </Link>
+      </div>
       <div style={{ padding: "16px 16px 0" }}><BloqueRDPago /></div>
       <div style={{ padding: "16px 16px 0" }}>
         <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 10 }}>ACCESOS RÁPIDOS</p>
@@ -321,6 +330,25 @@ export default function Dashboard() {
               <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
             </div>
           ))}
+        </div>
+        {/* BANNER VEHÍCULOS */}
+        <div style={{ padding: "0 50px", marginBottom: 24 }}>
+          <Link href="/dashboard/vehiculo" style={{ display: "flex", alignItems: "center", gap: 32, textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "32px 40px", position: "relative", overflow: "hidden", transition: "border-color 0.2s" }}>
+            <div style={{ position: "absolute", top: -20, right: 20, fontSize: 120, opacity: 0.06 }}>🚗</div>
+            <div style={{ flex: 1, position: "relative", zIndex: 2 }}>
+              <div style={{ display: "inline-block", background: "rgba(37,99,235,0.25)", color: "#60a5fa", padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>🆕 NUEVO SERVICIO</div>
+              <h3 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
+              <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, maxWidth: 500 }}>Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles con precios y stock en tiempo real.</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["🔍 Matrícula / VIN", "🔧 Motor y datos", "📦 Piezas + Stock"].map(t => (
+                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, color: "#cbd5e1", whiteSpace: "nowrap" }}>{t}</span>
+                ))}
+              </div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 14, padding: "14px 28px", fontSize: 15, fontWeight: 800, boxShadow: "0 4px 20px rgba(37,99,235,0.3)" }}>Explorar catálogo →</span>
+            </div>
+          </Link>
         </div>
         {/* RD PAGO */}
         <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>

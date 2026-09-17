@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
 // ── TIPOS ──
@@ -88,10 +87,10 @@ function LandingVehiculo() {
   const ventajas = [
     { icon: "🔍", titulo: "Identifica cualquier vehiculo", desc: "Introduce el bastidor (VIN) o la matricula y obtén todos los datos técnicos al instante" },
     { icon: "🔧", titulo: "Datos de motor completos", desc: "Codigo motor, cilindrada, potencia, combustible, emisiones..." },
-    { icon: "📦", titulo: "Catalogo de piezas TecDoc", desc: "Piezas compatibles verificadas por TecDoc para el vehiculo exacto" },
+    { icon: "📦", titulo: "Catalogo de piezas compatibles", desc: "Piezas compatibles verificadas para el vehiculo exacto" },
     { icon: "💰", titulo: "Precios y stock en tiempo real", desc: "Ve directamente qué piezas hay disponibles en la red de proveedores y a qué precio" },
     { icon: "📋", titulo: "Ficha técnica completa", desc: "VIN, motor, transmision, carroceria, neumaticos, peso, emisiones..." },
-    { icon: "⚡", titulo: "Conexion TecDoc profesional", desc: "Base de datos TecDoc real con millones de referencias verificadas" },
+    { icon: "⚡", titulo: "Base de datos profesional", desc: "Millones de referencias verificadas de fabricantes y proveedores" },
   ];
 
   return (
@@ -338,7 +337,6 @@ function ArbolCategorias({
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════
 export default function VehiculoPage() {
-  const router = useRouter();
   const [vehiculoActivo, setVehiculoActivo] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -406,7 +404,7 @@ export default function VehiculoPage() {
       const { data: conv2 } = await supabase.from("conversaciones").select("id")
         .eq("user1_id", stock.proveedor_id).eq("user2_id", userId).maybeSingle();
       const convExistente = conv1 || conv2;
-      if (convExistente) { router.push(`/chat?conv=${convExistente.id}`); return; }
+      if (convExistente) { window.open(`/chat?conv=${convExistente.id}`, '_blank'); return; }
       const { data: nuevaConv, error: err } = await supabase.from("conversaciones").insert({
         user1_id: userId,
         user2_id: stock.proveedor_id,
@@ -414,7 +412,7 @@ export default function VehiculoPage() {
         ultimo_mensaje: "",
         updated_at: new Date().toISOString(),
       }).select("id").single();
-      if (!err && nuevaConv) router.push(`/chat?conv=${nuevaConv.id}`);
+      if (!err && nuevaConv) window.open(`/chat?conv=${nuevaConv.id}`, '_blank');
     } finally {
       setAbriendo(false);
     }
@@ -814,10 +812,6 @@ export default function VehiculoPage() {
                     🛞 {varianteSeleccionada.traccion}
                   </span>
                 )}
-                <span style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334155", borderRadius: "8px", padding: "5px 12px", color: "#64748b", fontSize: "12px", fontWeight: 600 }}>
-                  TecDoc: {varianteSeleccionada.id}
-                </span>
-
                 <button
                   onClick={() => setMostrarFicha(!mostrarFicha)}
                   style={{
@@ -891,7 +885,7 @@ export default function VehiculoPage() {
                     Catalogo de piezas
                   </h2>
                   <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>
-                    Piezas compatibles verificadas por TecDoc para {varianteSeleccionada.nombre_completo}
+                    Piezas compatibles verificadas para {varianteSeleccionada.nombre_completo}
                   </p>
                 </div>
                 {loadingCategorias && (
@@ -972,7 +966,7 @@ export default function VehiculoPage() {
                         {infoCatalogo && (
                           <div style={{ display: "flex", gap: "16px" }}>
                             <span style={{ color: "#93c5fd", fontSize: "12px", fontWeight: 600 }}>
-                              📋 {infoCatalogo.total_tecdoc} refs TecDoc
+                              📋 {infoCatalogo.total_tecdoc} referencias
                             </span>
                             <span style={{ color: infoCatalogo.total_en_stock > 0 ? "#4ade80" : "#64748b", fontSize: "12px", fontWeight: 600 }}>
                               ✅ {infoCatalogo.total_en_stock} en stock marketplace
@@ -1055,7 +1049,7 @@ export default function VehiculoPage() {
                                 </div>
                               )}
 
-                              {/* Precios TecDoc (PVP del fabricante) */}
+                              {/* PVP del fabricante */}
                               {art.pvp_neto !== null && (
                                 <div style={{
                                   padding: "8px 16px",
