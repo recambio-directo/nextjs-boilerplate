@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [cif, setCif] = useState("");
   const [telefono, setTelefono] = useState("");
   const [iban, setIban] = useState("");
+  const [slideActual, setSlideActual] = useState(0);
+  const totalSlides = 3;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -30,6 +32,14 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { cargarDatos(); }, []);
+
+  // Auto-rotación del carrusel hero
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideActual((prev) => (prev + 1) % totalSlides);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -207,11 +217,31 @@ export default function Dashboard() {
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
-      <div style={{ position: "relative", height: 180, background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", display: "flex", alignItems: "flex-end", padding: "20px 16px" }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.92))" }} />
-        <div style={{ position: "relative", zIndex: 2 }}>
-          <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>MARKETPLACE PROFESIONAL</p>
-          <h1 style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>{nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido"}</h1>
+      {/* CARRUSEL MÓVIL */}
+      <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
+        {[
+          { bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", badge: "MARKETPLACE PROFESIONAL", badgeColor: "#60a5fa", titulo: nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido", sub: "Busca OEM, IAM y equivalencias", href: "/dashboard/buscar" },
+          { bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=800&auto=format&fit=crop') center/cover", badge: "🆕 NUEVO", badgeColor: "#4ade80", titulo: "Catálogo Vehículos", sub: "Matrícula → piezas compatibles", href: "/dashboard/vehiculo" },
+          { bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800&auto=format&fit=crop') center/cover", badge: "📚 CATÁLOGOS", badgeColor: "#fbbf24", titulo: "Catálogos Proveedores", sub: "Referencias y stock al instante", href: "/dashboard/catalogos" },
+        ].map((s, i) => (
+          <Link key={i} href={s.href} style={{
+            position: "absolute", inset: 0, background: s.bg, display: "flex", alignItems: "flex-end", padding: "20px 16px",
+            textDecoration: "none", color: "white",
+            opacity: slideActual === i ? 1 : 0, transition: "opacity 0.8s ease-in-out",
+            pointerEvents: slideActual === i ? "auto" : "none",
+          }}>
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.92))" }} />
+            <div style={{ position: "relative", zIndex: 2 }}>
+              <p style={{ color: s.badgeColor, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{s.badge}</p>
+              <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, marginBottom: 4 }}>{s.titulo}</h1>
+              <p style={{ color: "#94a3b8", fontSize: 12 }}>{s.sub}</p>
+            </div>
+          </Link>
+        ))}
+        <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
+          {[0, 1, 2].map(i => (
+            <button key={i} onClick={() => setSlideActual(i)} style={{ width: slideActual === i ? 24 : 8, height: 8, borderRadius: 4, border: "none", background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "all 0.3s" }} />
+          ))}
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
@@ -227,13 +257,20 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-      <div style={{ padding: "16px 16px 0" }}>
-        <Link href="/dashboard/vehiculo" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(16,185,129,0.12) 100%)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 16, padding: "20px 18px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 60, opacity: 0.12 }}>🚗</div>
-          <div style={{ display: "inline-block", background: "rgba(37,99,235,0.25)", color: "#60a5fa", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>NUEVO</div>
-          <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
-          <p style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>Busca por matrícula o bastidor y encuentra piezas compatibles con precios en tiempo real</p>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 800 }}>Explorar catálogo →</span>
+      <div style={{ display: "grid", gap: 10, padding: "16px 16px 0" }}>
+        <Link href="/dashboard/vehiculo" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(16,185,129,0.12) 100%)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 16, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 50, opacity: 0.1 }}>🚗</div>
+          <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 6 }}>🆕 NUEVO</div>
+          <h3 style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>Catálogo de Vehículos</h3>
+          <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>Matrícula o VIN → piezas compatibles con stock en tiempo real</p>
+          <span style={{ display: "inline-flex", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 8, padding: "7px 14px", fontSize: 11, fontWeight: 800 }}>Explorar →</span>
+        </Link>
+        <Link href="/dashboard/catalogos" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 16, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 50, opacity: 0.1 }}>📚</div>
+          <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 6 }}>📚 CATÁLOGOS</div>
+          <h3 style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>Catálogos de Proveedores</h3>
+          <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>Busca referencias en catálogos y consulta stock disponible</p>
+          <span style={{ display: "inline-flex", background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 8, padding: "7px 14px", fontSize: 11, fontWeight: 800 }}>Ver catálogos →</span>
         </Link>
       </div>
       <div style={{ padding: "16px 16px 0" }}><BloqueRDPago /></div>
@@ -311,13 +348,88 @@ export default function Dashboard() {
         </div>
       </aside>
       <section style={{ flex: 1, overflow: "hidden" }}>
-        <div style={{ height: 420, position: "relative", background: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover", display: "flex", alignItems: "center", padding: 70 }}>
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))" }} />
-          <div style={{ position: "relative", zIndex: 2 }}>
-            <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.18)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", fontWeight: 700, marginBottom: 16, fontSize: 14 }}>MARKETPLACE PROFESIONAL</div>
-            <h1 style={{ fontSize: 82, lineHeight: 1, fontWeight: 900, marginBottom: 26 }}>ENCUENTRA<br />RECAMBIOS</h1>
-            <p style={{ fontSize: 22, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 760 }}>Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.</p>
+        {/* ═══ CARRUSEL HERO ═══ */}
+        <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
+          {[
+            {
+              bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover",
+              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))",
+              badge: "MARKETPLACE PROFESIONAL",
+              badgeColor: "#60a5fa",
+              badgeBg: "rgba(37,99,235,0.18)",
+              badgeBorder: "rgba(37,99,235,0.3)",
+              titulo: "ENCUENTRA\nRECAMBIOS",
+              subtitulo: "Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.",
+              href: "/dashboard/buscar",
+              boton: "Buscar ahora →",
+              botonBg: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+            },
+            {
+              bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop') center/cover",
+              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
+              badge: "🆕 NUEVO SERVICIO",
+              badgeColor: "#4ade80",
+              badgeBg: "rgba(22,163,74,0.18)",
+              badgeBorder: "rgba(22,163,74,0.3)",
+              titulo: "CATÁLOGO DE\nVEHÍCULOS",
+              subtitulo: "Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles.",
+              href: "/dashboard/vehiculo",
+              boton: "Explorar vehículos →",
+              botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
+            },
+            {
+              bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1600&auto=format&fit=crop') center/cover",
+              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
+              badge: "📚 CATÁLOGOS",
+              badgeColor: "#fbbf24",
+              badgeBg: "rgba(245,158,11,0.18)",
+              badgeBorder: "rgba(245,158,11,0.3)",
+              titulo: "CATÁLOGOS DE\nPROVEEDORES",
+              subtitulo: "Consulta los catálogos completos de los proveedores conectados y encuentra stock disponible al instante.",
+              href: "/dashboard/catalogos",
+              boton: "Ver catálogos →",
+              botonBg: "linear-gradient(135deg,#d97706,#b45309)",
+            },
+          ].map((slide, i) => (
+            <Link
+              key={i}
+              href={slide.href}
+              style={{
+                position: "absolute", inset: 0,
+                background: slide.bg,
+                display: "flex", alignItems: "center", padding: 70,
+                textDecoration: "none", color: "white",
+                opacity: slideActual === i ? 1 : 0,
+                transition: "opacity 0.8s ease-in-out",
+                pointerEvents: slideActual === i ? "auto" : "none",
+              }}
+            >
+              <div style={{ position: "absolute", inset: 0, background: slide.overlay }} />
+              <div style={{ position: "relative", zIndex: 2 }}>
+                <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: slide.badgeBg, border: `1px solid ${slide.badgeBorder}`, color: slide.badgeColor, fontWeight: 700, marginBottom: 16, fontSize: 14 }}>{slide.badge}</div>
+                <h1 style={{ fontSize: 72, lineHeight: 1, fontWeight: 900, marginBottom: 22, whiteSpace: "pre-line" }}>{slide.titulo}</h1>
+                <p style={{ fontSize: 20, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 660, marginBottom: 28 }}>{slide.subtitulo}</p>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: slide.botonBg, borderRadius: 14, padding: "14px 28px", fontSize: 16, fontWeight: 800, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>{slide.boton}</span>
+              </div>
+            </Link>
+          ))}
+          {/* Dots de navegación */}
+          <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10, zIndex: 10 }}>
+            {[0, 1, 2].map((i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.preventDefault(); setSlideActual(i); }}
+                style={{
+                  width: slideActual === i ? 32 : 10, height: 10, borderRadius: 5, border: "none",
+                  background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)",
+                  cursor: "pointer", transition: "all 0.3s",
+                }}
+              />
+            ))}
           </div>
+          {/* Flechas */}
+          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual - 1 + totalSlides) % totalSlides); }} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>‹</button>
+          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual + 1) % totalSlides); }} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>›</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "40px 50px" }}>
           {[
@@ -331,23 +443,35 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-        {/* BANNER VEHÍCULOS */}
-        <div style={{ padding: "0 50px", marginBottom: 24 }}>
-          <Link href="/dashboard/vehiculo" style={{ display: "flex", alignItems: "center", gap: 32, textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "32px 40px", position: "relative", overflow: "hidden", transition: "border-color 0.2s" }}>
-            <div style={{ position: "absolute", top: -20, right: 20, fontSize: 120, opacity: 0.06 }}>🚗</div>
-            <div style={{ flex: 1, position: "relative", zIndex: 2 }}>
-              <div style={{ display: "inline-block", background: "rgba(37,99,235,0.25)", color: "#60a5fa", padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>🆕 NUEVO SERVICIO</div>
-              <h3 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
-              <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, maxWidth: 500 }}>Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles con precios y stock en tiempo real.</p>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                {["🔍 Matrícula / VIN", "🔧 Motor y datos", "📦 Piezas + Stock"].map(t => (
-                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, color: "#cbd5e1", whiteSpace: "nowrap" }}>{t}</span>
+        {/* BANNERS VEHÍCULOS + CATÁLOGOS */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "0 50px", marginBottom: 24 }}>
+          <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>🚗</div>
+            <div style={{ position: "relative", zIndex: 2 }}>
+              <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>🆕 NUEVO</div>
+              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Busca por matrícula o bastidor (VIN), identifica el vehículo y navega piezas compatibles con stock y precios en tiempo real.</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                {["🔍 Matrícula / VIN", "🔧 Datos motor", "📦 Stock real"].map(t => (
+                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
                 ))}
               </div>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 14, padding: "14px 28px", fontSize: 15, fontWeight: 800, boxShadow: "0 4px 20px rgba(37,99,235,0.3)" }}>Explorar catálogo →</span>
             </div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Explorar vehículos →</span>
+          </Link>
+          <Link href="/dashboard/catalogos" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>📚</div>
+            <div style={{ position: "relative", zIndex: 2 }}>
+              <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>📚 CATÁLOGOS</div>
+              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogos de Proveedores</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Consulta los catálogos completos de los proveedores conectados, busca referencias y comprueba el stock disponible al instante.</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                {["🔎 Buscar referencias", "📋 Catálogos PDF", "✅ Stock directo"].map(t => (
+                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(217,119,6,0.3)" }}>Ver catálogos →</span>
           </Link>
         </div>
         {/* RD PAGO */}
