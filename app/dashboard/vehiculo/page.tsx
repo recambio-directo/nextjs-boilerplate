@@ -216,7 +216,22 @@ function ArbolCategorias({
                 marginBottom: esRaiz ? "2px" : "0",
               }}
               onClick={() => {
-                if (esExpandible) {
+                if (tieneHijos) {
+                  // Tiene subcategorías: expandir/colapsar
+                  toggleExpandir(cat.id);
+                } else if (tieneGenerics && cat.generics!.length === 1) {
+                  // Un solo genérico: seleccionar directamente sin expandir
+                  const gen = cat.generics![0];
+                  onSeleccionar({
+                    id: cat.id,
+                    nombre: gen.nombre || cat.nombre,
+                    hijos: [],
+                    genericId: gen.id,
+                    icono: cat.icono,
+                    hasChildren: false,
+                  });
+                } else if (tieneGenerics) {
+                  // Varios genéricos: expandir para mostrarlos
                   toggleExpandir(cat.id);
                 } else {
                   // Hoja sin hijos ni genéricos: seleccionar directamente
