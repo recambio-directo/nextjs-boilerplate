@@ -109,6 +109,7 @@ const jsonLd = {
       "url": "https://www.recambio-directo.com",
       "name": "Recambio Directo",
       "description": "Marketplace B2B de recambios de automoción en España",
+      "publisher": { "@id": "https://www.recambio-directo.com/#organization" },
       "inLanguage": "es-ES",
       "potentialAction": {
         "@type": "SearchAction",
@@ -133,20 +134,38 @@ const jsonLd = {
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "info@recambio-directo.com",
+        "telephone": "+34744487895",
         "contactType": "customer service",
         "availableLanguage": "Spanish",
+        "areaServed": "ES",
       },
-      "areaServed": "ES",
+      "sameAs": [
+        "https://www.instagram.com/recambiodirect/",
+        "https://www.linkedin.com/company/135907554",
+      ],
+      "areaServed": {
+        "@type": "Country",
+        "name": "España",
+      },
       "description": "Marketplace B2B especializado en recambios de automoción. Conectamos talleres y proveedores en toda España.",
+      "knowsAbout": ["recambios de automoción", "piezas OEM", "piezas IAM", "marketplace B2B"],
     },
     {
       "@type": "FAQPage",
+      "@id": "https://www.recambio-directo.com/#faq",
       "mainEntity": [
         { "@type": "Question", "name": "¿Cuánto cuesta Recambio Directo?", "acceptedAnswer": { "@type": "Answer", "text": "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." } },
         { "@type": "Question", "name": "¿Quién puede registrarse?", "acceptedAnswer": { "@type": "Answer", "text": "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." } },
         { "@type": "Question", "name": "¿Cuánto tarda en activarse mi cuenta?", "acceptedAnswer": { "@type": "Answer", "text": "Verificamos cada cuenta manualmente en menos de 24 horas laborables." } },
         { "@type": "Question", "name": "¿Qué agencias de transporte están disponibles?", "acceptedAnswer": { "@type": "Answer", "text": "Trabajamos con GLS, MRW, NACEX, SEUR, Correos Express y CTT Express." } },
         { "@type": "Question", "name": "¿Cómo funciona RD Pago?", "acceptedAnswer": { "@type": "Answer", "text": "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." } },
+      ],
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://www.recambio-directo.com/#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.recambio-directo.com" },
       ],
     },
   ],

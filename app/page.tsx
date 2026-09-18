@@ -22,8 +22,8 @@ export default function Home() {
       <section className="landing-hero">
         <div className="landing-hero-mobile-header">
           <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
-          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
-            RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
+          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1.1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
+            Marketplace B2B de Recambios de Automoción en España
           </h1>
           <p style={{ color: "#94a3b8", marginBottom: "24px", fontSize: "15px", lineHeight: 1.6 }}>
             La plataforma B2B que conecta talleres y proveedores de recambios en toda España.
@@ -31,9 +31,10 @@ export default function Home() {
         </div>
         <div className="landing-hero-text">
           <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
-          <h1 style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
+          <h1 className="sr-only">Marketplace B2B de Recambios de Automoción en España — Recambio Directo</h1>
+          <div aria-hidden="true" style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
             RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
-          </h1>
+          </div>
           <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
             La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
           </p>
@@ -58,14 +59,14 @@ export default function Home() {
       <section className="landing-section">
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={badgeStyle}>¿QUIÉN SOY?</div>
-          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Elige tu perfil</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Recambios para talleres y proveedores</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
         </div>
         <div className="landing-grid-2">
           <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
             <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
-            <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Encuentra el recambio que necesitas en segundos</h2>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Encuentra el recambio que necesitas en segundos</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sin esperar a que te cojan el teléfono. Sin catálogos desactualizados. Busca por referencia OEM o IAM, ve el precio en tiempo real y pide en 3 clics.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
               {["Acceso a referencias OEM, IAM y Universal", "Entrega 24h con las principales agencias de transporte", "Chat directo con el proveedor en cada pedido", "Historial de pedidos y facturas descargables", "RD Pago — compra ahora y paga en 15 días"].map(item => (
@@ -80,7 +81,7 @@ export default function Home() {
           <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
             <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
-            <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h2>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
               {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "Precio fijo mensual — sin sorpresas"].map(item => (
@@ -99,7 +100,7 @@ export default function Home() {
       <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={badgeStyle}>PROCESO</div>
-          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Empieza en 3 pasos</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Cómo comprar recambios en 3 pasos</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Sin burocracia, sin esperas, sin complicaciones</p>
         </div>
         <div className="landing-grid-3">
@@ -124,7 +125,7 @@ export default function Home() {
       <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={badgeStyle}>PLATAFORMA</div>
-          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Todo lo que necesitas en un solo lugar</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda de recambios OEM e IAM, pedidos y logística en un solo lugar</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Diseñado específicamente para el sector del recambio de automoción en España</p>
         </div>
         <div className="landing-grid-2">
@@ -149,11 +150,20 @@ export default function Home() {
       <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={badgeStyle}>COBERTURA NACIONAL</div>
-          <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Marketplace de recambios en toda España</h2>
+          <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Proveedores de recambios en toda España</h2>
           <p style={{ color: "#94a3b8", fontSize: 15, maxWidth: 600, margin: "0 auto" }}>Proveedores y talleres conectados en las principales ciudades y provincias españolas</p>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
-          {["Madrid", "Barcelona", "Valencia", "Sevilla", "Zaragoza", "Málaga", "Murcia", "Palma", "Las Palmas", "Bilbao", "Alicante", "Córdoba", "Valladolid", "Vigo", "Gijón", "Granada", "Hospitalet", "Vitoria", "A Coruña", "Elche", "Santa Cruz de Tenerife", "Oviedo", "Badalona", "Cartagena", "Terrassa", "Sabadell", "Jerez", "Móstoles", "Alcalá de Henares", "Pamplona"].map(ciudad => (
+          {[
+            { nombre: "Madrid", href: "/recambios-madrid" },
+            { nombre: "Barcelona", href: "/recambios-barcelona" },
+            { nombre: "Valencia", href: "/recambios-valencia" },
+            { nombre: "Sevilla", href: "/recambios-sevilla" },
+            { nombre: "Bilbao", href: "/recambios-bilbao" },
+          ].map(({ nombre, href }) => (
+            <a key={nombre} href={href} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{nombre}</a>
+          ))}
+          {["Zaragoza", "Málaga", "Murcia", "Palma", "Las Palmas", "Alicante", "Córdoba", "Valladolid", "Vigo", "Gijón", "Granada", "Hospitalet", "Vitoria", "A Coruña", "Elche", "Santa Cruz de Tenerife", "Oviedo", "Badalona", "Cartagena", "Terrassa", "Sabadell", "Jerez", "Móstoles", "Alcalá de Henares", "Pamplona"].map(ciudad => (
             <span key={ciudad} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600 }}>{ciudad}</span>
           ))}
         </div>
@@ -178,7 +188,7 @@ export default function Home() {
       <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={badgeStyle}>PREGUNTAS FRECUENTES</div>
-          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Resolvemos tus dudas</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Preguntas frecuentes sobre recambios B2B</h2>
         </div>
         <div className="landing-grid-2 landing-faq-grid" style={{ gap: 20, maxWidth: 1000, margin: "0 auto" }}>
           {[
@@ -220,7 +230,7 @@ export default function Home() {
 
       {/* ── FOOTER ── */}
       <footer style={{ padding: "clamp(32px, 6vw, 60px) clamp(20px, 6vw, 80px) 30px", position: "relative", zIndex: 10 }}>
-        <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
             <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores de recambios en toda España.</p>
@@ -229,7 +239,16 @@ export default function Home() {
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
             <a href="/registro" style={footerLink}>Crear cuenta</a>
             <a href="/quienes-somos" style={footerLink}>Quiénes somos</a>
+            <a href="/blog" style={footerLink}>Blog</a>
             <a href="mailto:info@recambio-directo.com" style={footerLink}>Contacto</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Recambios por ciudad</h4>
+            <a href="/recambios-madrid" style={footerLink}>Recambios en Madrid</a>
+            <a href="/recambios-barcelona" style={footerLink}>Recambios en Barcelona</a>
+            <a href="/recambios-valencia" style={footerLink}>Recambios en Valencia</a>
+            <a href="/recambios-sevilla" style={footerLink}>Recambios en Sevilla</a>
+            <a href="/recambios-bilbao" style={footerLink}>Recambios en Bilbao</a>
           </div>
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Legal</h4>
@@ -242,7 +261,7 @@ export default function Home() {
           <div>
             <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>
             <p style={{ color: "#94a3b8", fontSize: 13 }}>info@recambio-directo.com</p>
-            <a href="tel:744487895" style={{ color: "#94a3b8", fontSize: 13, marginTop: 4, display: "block", textDecoration: "none" }}>744 487 895</a>
+            <a href="tel:+34744487895" style={{ color: "#94a3b8", fontSize: 13, marginTop: 4, display: "block", textDecoration: "none" }}>744 487 895</a>
             <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>España</p>
             <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
               <a href="https://www.instagram.com/recambiodirect/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>📷</a>
