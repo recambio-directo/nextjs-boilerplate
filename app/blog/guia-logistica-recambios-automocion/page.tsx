@@ -30,8 +30,38 @@ const section: React.CSSProperties = {
   marginBottom: 24,
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Guía de logística para recambios de automoción en España",
+      "description": "Agencias de transporte, plazos de entrega, etiquetas automáticas y tracking en tiempo real. Todo sobre la logística de recambios de coche en España.",
+      "datePublished": "2026-09-01",
+      "dateModified": "2026-09-18",
+      "author": { "@type": "Organization", "name": "Recambio Directo", "url": "https://www.recambio-directo.com" },
+      "publisher": { "@id": "https://www.recambio-directo.com/#organization" },
+      "mainEntityOfPage": "https://www.recambio-directo.com/blog/guia-logistica-recambios-automocion",
+      "inLanguage": "es-ES",
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.recambio-directo.com" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.recambio-directo.com/blog" },
+        { "@type": "ListItem", "position": 3, "name": "Guía logística", "item": "https://www.recambio-directo.com/blog/guia-logistica-recambios-automocion" },
+      ],
+    },
+  ],
+};
+
 export default function ArticuloLogistica() {
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <main
       style={{
         minHeight: "100vh",
@@ -339,6 +369,28 @@ export default function ArticuloLogistica() {
           </a>
         </div>
 
+        <div style={{ ...section, marginTop: 32 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 16, color: "white" }}>
+            Artículos relacionados
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <a href="/blog/como-elegir-recambios-oem-o-iam" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 15, lineHeight: 1.6 }}>
+              → Cómo elegir entre recambios OEM e IAM: guía para talleres
+            </a>
+            <a href="/blog/ventajas-marketplace-b2b-recambios" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 15, lineHeight: 1.6 }}>
+              → 5 ventajas de usar un marketplace B2B para comprar recambios
+            </a>
+          </div>
+          <p style={{ color: "#64748b", fontSize: 14, marginTop: 16, lineHeight: 1.6 }}>
+            Recambios con envío 24h en tu ciudad:{" "}
+            <a href="/recambios-madrid" style={{ color: "#60a5fa", textDecoration: "none" }}>Madrid</a>{" · "}
+            <a href="/recambios-barcelona" style={{ color: "#60a5fa", textDecoration: "none" }}>Barcelona</a>{" · "}
+            <a href="/recambios-valencia" style={{ color: "#60a5fa", textDecoration: "none" }}>Valencia</a>{" · "}
+            <a href="/recambios-sevilla" style={{ color: "#60a5fa", textDecoration: "none" }}>Sevilla</a>{" · "}
+            <a href="/recambios-bilbao" style={{ color: "#60a5fa", textDecoration: "none" }}>Bilbao</a>
+          </p>
+        </div>
+
         <div
           style={{
             textAlign: "center",
@@ -356,5 +408,6 @@ export default function ArticuloLogistica() {
         </div>
       </article>
     </main>
+    </>
   );
 }
