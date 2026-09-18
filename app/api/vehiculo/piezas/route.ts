@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { obtenerReferencias } from "../../../lib/ipda";
+import { obtenerReferencias, obtenerCategorias } from "../../../lib/ipda";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,9 +31,51 @@ export async function GET(req: NextRequest) {
     // ── PASO 1: Obtener piezas TecDoc de IPDA ──
     console.log(`[Piezas] vehicleId=${vehicleId} nodoId=${nodoId} genericoId=${genericoId}`);
 
-    const ipdaData = await obtenerReferencias(vehicleId, nodoId, genericoId);
+    let refsTecdoc: any[] = [];
 
-    const refsTecdoc: any[] = ipdaData?.refs || [];
+    if (genericoId) {
+      // Caso normal: tenemos el genérico, buscar directamente
+      const ipdaData = await obtenerReferencias(vehicleId, nodoId, genericoId);
+      refsTecdoc = ipdaData?.refs || [];
+    } else {
+      // Sin genericoId: obtener el árbol de categorías y buscar los genéricos de este nodo
+      console.log(`[Piezas] Sin genericoId, buscando genéricos del nodo ${nodoId}...`);
+      try {
+        const catData = await obtenerCategorias(vehicleId);
+        const tree = catData?.tree || catData?.categories || [];
+
+        // Buscar el nodo en el árbol recursivamente
+        function findNode(nodes: any[], targetId: string): any | null {
+          for (const n of nodes) {
+            if (String(n.node || n.id) === targetId) return n;
+            const found = findNode(n.records || n.children || [], targetId);
+            if (found) return found;
+          }
+          return null;
+        }
+
+        const nodo = findNode(Array.isArray(tree) ? tree : [], nodoId);
+        const generics = nodo?.generics || [];
+
+        if (generics.length > 0) {
+          // Buscar piezas para cada genérico (máximo 5 para no sobrecargar)
+          const genericIds = generics.slice(0, 5).map((g: any) => String(g.id));
+          console.log(`[Piezas] Encontrados ${generics.length} genéricos, buscando: ${genericIds.join(", ")}`);
+          const resultados = await Promise.all(
+            genericIds.map((gId: string) =>
+              obtenerReferencias(vehicleId, nodoId, gId).catch(() => ({ refs: [] }))
+            )
+          );
+          for (const r of resultados) {
+            if (r?.refs) refsTecdoc = refsTecdoc.concat(r.refs);
+          }
+        } else {
+          console.log(`[Piezas] Nodo ${nodoId} no tiene genéricos`);
+        }
+      } catch (catErr: any) {
+        console.error(`[Piezas] Error obteniendo genéricos del nodo:`, catErr.message);
+      }
+    }
     console.log(`[Piezas] TecDoc refs: ${refsTecdoc.length}`);
 
     if (refsTecdoc.length === 0) {
