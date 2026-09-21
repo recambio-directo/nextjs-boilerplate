@@ -48,13 +48,13 @@ async function post(endpoint: string, body: Record<string, any>): Promise<any> {
 
 // GET /api/debug/ipda-test?vehicleId=135598&nodoId=100261
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+
   // Auth temporal para diagnóstico — ELIMINAR después del test
   const secret = searchParams.get("key");
   if (secret !== "diag2026tmp") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const { searchParams } = new URL(req.url);
   const vehicleId = searchParams.get("vehicleId") || "135598";
   const nodoId = searchParams.get("nodoId") || "100261"; // Filtro combustible
 
