@@ -135,29 +135,33 @@ export interface IpdaPlateResult {
 }
 
 export async function buscarVehiculo(busqueda: string): Promise<IpdaPlateResult> {
-  const valor = busqueda.trim().toUpperCase();
+  const valor = busqueda.trim().toUpperCase().replace(/[\s\-]/g, "");
 
   // Determinar si es VIN (17 chars alfanumérico) o matrícula
   const esVin = /^[A-HJ-NPR-Z0-9]{17}$/.test(valor);
 
-  // Construir token2: "idInstalacion#claveInstalacion#matricula"
-  // idInstalacion = 75, claveInstalacion = 6T8AZS9G (ambos requeridos por IPDA)
-  const IPDA_PLATE_PREFIX = process.env.IPDA_PLATE_PREFIX || "75";
-  const IPDA_PLATE_KEY = process.env.IPDA_PLATE_KEY || "6T8AZS9G";
-  const prefijo = IPDA_PLATE_PREFIX.padStart(6, "0");
-  // Formato siempre: prefijo#claveInstalacion#búsqueda
-  // IPDA detecta automáticamente si el tercer campo es VIN (17 chars) o matrícula
-  const valorLimpio = valor.replace(/[\s\-]/g, "");
-  const token2 = `${prefijo}#${IPDA_PLATE_KEY}#${valorLimpio}`;
+  if (esVin) {
+    // ── VIN/Bastidor: usar endpoint /vehicle/vin ──
+    console.log(`[IPDA] Buscando por VIN: ${valor}`);
+    const data = await ipdaPost("/vehicle/vin", {
+      vin: valor,
+      country: "es",
+    });
+    return data as IpdaPlateResult;
+  } else {
+    // ── Matrícula: usar endpoint /search/plate con token2 ──
+    const IPDA_PLATE_PREFIX = process.env.IPDA_PLATE_PREFIX || "75";
+    const IPDA_PLATE_KEY = process.env.IPDA_PLATE_KEY || "6T8AZS9G";
+    const prefijo = IPDA_PLATE_PREFIX.padStart(6, "0");
+    const token2 = `${prefijo}#${IPDA_PLATE_KEY}#${valor}`;
 
-  console.log(`[IPDA] Buscando vehículo: token2=${token2}`);
-
-  const data = await ipdaPost("/search/plate", {
-    token2,
-    country: "es",
-  });
-
-  return data as IpdaPlateResult;
+    console.log(`[IPDA] Buscando por matrícula: token2=${token2}`);
+    const data = await ipdaPost("/search/plate", {
+      token2,
+      country: "es",
+    });
+    return data as IpdaPlateResult;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
