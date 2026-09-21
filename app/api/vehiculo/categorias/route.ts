@@ -88,6 +88,18 @@ export async function GET(req: NextRequest) {
       categorias = [];
     }
 
+    // LOG: debug para identificar nodos sin genéricos
+    function logNodosSinGenerics(cats: any[], path: string = "") {
+      for (const c of cats) {
+        const fullPath = path ? `${path} > ${c.nombre}` : c.nombre;
+        if (c.hijos.length === 0 && c.generics.length === 0) {
+          console.log(`[Categorías] HOJA SIN GENERICS: ${fullPath} (id=${c.id})`);
+        }
+        logNodosSinGenerics(c.hijos, fullPath);
+      }
+    }
+    logNodosSinGenerics(categorias);
+
     return NextResponse.json({
       vehicleId,
       categorias,

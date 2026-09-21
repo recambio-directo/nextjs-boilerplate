@@ -37,9 +37,12 @@ export async function GET(req: NextRequest) {
       // Caso normal: tenemos el genérico, buscar directamente
       const ipdaData = await obtenerReferencias(vehicleId, nodoId, genericoId);
       refsTecdoc = ipdaData?.refs || [];
-    } else {
-      // Sin genericoId: obtener el árbol de categorías y buscar los genéricos de este nodo
-      console.log(`[Piezas] Sin genericoId, buscando genéricos del nodo ${nodoId}...`);
+      console.log(`[Piezas] Búsqueda directa con genericoId=${genericoId}: ${refsTecdoc.length} refs`);
+    }
+
+    // Si no hay genericoId O la búsqueda directa dio 0 resultados, buscar genéricos del nodo
+    if (refsTecdoc.length === 0) {
+      console.log(`[Piezas] Sin resultados directos, buscando genéricos del nodo ${nodoId}...`);
       try {
         const catData = await obtenerCategorias(vehicleId);
         const tree = catData?.tree || catData?.categories || [];
@@ -55,28 +58,90 @@ export async function GET(req: NextRequest) {
         }
 
         const nodo = findNode(Array.isArray(tree) ? tree : [], nodoId);
-        const generics = nodo?.generics || [];
 
-        if (generics.length > 0) {
-          // Buscar piezas para cada genérico (máximo 5 para no sobrecargar)
-          const genericIds = generics.slice(0, 5).map((g: any) => String(g.id));
-          console.log(`[Piezas] Encontrados ${generics.length} genéricos, buscando: ${genericIds.join(", ")}`);
-          const resultados = await Promise.all(
-            genericIds.map((gId: string) =>
-              obtenerReferencias(vehicleId, nodoId, gId).catch(() => ({ refs: [] }))
-            )
-          );
-          for (const r of resultados) {
-            if (r?.refs) refsTecdoc = refsTecdoc.concat(r.refs);
+        if (nodo) {
+          // Recoger genéricos: del propio nodo Y de sus hijos directos (records)
+          let allGenerics: any[] = [];
+
+          // Genéricos del nodo encontrado
+          if (Array.isArray(nodo.generics) && nodo.generics.length > 0) {
+            allGenerics = allGenerics.concat(nodo.generics);
+          }
+
+          // Si no tiene genéricos propios, buscar en sus hijos (records)
+          if (allGenerics.length === 0 && Array.isArray(nodo.records)) {
+            for (const child of nodo.records) {
+              if (Array.isArray(child.generics)) {
+                allGenerics = allGenerics.concat(child.generics);
+              }
+            }
+          }
+
+          // Si aún no tiene genéricos, buscar en hijos de hijos (2 niveles)
+          if (allGenerics.length === 0 && Array.isArray(nodo.records)) {
+            for (const child of nodo.records) {
+              if (Array.isArray(child.records)) {
+                for (const grandchild of child.records) {
+                  if (Array.isArray(grandchild.generics)) {
+                    allGenerics = allGenerics.concat(grandchild.generics);
+                  }
+                }
+              }
+            }
+          }
+
+          if (allGenerics.length > 0) {
+            // Buscar piezas para cada genérico (máximo 10 para cubrir más)
+            const genericIds = [...new Set(allGenerics.slice(0, 10).map((g: any) => String(g.id)))];
+            console.log(`[Piezas] Encontrados ${allGenerics.length} genéricos, buscando: ${genericIds.join(", ")}`);
+            const resultados = await Promise.all(
+              genericIds.map((gId: string) =>
+                obtenerReferencias(vehicleId, nodoId, gId).catch((err) => {
+                  console.error(`[Piezas] Error buscando genérico ${gId}:`, err.message);
+                  return { refs: [] };
+                })
+              )
+            );
+            for (const r of resultados) {
+              if (r?.refs) refsTecdoc = refsTecdoc.concat(r.refs);
+            }
+            console.log(`[Piezas] Total refs de genéricos del árbol: ${refsTecdoc.length}`);
+          } else {
+            console.log(`[Piezas] Nodo ${nodoId} encontrado pero sin genéricos en árbol`);
+
+            // Último intento: probar con el nodoId como genericoId
+            // En TecDoc algunos nodos hoja funcionan como su propio genérico
+            try {
+              console.log(`[Piezas] Intentando con nodoId como genericoId...`);
+              const ipdaData = await obtenerReferencias(vehicleId, nodoId, nodoId);
+              if (ipdaData?.refs && ipdaData.refs.length > 0) {
+                refsTecdoc = ipdaData.refs;
+                console.log(`[Piezas] nodoId como genericoId funcionó: ${refsTecdoc.length} refs`);
+              }
+            } catch (e: any) {
+              console.log(`[Piezas] nodoId como genericoId no funcionó: ${e.message}`);
+            }
           }
         } else {
-          console.log(`[Piezas] Nodo ${nodoId} no tiene genéricos`);
+          console.log(`[Piezas] Nodo ${nodoId} NO encontrado en el árbol`);
+
+          // Si no encontramos el nodo, intentar búsqueda directa con nodoId como genérico
+          try {
+            const ipdaData = await obtenerReferencias(vehicleId, nodoId, nodoId);
+            if (ipdaData?.refs && ipdaData.refs.length > 0) {
+              refsTecdoc = ipdaData.refs;
+              console.log(`[Piezas] Fallback nodoId=${nodoId} como genericoId: ${refsTecdoc.length} refs`);
+            }
+          } catch (e: any) {
+            console.log(`[Piezas] Fallback nodoId como genericoId falló: ${e.message}`);
+          }
         }
       } catch (catErr: any) {
-        console.error(`[Piezas] Error obteniendo genéricos del nodo:`, catErr.message);
+        console.error(`[Piezas] Error obteniendo árbol de categorías:`, catErr.message);
       }
     }
-    console.log(`[Piezas] TecDoc refs: ${refsTecdoc.length}`);
+
+    console.log(`[Piezas] TecDoc refs total: ${refsTecdoc.length}`);
 
     if (refsTecdoc.length === 0) {
       return NextResponse.json({
