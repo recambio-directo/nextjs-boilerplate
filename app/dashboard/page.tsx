@@ -214,9 +214,90 @@ export default function Dashboard() {
     return { bg: "rgba(245,158,11,0.18)", color: "#f59e0b" };
   };
 
+  // ── Barra de búsqueda fija (matrícula + referencia) ──
+  const BarraBusqueda = () => (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 50,
+      background: "rgba(2,6,23,0.97)", backdropFilter: "blur(12px)",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      padding: isMobile ? "10px 12px" : "12px 50px",
+    }}>
+      <div style={{ display: "flex", gap: isMobile ? 8 : 16, alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap" }}>
+        {/* Campo matrícula estilo placa española */}
+        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("mat") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
+          <div style={{
+            display: "flex", alignItems: "center",
+            background: "white", borderRadius: 6, overflow: "hidden",
+            border: "2px solid #1e3a5f",
+            height: isMobile ? 44 : 48,
+          }}>
+            {/* Banda azul EU */}
+            <div style={{
+              width: isMobile ? 28 : 34, height: "100%",
+              background: "linear-gradient(180deg,#003399,#002277)",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <span style={{ color: "#ffcc00", fontSize: isMobile ? 7 : 8, fontWeight: 900, lineHeight: 1, letterSpacing: 1 }}>★★★</span>
+              <span style={{ color: "white", fontSize: isMobile ? 11 : 13, fontWeight: 900, lineHeight: 1.2 }}>E</span>
+              <span style={{ color: "#ffcc00", fontSize: isMobile ? 7 : 8, fontWeight: 900, lineHeight: 1, letterSpacing: 1 }}>★★★</span>
+            </div>
+            <input
+              name="mat" type="text"
+              placeholder={isMobile ? "Matrícula..." : "Matrícula / Bastidor"}
+              style={{
+                border: "none", outline: "none", background: "transparent",
+                color: "#1a1a1a", fontWeight: 900,
+                fontSize: isMobile ? 16 : 18, letterSpacing: 2,
+                padding: isMobile ? "0 8px" : "0 14px",
+                width: isMobile ? "100%" : 220,
+                fontFamily: "'Arial', sans-serif",
+                textTransform: "uppercase",
+              }}
+            />
+            <button type="submit" style={{
+              background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none",
+              color: "white", fontWeight: 800, fontSize: isMobile ? 12 : 13,
+              padding: isMobile ? "0 12px" : "0 18px",
+              height: "100%", cursor: "pointer", whiteSpace: "nowrap",
+            }}>🔍</button>
+          </div>
+        </form>
+        {/* Campo referencia OEM/IAM */}
+        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("ref") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/buscar?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: 1 }}>
+          <div style={{
+            display: "flex", alignItems: "center", flex: 1,
+            background: "rgba(15,23,42,0.9)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 10, overflow: "hidden",
+            height: isMobile ? 44 : 48,
+          }}>
+            <span style={{ padding: isMobile ? "0 8px" : "0 14px", color: "#64748b", fontSize: isMobile ? 14 : 16, flexShrink: 0 }}>🔎</span>
+            <input
+              name="ref" type="text"
+              placeholder={isMobile ? "Referencia OEM, IAM..." : "Buscar referencia OEM, IAM o equivalente..."}
+              style={{
+                border: "none", outline: "none", background: "transparent",
+                color: "white", fontSize: isMobile ? 14 : 15,
+                flex: 1, padding: "0",
+              }}
+            />
+            <button type="submit" style={{
+              background: "rgba(37,99,235,0.2)", border: "none", borderLeft: "1px solid rgba(255,255,255,0.06)",
+              color: "#60a5fa", fontWeight: 800, fontSize: isMobile ? 12 : 13,
+              padding: isMobile ? "0 12px" : "0 20px",
+              height: "100%", cursor: "pointer", whiteSpace: "nowrap",
+            }}>Buscar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
+      <BarraBusqueda />
       {/* CARRUSEL MÓVIL */}
       <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
         {[
@@ -244,32 +325,6 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
-      {/* ── BÚSQUEDA RÁPIDA POR MATRÍCULA (MÓVIL) ── */}
-      <div style={{ padding: "16px 16px 0" }}>
-        <div style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(22,163,74,0.08))", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 16, padding: "20px 16px" }}>
-          <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 800, marginBottom: 6, letterSpacing: "0.5px" }}>🔍 BÚSQUEDA RÁPIDA</p>
-          <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>¿Qué vehículo tienes en el taller?</h3>
-          <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 14, lineHeight: 1.4 }}>Introduce la matrícula o bastidor y encuentra las piezas compatibles</p>
-          <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("q") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", gap: 8 }}>
-            <input name="q" type="text" placeholder="Matrícula o bastidor (VIN)..." style={{ flex: 1, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 10, padding: "12px 14px", color: "white", fontSize: 14, outline: "none" }} />
-            <button type="submit" style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 10, padding: "12px 18px", color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>Buscar →</button>
-          </form>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
-        {[
-          { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
-          { label: "Facturado", value: `${facturacion.toFixed(0)}€`, unit: "" },
-          { label: "Mis piezas", value: piezasTaller.length, unit: "refs" },
-        ].map(({ label, value, unit }) => (
-          <div key={label} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 12px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
-            <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{label}</p>
-            <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{value}</p>
-            {unit && <p style={{ color: "#94a3b8", fontSize: 10, marginTop: 2 }}>{unit}</p>}
-          </div>
-        ))}
-      </div>
       <div style={{ display: "grid", gap: 10, padding: "16px 16px 0" }}>
         <Link href="/dashboard/vehiculo" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(16,185,129,0.12) 100%)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 16, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: -10, right: -10, fontSize: 50, opacity: 0.1 }}>🚗</div>
@@ -285,6 +340,20 @@ export default function Dashboard() {
           <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>Busca referencias en catálogos y consulta stock disponible</p>
           <span style={{ display: "inline-flex", background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 8, padding: "7px 14px", fontSize: 11, fontWeight: 800 }}>Ver catálogos →</span>
         </Link>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
+        {[
+          { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
+          { label: "Facturado", value: `${facturacion.toFixed(0)}€`, unit: "" },
+          { label: "Mis piezas", value: piezasTaller.length, unit: "refs" },
+        ].map(({ label, value, unit }) => (
+          <div key={label} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 12px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{label}</p>
+            <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{value}</p>
+            {unit && <p style={{ color: "#94a3b8", fontSize: 10, marginTop: 2 }}>{unit}</p>}
+          </div>
+        ))}
       </div>
       <div style={{ padding: "16px 16px 0" }}><BloqueRDPago /></div>
       <div style={{ padding: "16px 16px 0" }}>
@@ -360,7 +429,8 @@ export default function Dashboard() {
           <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
         </div>
       </aside>
-      <section style={{ flex: 1, overflow: "hidden" }}>
+      <section style={{ flex: 1, overflow: "auto" }}>
+        <BarraBusqueda />
         {/* ═══ CARRUSEL HERO ═══ */}
         <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
           {[
@@ -444,37 +514,8 @@ export default function Dashboard() {
           <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual - 1 + totalSlides) % totalSlides); }} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>‹</button>
           <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual + 1) % totalSlides); }} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>›</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "40px 50px" }}>
-          {[
-            { label: "PEDIDOS MES", value: pedidosMes.length },
-            { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
-            { label: "MIS PIEZAS", value: piezasTaller.length },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: 34, borderRadius: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: 14 }}>{label}</p>
-              <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
-            </div>
-          ))}
-        </div>
-        {/* ── BÚSQUEDA RÁPIDA POR MATRÍCULA (DESKTOP) ── */}
-        <div style={{ padding: "0 50px", marginBottom: 24 }}>
-          <div style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.1), rgba(22,163,74,0.06))", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 28, padding: "36px 40px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 280 }}>
-                <p style={{ color: "#60a5fa", fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>🔍 BÚSQUEDA RÁPIDA</p>
-                <h3 style={{ fontSize: 28, fontWeight: 900, marginBottom: 6, lineHeight: 1.2 }}>¿Qué vehículo tienes en el taller?</h3>
-                <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6 }}>Introduce la matrícula o el bastidor (VIN) y encuentra todas las piezas compatibles con stock y precios en tiempo real.</p>
-              </div>
-              <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("q") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", gap: 10, flex: 1, minWidth: 320 }}>
-                <input name="q" type="text" placeholder="Ej: 1234 ABC  o  WVWZZZ3CZWE123456" style={{ flex: 1, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 14, padding: "16px 20px", color: "white", fontSize: 16, outline: "none" }} />
-                <button type="submit" style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 14, padding: "16px 28px", color: "white", fontWeight: 900, fontSize: 16, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Buscar piezas →</button>
-              </form>
-            </div>
-          </div>
-        </div>
-
         {/* BANNERS VEHÍCULOS + CATÁLOGOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "0 50px", marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "40px 50px 24px" }}>
           <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>🚗</div>
             <div style={{ position: "relative", zIndex: 2 }}>
@@ -504,9 +545,20 @@ export default function Dashboard() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(217,119,6,0.3)" }}>Ver catálogos →</span>
           </Link>
         </div>
-        {/* RD PAGO */}
-        <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 40 }}>
+        {/* STATS + ACCESOS RÁPIDOS */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
+          {[
+            { label: "PEDIDOS MES", value: pedidosMes.length },
+            { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
+            { label: "MIS PIEZAS", value: piezasTaller.length },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: 34, borderRadius: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: 14 }}>{label}</p>
+              <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
           {[
             { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
             { href: "/dashboard/mis-piezas", title: "MIS PIEZAS", text: "Publica piezas sueltas para vender a otros talleres." },
@@ -518,6 +570,8 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+        {/* RD PAGO */}
+        <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
         {pedidos.length > 0 && (
           <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 40, margin: "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
