@@ -338,28 +338,76 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Also try /search/vin endpoint if it exists
-    try {
-      const r = await post("/search/vin", { vin: vinClean, country: "es" });
-      results.tests["vin_endpoint_vin"] = {
-        success: r.success,
-        data: r.data ? JSON.stringify(r.data).slice(0, 500) : null,
-        error: r.error || r.message || null,
-      };
-    } catch (e: any) {
-      results.tests["vin_endpoint_vin"] = { error: e.message };
+    // ── Exhaustive endpoint + body combinations for VIN ──
+    const vinEndpointTests: { name: string; endpoint: string; body: any }[] = [
+      // /search/vin with different param names
+      { name: "ep_vin_vin", endpoint: "/search/vin", body: { vin: vinClean, country: "es" } },
+      { name: "ep_vin_bastidor", endpoint: "/search/vin", body: { bastidor: vinClean, country: "es" } },
+      { name: "ep_vin_query", endpoint: "/search/vin", body: { query: vinClean, country: "es" } },
+      { name: "ep_vin_value", endpoint: "/search/vin", body: { value: vinClean, country: "es" } },
+      { name: "ep_vin_token2", endpoint: "/search/vin", body: { token2: `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}`, country: "es" } },
+      // /search/vehicle
+      { name: "ep_vehicle_vin", endpoint: "/search/vehicle", body: { vin: vinClean, country: "es" } },
+      { name: "ep_vehicle_bastidor", endpoint: "/search/vehicle", body: { bastidor: vinClean, country: "es" } },
+      // /search/bastidor
+      { name: "ep_bastidor", endpoint: "/search/bastidor", body: { vin: vinClean, country: "es" } },
+      { name: "ep_bastidor_bastidor", endpoint: "/search/bastidor", body: { bastidor: vinClean, country: "es" } },
+      // /vehicle/vin
+      { name: "ep_vehiclevin", endpoint: "/vehicle/vin", body: { vin: vinClean, country: "es" } },
+      // /search/plate with vin param directly
+      { name: "ep_plate_vin_param", endpoint: "/search/plate", body: { vin: vinClean, country: "es" } },
+      { name: "ep_plate_bastidor_param", endpoint: "/search/plate", body: { bastidor: vinClean, country: "es" } },
+      // /search/plate with token2 containing vin in bastidor field (4 parts)
+      { name: "ep_plate_4parts", endpoint: "/search/plate", body: { token2: `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}#`, country: "es" } },
+      // /vin/decode
+      { name: "ep_vin_decode", endpoint: "/vin/decode", body: { vin: vinClean } },
+      // /search with type
+      { name: "ep_search_type_vin", endpoint: "/search", body: { type: "vin", value: vinClean, country: "es" } },
+      // /search/plate with tipo=bastidor
+      { name: "ep_plate_tipo_bastidor", endpoint: "/search/plate", body: { token2: `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}`, country: "es", tipo: "bastidor" } },
+      { name: "ep_plate_type_vin", endpoint: "/search/plate", body: { token2: `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}`, country: "es", type: "vin" } },
+      { name: "ep_plate_searchType", endpoint: "/search/plate", body: { token2: `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}`, country: "es", searchType: "vin" } },
+    ];
+
+    for (const t of vinEndpointTests) {
+      try {
+        const r = await post(t.endpoint, t.body);
+        results.tests[t.name] = {
+          endpoint: t.endpoint,
+          body: t.body,
+          success: r.success,
+          hasData: !!r.data,
+          dataPreview: r.data ? JSON.stringify(r.data).slice(0, 400) : null,
+          error: r.error || r.message || null,
+          raw: (!r.success && !r.error) ? JSON.stringify(r).slice(0, 300) : undefined,
+        };
+      } catch (e: any) {
+        results.tests[t.name] = { endpoint: t.endpoint, error: e.message };
+      }
     }
 
-    // Try /search/vehicle
-    try {
-      const r = await post("/search/vehicle", { vin: vinClean, country: "es" });
-      results.tests["vin_endpoint_vehicle"] = {
-        success: r.success,
-        data: r.data ? JSON.stringify(r.data).slice(0, 500) : null,
-        error: r.error || r.message || null,
-      };
-    } catch (e: any) {
-      results.tests["vin_endpoint_vehicle"] = { error: e.message };
+    // GET-based VIN tests
+    const getVinTests: { name: string; url: string }[] = [
+      { name: "get_search_vin", url: `${IPDA_BASE}/search/vin?vin=${vinClean}&country=es` },
+      { name: "get_search_bastidor", url: `${IPDA_BASE}/search/bastidor?bastidor=${vinClean}&country=es` },
+      { name: "get_vehicle_vin", url: `${IPDA_BASE}/vehicle/vin?vin=${vinClean}` },
+      { name: "get_vin_decode", url: `${IPDA_BASE}/vin/decode?vin=${vinClean}` },
+    ];
+
+    for (const t of getVinTests) {
+      try {
+        const token = await getToken();
+        const res = await fetch(t.url, { headers: { "App-Token": token } });
+        const text = await res.text();
+        try {
+          const r = JSON.parse(text);
+          results.tests[t.name] = { success: r.success, data: r.data ? JSON.stringify(r.data).slice(0, 400) : null, error: r.error || null };
+        } catch {
+          results.tests[t.name] = { status: res.status, raw: text.slice(0, 300) };
+        }
+      } catch (e: any) {
+        results.tests[t.name] = { error: e.message };
+      }
     }
   }
 
