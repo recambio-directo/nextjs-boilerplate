@@ -66,10 +66,10 @@ export default function Home() {
           <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: 36 }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
             <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
-            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Encuentra el recambio que necesitas en segundos</h3>
-            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sin esperar a que te cojan el teléfono. Sin catálogos desactualizados. Busca por referencia OEM o IAM, ve el precio en tiempo real y pide en 3 clics.</p>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Busca por matrícula, bastidor o aplicación y compra en 3 clics</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Introduce la matrícula o el VIN del vehículo y encuentra las piezas compatibles al instante. Compara precios de varios proveedores en la misma pantalla y haz el pedido sin llamadas ni esperas.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-              {["Acceso a referencias OEM, IAM y Universal", "Entrega 24h con las principales agencias de transporte", "Chat directo con el proveedor en cada pedido", "Historial de pedidos y facturas descargables", "RD Pago — compra ahora y paga en 15 días"].map(item => (
+              {["Búsqueda por matrícula o bastidor (VIN) del vehículo", "Búsqueda por aplicación: marca, modelo, versión y motor", "Catálogos completos de múltiples proveedores en un solo sitio", "Acceso a referencias OEM, IAM y Universal", "Compara precios de varios proveedores al instante", "Entrega 24h con las principales agencias de transporte", "RD Pago — compra ahora y paga en 15 días"].map(item => (
                 <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
                   <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
@@ -125,12 +125,12 @@ export default function Home() {
       <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={badgeStyle}>PLATAFORMA</div>
-          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda de recambios OEM e IAM, pedidos y logística en un solo lugar</h2>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda por matrícula, bastidor y aplicación de vehículo incluida</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Diseñado específicamente para el sector del recambio de automoción en España</p>
         </div>
         <div className="landing-grid-2">
           {[
-            { icon: "🔍", title: "Búsqueda instantánea de referencias OEM e IAM", desc: "Filtra por tipo, marca o referencia exacta. Precios en tiempo real sin necesidad de llamar. Compatible con referencias de todas las marcas.", color: "#2563eb" },
+            { icon: "🔍", title: "Busca por matrícula, bastidor o aplicación de vehículo", desc: "Introduce la matrícula o el VIN y encuentra las piezas compatibles automáticamente. También puedes buscar por marca, modelo, versión y motor, o por referencia OEM e IAM. Precios en tiempo real de múltiples proveedores.", color: "#2563eb" },
             { icon: "📦", title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
             { icon: "🚚", title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
             { icon: "🔒", title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
