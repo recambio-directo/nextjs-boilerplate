@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { obtenerReferencias, obtenerCategorias } from "../../../lib/ipda";
+import { obtenerReferencias, obtenerReferenciasPorNodo, obtenerCategorias } from "../../../lib/ipda";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -141,7 +141,27 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    console.log(`[Piezas] TecDoc refs total: ${refsTecdoc.length}`);
+    console.log(`[Piezas] TecDoc refs total (loadGeneric): ${refsTecdoc.length}`);
+
+    // ── FALLBACK: tipoBusqueda "load" para nodos sin genéricos ──
+    // Muchos nodos hoja (Filtro combustible, Sonda Lambda, Motor de arranque, etc.)
+    // no tienen genéricos en el árbol pero sí devuelven datos con "load"
+    if (refsTecdoc.length === 0) {
+      try {
+        console.log(`[Piezas] Intentando tipoBusqueda "load" para nodo ${nodoId}...`);
+        const loadData = await obtenerReferenciasPorNodo(vehicleId, nodoId);
+        if (loadData?.refs && loadData.refs.length > 0) {
+          refsTecdoc = loadData.refs;
+          console.log(`[Piezas] ✅ tipoBusqueda "load" devolvió ${refsTecdoc.length} refs para nodo ${nodoId}`);
+        } else {
+          console.log(`[Piezas] tipoBusqueda "load" también devolvió 0 refs`);
+        }
+      } catch (loadErr: any) {
+        console.error(`[Piezas] Error con tipoBusqueda "load":`, loadErr.message);
+      }
+    }
+
+    console.log(`[Piezas] TecDoc refs final: ${refsTecdoc.length}`);
 
     if (refsTecdoc.length === 0) {
       return NextResponse.json({
