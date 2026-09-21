@@ -284,5 +284,84 @@ export async function GET(req: NextRequest) {
     }
   } catch (e: any) { results.tests["13_assemblygroup_generics_GET"] = { error: e.message }; }
 
+  // ══════════════════════════════════════════════════════════════
+  // VIN TESTS — Probar diferentes formatos de token2 para bastidor
+  // ══════════════════════════════════════════════════════════════
+  const vin = searchParams.get("vin") || "";
+  if (vin) {
+    const vinClean = vin.toUpperCase().replace(/[\s\-]/g, "");
+    const IPDA_PLATE_PREFIX = process.env.IPDA_PLATE_PREFIX || "75";
+    const IPDA_PLATE_KEY = process.env.IPDA_PLATE_KEY || "6T8AZS9G";
+    const prefijo = IPDA_PLATE_PREFIX.padStart(6, "0");
+    const customerId = String(IPDA_CUSTOMER);
+
+    // Different token2 formats to test
+    const vinFormats: Record<string, string> = {
+      // Current format (FAILING): prefijo#key#vin
+      "vin_A_prefijo_key_vin": `${prefijo}#${IPDA_PLATE_KEY}#${vinClean}`,
+      // Try: prefijo#vin# (vin in bastidor position, empty matricula)
+      "vin_B_prefijo_vin_empty": `${prefijo}#${vinClean}#`,
+      // Try: prefijo#vin (only 2 parts)
+      "vin_C_prefijo_vin": `${prefijo}#${vinClean}`,
+      // Try: customerId#vin#
+      "vin_D_customer_vin_empty": `${customerId}#${vinClean}#`,
+      // Try: customerId##vin (bastidor empty, vin as matricula?)
+      "vin_E_customer_empty_vin": `${customerId}##${vinClean}`,
+      // Try: customerId#vin
+      "vin_F_customer_vin": `${customerId}#${vinClean}`,
+      // Try: prefijo#key#vin with different key positions
+      "vin_G_key_prefijo_vin": `${IPDA_PLATE_KEY}#${prefijo}#${vinClean}`,
+      // Try: just the vin
+      "vin_H_just_vin": vinClean,
+      // Try: IPDA_USER#vin#
+      "vin_I_user_vin_empty": `${process.env.IPDA_USER}#${vinClean}#`,
+      // Try: prefijo##vin (empty middle)
+      "vin_J_prefijo_empty_vin": `${prefijo}##${vinClean}`,
+    };
+
+    for (const [testName, token2] of Object.entries(vinFormats)) {
+      try {
+        const r = await post("/search/plate", { token2, country: "es" });
+        results.tests[testName] = {
+          token2,
+          success: r.success,
+          hasRecord: !!(r.data?.record?.length),
+          recordCount: r.data?.record?.length || 0,
+          vin: r.data?.vin || null,
+          mar: r.data?.mar || null,
+          mod: r.data?.mod || null,
+          error: r.error || null,
+          dataKeys: r.data ? Object.keys(r.data) : null,
+        };
+      } catch (e: any) {
+        results.tests[testName] = { token2, error: e.message };
+      }
+    }
+
+    // Also try /search/vin endpoint if it exists
+    try {
+      const r = await post("/search/vin", { vin: vinClean, country: "es" });
+      results.tests["vin_endpoint_vin"] = {
+        success: r.success,
+        data: r.data ? JSON.stringify(r.data).slice(0, 500) : null,
+        error: r.error || r.message || null,
+      };
+    } catch (e: any) {
+      results.tests["vin_endpoint_vin"] = { error: e.message };
+    }
+
+    // Try /search/vehicle
+    try {
+      const r = await post("/search/vehicle", { vin: vinClean, country: "es" });
+      results.tests["vin_endpoint_vehicle"] = {
+        success: r.success,
+        data: r.data ? JSON.stringify(r.data).slice(0, 500) : null,
+        error: r.error || r.message || null,
+      };
+    } catch (e: any) {
+      results.tests["vin_endpoint_vehicle"] = { error: e.message };
+    }
+  }
+
   return NextResponse.json(results, { status: 200 });
 }
