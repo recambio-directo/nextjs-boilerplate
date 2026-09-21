@@ -253,6 +253,34 @@ export async function obtenerReferencias(
 }
 
 // ══════════════════════════════════════════════════════════════
+// Buscar referencias por nodo usando tipoBusqueda "load"
+// Funciona para nodos que NO tienen genéricos en el árbol
+// (Filtro combustible, Sonda Lambda, Motor de arranque, etc.)
+// ══════════════════════════════════════════════════════════════
+export async function obtenerReferenciasPorNodo(
+  vehicleId: string,
+  nodoId: string
+): Promise<any> {
+  return await ipdaPost("/reference/list", {
+    area: "1",
+    tipoBusqueda: "load",
+    userId: parseInt(process.env.IPDA_USER_ID || "83647", 10),
+    almacen: "01",
+    customer: IPDA_CUSTOMER,
+    company: 1,
+    dlnr: null,
+    dlnrLista: null,
+    genericoId: null,
+    groups: null,
+    nodo: nodoId,
+    nodoId,
+    nodoLista: null,
+    showAll: 0,
+    vehicleId,
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
 // Buscar equivalencias/cruces por referencia OEM o IAM
 // Usa tipoBusqueda "loadByReferencia" con buscarIncEquiv=1
 // Devuelve las piezas equivalentes de TecDoc (IPDA)
