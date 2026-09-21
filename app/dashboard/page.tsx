@@ -215,7 +215,7 @@ export default function Dashboard() {
   };
 
   // ── Barra de búsqueda fija (matrícula + referencia) ──
-  const BarraBusqueda = () => (
+  const barraBusqueda = (
     <div style={{
       position: "sticky", top: 0, zIndex: 50,
       background: "rgba(2,6,23,0.97)", backdropFilter: "blur(12px)",
@@ -301,7 +301,7 @@ export default function Dashboard() {
   /* ── MÓVIL ── */
   if (isMobile) return (
     <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
-      <BarraBusqueda />
+      {barraBusqueda}
       {/* CARRUSEL MÓVIL */}
       <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
         {[
@@ -434,7 +434,7 @@ export default function Dashboard() {
         </div>
       </aside>
       <section style={{ flex: 1, overflow: "auto" }}>
-        <BarraBusqueda />
+        {barraBusqueda}
         {/* ═══ CARRUSEL HERO ═══ */}
         <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
           {[
