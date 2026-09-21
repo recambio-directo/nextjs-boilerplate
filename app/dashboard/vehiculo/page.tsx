@@ -80,106 +80,6 @@ interface ArticuloCatalogo {
   precio_marketplace_desde: number | null;
 }
 
-// ════════════════════════════════════════════════════════
-// LANDING DE VENTA (si no tiene vehiculo_activo)
-// ════════════════════════════════════════════════════════
-function LandingVehiculo({ pruebaAgotada = false }: { pruebaAgotada?: boolean }) {
-  const ventajas = [
-    { icon: "🔍", titulo: "Identifica cualquier vehiculo", desc: "Introduce el bastidor (VIN) o la matricula y obtén todos los datos técnicos al instante" },
-    { icon: "🔧", titulo: "Datos de motor completos", desc: "Codigo motor, cilindrada, potencia, combustible, emisiones..." },
-    { icon: "📦", titulo: "Catalogo de piezas compatibles", desc: "Piezas compatibles verificadas para el vehiculo exacto" },
-    { icon: "💰", titulo: "Precios y stock en tiempo real", desc: "Ve directamente qué piezas hay disponibles en la red de proveedores y a qué precio" },
-    { icon: "📋", titulo: "Ficha técnica completa", desc: "VIN, motor, transmision, carroceria, neumaticos, peso, emisiones..." },
-    { icon: "⚡", titulo: "Base de datos profesional", desc: "Millones de referencias verificadas de fabricantes y proveedores" },
-  ];
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#020617", padding: "24px" }}>
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <div style={{
-          background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.1) 100%)",
-          border: "1px solid rgba(37,99,235,0.25)", borderRadius: "24px",
-          padding: "48px 40px", textAlign: "center", marginBottom: "32px",
-        }}>
-          <div style={{ fontSize: "64px", marginBottom: "16px" }}>🚗</div>
-          <h1 style={{ color: "#e2e8f0", fontSize: "36px", fontWeight: 900, margin: "0 0 12px", lineHeight: 1.2 }}>
-            Catalogo de Vehiculos
-          </h1>
-          {pruebaAgotada && (
-            <div style={{
-              background: "linear-gradient(135deg, rgba(251,146,60,0.15) 0%, rgba(234,88,12,0.1) 100%)",
-              border: "1px solid rgba(251,146,60,0.4)", borderRadius: "12px",
-              padding: "14px 20px", marginBottom: "20px", maxWidth: "600px", marginLeft: "auto", marginRight: "auto",
-            }}>
-              <p style={{ color: "#fb923c", fontSize: "15px", fontWeight: 700, margin: "0 0 4px" }}>
-                ⚡ Ya has utilizado tu prueba gratuita
-              </p>
-              <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
-                Activa el servicio completo para seguir consultando vehiculos sin limite
-              </p>
-            </div>
-          )}
-          <p style={{ color: "#94a3b8", fontSize: "17px", margin: "0 0 28px", maxWidth: "600px", marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
-            Decodifica vehiculos por bastidor (VIN) o matricula, consulta sus datos técnicos y navega el catalogo completo de piezas compatibles con precios en tiempo real.
-          </p>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "8px",
-            background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "16px",
-            padding: "18px 36px", boxShadow: "0 8px 30px rgba(37,99,235,0.4)",
-          }}>
-            <span style={{ color: "white", fontSize: "32px", fontWeight: 900 }}>10€</span>
-            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "15px", fontWeight: 600 }}>/mes</span>
-          </div>
-          <p style={{ color: "#64748b", fontSize: "13px", marginTop: "8px" }}>Adicional a tu suscripcion</p>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px", marginBottom: "32px" }}>
-          {ventajas.map((v, i) => (
-            <div key={i} style={{
-              background: "rgba(255,255,255,0.03)", border: "1px solid #1e293b",
-              borderRadius: "16px", padding: "24px",
-            }}>
-              <div style={{ fontSize: "32px", marginBottom: "12px" }}>{v.icon}</div>
-              <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: 700, margin: "0 0 8px" }}>{v.titulo}</h3>
-              <p style={{ color: "#64748b", fontSize: "13px", margin: 0, lineHeight: 1.5 }}>{v.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div style={{
-          background: "linear-gradient(135deg, rgba(22,163,74,0.1) 0%, rgba(37,99,235,0.1) 100%)",
-          border: "1px solid rgba(22,163,74,0.25)", borderRadius: "20px",
-          padding: "32px 40px", textAlign: "center",
-        }}>
-          <h2 style={{ color: "#e2e8f0", fontSize: "22px", fontWeight: 800, margin: "0 0 8px" }}>
-            ¿Quieres activar este servicio?
-          </h2>
-          <p style={{ color: "#94a3b8", fontSize: "15px", margin: "0 0 24px" }}>
-            Contacta con nosotros y lo activamos en tu cuenta en menos de 24h
-          </p>
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="mailto:info@recambiodirecto.com?subject=Activar%20catalogo%20de%20vehiculos" style={{
-              display: "inline-flex", alignItems: "center", gap: "8px",
-              background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "12px",
-              padding: "14px 28px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "15px",
-              boxShadow: "0 4px 15px rgba(37,99,235,0.3)",
-            }}>
-              ✉️ info@recambiodirecto.com
-            </a>
-            <a href="tel:+34744487895" style={{
-              display: "inline-flex", alignItems: "center", gap: "8px",
-              background: "linear-gradient(135deg,#16a34a,#15803d)", borderRadius: "12px",
-              padding: "14px 28px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "15px",
-              boxShadow: "0 4px 15px rgba(22,163,74,0.3)",
-            }}>
-              📞 +34 744 487 895
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Árbol de categorías
@@ -351,9 +251,6 @@ function ArbolCategorias({
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════
 export default function VehiculoPage() {
-  const [vehiculoActivo, setVehiculoActivo] = useState<boolean | null>(null);
-  const [pruebaUsada, setPruebaUsada] = useState(false);
-  const [modoPrueba, setModoPrueba] = useState(false); // true = user is in trial mode right now
   const [userId, setUserId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [tipoBusqueda, setTipoBusqueda] = useState<"vin" | "matricula">("matricula");
@@ -381,15 +278,8 @@ export default function VehiculoPage() {
   useEffect(() => {
     const checkAcceso = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setVehiculoActivo(false); return; }
+      if (!user) return;
       setUserId(user.id);
-      const { data: perfil } = await supabase.from("usuarios").select("vehiculo_activo, vehiculo_prueba_usada").eq("id", user.id).single();
-      setVehiculoActivo(perfil?.vehiculo_activo === true);
-      setPruebaUsada(perfil?.vehiculo_prueba_usada === true);
-      // If not active but trial not used yet, enter trial mode
-      if (!perfil?.vehiculo_activo && !perfil?.vehiculo_prueba_usada) {
-        setModoPrueba(true);
-      }
     };
     checkAcceso();
   }, []);
@@ -505,17 +395,7 @@ export default function VehiculoPage() {
     cargarCategorias(v.id);
   };
 
-  if (vehiculoActivo === null) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#020617", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "#94a3b8", fontSize: 16 }}>Cargando...</p>
-      </div>
-    );
-  }
-
-  if (!vehiculoActivo && !modoPrueba) {
-    return <LandingVehiculo pruebaAgotada={pruebaUsada} />;
-  }
+  // Catálogo de vehículos incluido para todos los usuarios
 
   const buscar = async () => {
     const valor = input.trim();
@@ -547,12 +427,6 @@ export default function VehiculoPage() {
           seleccionarVariante(json.vehiculos[0]);
         }
 
-        // Si estaba en modo prueba, marcar la prueba como usada
-        if (modoPrueba && userId) {
-          await supabase.from("usuarios").update({ vehiculo_prueba_usada: true }).eq("id", userId);
-          setPruebaUsada(true);
-          setModoPrueba(false); // keep showing results, but next visit will show landing
-        }
       }
     } catch {
       setError("Error de conexion");
@@ -578,25 +452,7 @@ export default function VehiculoPage() {
     <div style={{ minHeight: "100vh", background: "#020617", padding: "24px" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
 
-        {/* Banner prueba gratuita */}
-        {modoPrueba && !infoVehiculo && (
-          <div style={{
-            background: "linear-gradient(135deg, rgba(251,146,60,0.12) 0%, rgba(37,99,235,0.1) 100%)",
-            border: "1px solid rgba(251,146,60,0.35)", borderRadius: "16px",
-            padding: "16px 24px", marginBottom: "20px",
-            display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap",
-          }}>
-            <span style={{ fontSize: "28px" }}>🎁</span>
-            <div style={{ flex: 1, minWidth: "200px" }}>
-              <p style={{ color: "#fb923c", fontSize: "16px", fontWeight: 800, margin: "0 0 4px" }}>
-                Prueba gratuita — 1 consulta
-              </p>
-              <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
-                Introduce una matricula o bastidor para ver cómo funciona el servicio. Después necesitarás activar la suscripción.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Catálogo de vehículos — incluido en la suscripción */}
 
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
@@ -659,7 +515,7 @@ export default function VehiculoPage() {
             />
             <button
               onClick={buscar}
-              disabled={loading || input.trim().length < (tipoBusqueda === "vin" ? 17 : 4) || (!vehiculoActivo && pruebaUsada)}
+              disabled={loading || input.trim().length < (tipoBusqueda === "vin" ? 17 : 4)}
               style={{
                 padding: "14px 28px", borderRadius: "10px", border: "none",
                 background: loading ? "#1e40af" : "#2563eb", color: "#fff",
@@ -692,43 +548,6 @@ export default function VehiculoPage() {
           </div>
         )}
 
-        {/* Banner post-prueba: activa el servicio */}
-        {!vehiculoActivo && pruebaUsada && infoVehiculo && (
-          <div style={{
-            background: "linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(22,163,74,0.1) 100%)",
-            border: "1px solid rgba(37,99,235,0.35)", borderRadius: "16px",
-            padding: "16px 24px", marginBottom: "16px",
-            display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", justifyContent: "space-between",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: "200px" }}>
-              <span style={{ fontSize: "24px" }}>✅</span>
-              <div>
-                <p style={{ color: "#e2e8f0", fontSize: "15px", fontWeight: 700, margin: "0 0 2px" }}>
-                  ¡Has visto cómo funciona!
-                </p>
-                <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0 }}>
-                  Activa el servicio completo por solo 10€/mes para consultas ilimitadas y catálogo de piezas
-                </p>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <a href="mailto:info@recambiodirecto.com?subject=Activar%20catalogo%20de%20vehiculos" style={{
-                display: "inline-flex", alignItems: "center", gap: "6px",
-                background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: "10px",
-                padding: "10px 20px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "13px",
-              }}>
-                ✉️ Activar
-              </a>
-              <a href="tel:+34744487895" style={{
-                display: "inline-flex", alignItems: "center", gap: "6px",
-                background: "linear-gradient(135deg,#16a34a,#15803d)", borderRadius: "10px",
-                padding: "10px 20px", color: "white", textDecoration: "none", fontWeight: 700, fontSize: "13px",
-              }}>
-                📞 Llamar
-              </a>
-            </div>
-          </div>
-        )}
 
         {/* Info DGT del vehículo */}
         {infoVehiculo && (
