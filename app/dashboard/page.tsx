@@ -244,6 +244,19 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      {/* ── BÚSQUEDA RÁPIDA POR MATRÍCULA (MÓVIL) ── */}
+      <div style={{ padding: "16px 16px 0" }}>
+        <div style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(22,163,74,0.08))", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 16, padding: "20px 16px" }}>
+          <p style={{ color: "#60a5fa", fontSize: 11, fontWeight: 800, marginBottom: 6, letterSpacing: "0.5px" }}>🔍 BÚSQUEDA RÁPIDA</p>
+          <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>¿Qué vehículo tienes en el taller?</h3>
+          <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 14, lineHeight: 1.4 }}>Introduce la matrícula o bastidor y encuentra las piezas compatibles</p>
+          <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("q") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", gap: 8 }}>
+            <input name="q" type="text" placeholder="Matrícula o bastidor (VIN)..." style={{ flex: 1, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 10, padding: "12px 14px", color: "white", fontSize: 14, outline: "none" }} />
+            <button type="submit" style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 10, padding: "12px 18px", color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>Buscar →</button>
+          </form>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
         {[
           { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
@@ -443,6 +456,23 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+        {/* ── BÚSQUEDA RÁPIDA POR MATRÍCULA (DESKTOP) ── */}
+        <div style={{ padding: "0 50px", marginBottom: 24 }}>
+          <div style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.1), rgba(22,163,74,0.06))", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 28, padding: "36px 40px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 280 }}>
+                <p style={{ color: "#60a5fa", fontSize: 13, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>🔍 BÚSQUEDA RÁPIDA</p>
+                <h3 style={{ fontSize: 28, fontWeight: 900, marginBottom: 6, lineHeight: 1.2 }}>¿Qué vehículo tienes en el taller?</h3>
+                <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6 }}>Introduce la matrícula o el bastidor (VIN) y encuentra todas las piezas compatibles con stock y precios en tiempo real.</p>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("q") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", gap: 10, flex: 1, minWidth: 320 }}>
+                <input name="q" type="text" placeholder="Ej: 1234 ABC  o  WVWZZZ3CZWE123456" style={{ flex: 1, background: "rgba(15,23,42,0.9)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 14, padding: "16px 20px", color: "white", fontSize: 16, outline: "none" }} />
+                <button type="submit" style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 14, padding: "16px 28px", color: "white", fontWeight: 900, fontSize: 16, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Buscar piezas →</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
         {/* BANNERS VEHÍCULOS + CATÁLOGOS */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "0 50px", marginBottom: 24 }}>
           <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>

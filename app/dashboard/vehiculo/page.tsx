@@ -284,6 +284,23 @@ export default function VehiculoPage() {
     checkAcceso();
   }, []);
 
+  // ── Auto-búsqueda desde query param ?q= ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q")?.trim();
+    if (q) {
+      setInput(q.toUpperCase());
+      // Detectar si es VIN (17 caracteres alfanuméricos)
+      if (/^[A-HJ-NPR-Z0-9]{17}$/i.test(q)) {
+        setTipoBusqueda("vin");
+      } else {
+        setTipoBusqueda("matricula");
+      }
+      buscar(q.toUpperCase());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Añadir pieza a la cesta (tabla cesta en Supabase) ──
   const pedirPieza = async (stock: PiezaStock, refTecdoc: string) => {
     if (!userId) { alert("Inicia sesión para añadir a la cesta"); return; }
@@ -397,8 +414,8 @@ export default function VehiculoPage() {
 
   // Catálogo de vehículos incluido para todos los usuarios
 
-  const buscar = async () => {
-    const valor = input.trim();
+  const buscar = async (valorDirecto?: string) => {
+    const valor = (valorDirecto ?? input).trim();
     if (!valor) return;
     setLoading(true);
     setError(null);
@@ -514,7 +531,7 @@ export default function VehiculoPage() {
               }}
             />
             <button
-              onClick={buscar}
+              onClick={() => buscar()}
               disabled={loading || input.trim().length < (tipoBusqueda === "vin" ? 17 : 4)}
               style={{
                 padding: "14px 28px", borderRadius: "10px", border: "none",
