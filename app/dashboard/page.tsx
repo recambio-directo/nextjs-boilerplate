@@ -263,8 +263,8 @@ export default function Dashboard() {
             }}>🔍</button>
           </div>
         </form>
-        {/* Campo referencia OEM/IAM */}
-        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("ref") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/buscar?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: 1 }}>
+        {/* Campo bastidor (VIN) */}
+        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("vin") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: 1 }}>
           <div style={{
             display: "flex", alignItems: "center", flex: 1,
             background: "rgba(15,23,42,0.9)",
@@ -272,14 +272,18 @@ export default function Dashboard() {
             borderRadius: 10, overflow: "hidden",
             height: isMobile ? 44 : 48,
           }}>
-            <span style={{ padding: isMobile ? "0 8px" : "0 14px", color: "#64748b", fontSize: isMobile ? 14 : 16, flexShrink: 0 }}>🔎</span>
+            <span style={{ padding: isMobile ? "0 8px" : "0 14px", color: "#64748b", fontSize: isMobile ? 14 : 16, flexShrink: 0 }}>🔧</span>
             <input
-              name="ref" type="text"
-              placeholder={isMobile ? "Referencia OEM, IAM..." : "Buscar referencia OEM, IAM o equivalente..."}
+              name="vin" type="text"
+              placeholder={isMobile ? "Bastidor VIN..." : "Bastidor (VIN) — Ej: WVWZZZ3CZWE123456"}
+              maxLength={17}
               style={{
                 border: "none", outline: "none", background: "transparent",
                 color: "white", fontSize: isMobile ? 14 : 15,
                 flex: 1, padding: "0",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontWeight: 700,
               }}
             />
             <button type="submit" style={{
