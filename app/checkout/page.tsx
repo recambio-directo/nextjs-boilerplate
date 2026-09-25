@@ -579,7 +579,10 @@ export default function CheckoutPage() {
         try {
           const cttRes = await fetch("/api/ctt/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const cttData = await cttRes.json();
-          if (cttData.ok && cttData.shippingCode) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
+          if (cttData.ok && cttData.shippingCode) {
+            await supabase.from("pedidos").update({ tracking_ctt: cttData.shippingCode }).eq("id", pedidoInsertado.id);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
+          }
         } catch (e) { console.error("Error CTT:", e); }
       }
       // ── GLS ──────────────────────────────────────────────────────────────
