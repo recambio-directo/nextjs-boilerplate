@@ -43,3 +43,6 @@ next-env.d.ts
 datos-cruces/
 .vercel
 .env*
+
+# Claude outputs (contains API keys)
+Claude outputs/
