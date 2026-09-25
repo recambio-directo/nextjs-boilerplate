@@ -49,6 +49,41 @@ const articles = [
       "Agencias de transporte, plazos de entrega, etiquetas automáticas y tracking en tiempo real. Todo lo que necesitas saber sobre la logística de piezas de coche en el mercado español.",
     date: "Septiembre 2026",
   },
+  {
+    slug: "como-encontrar-nuevos-proveedores-recambios",
+    title: "Cómo encontrar nuevos proveedores de recambios para tu taller",
+    excerpt:
+      "Guía práctica para talleres que buscan nuevos proveedores de recambios de automoción. Compara opciones y encuentra el canal más eficiente.",
+    date: "Septiembre 2026",
+  },
+  {
+    slug: "vender-recambios-online-b2b",
+    title: "Cómo vender recambios de automoción online en el canal B2B",
+    excerpt:
+      "Guía para proveedores y distribuidores que quieren abrir un nuevo canal de ventas B2B online. Estrategias y plataformas para llegar a más talleres.",
+    date: "Septiembre 2026",
+  },
+  {
+    slug: "buscar-recambios-por-matricula-como-funciona",
+    title: "Buscar recambios por matrícula: cómo funciona y por qué ahorra tiempo",
+    excerpt:
+      "Descubre cómo buscar recambios de automoción por matrícula del vehículo. Identifica la pieza exacta sin errores y ahorra tiempo en cada pedido.",
+    date: "Septiembre 2026",
+  },
+  {
+    slug: "marketplace-b2b-vs-distribuidor-tradicional",
+    title: "Marketplace B2B vs distribuidor tradicional de recambios: comparativa",
+    excerpt:
+      "Comparativa entre comprar recambios en un marketplace B2B y usar un distribuidor tradicional. Ventajas, desventajas y cuándo usar cada canal.",
+    date: "Septiembre 2026",
+  },
+  {
+    slug: "reducir-costes-recambios-taller",
+    title: "5 formas de reducir el coste de recambios en tu taller",
+    excerpt:
+      "Estrategias prácticas para que tu taller mecánico ahorre en la compra de recambios sin sacrificar calidad. Comparar, negociar y optimizar.",
+    date: "Septiembre 2026",
+  },
 ];
 
 export default function BlogPage() {
