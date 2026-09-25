@@ -14,6 +14,7 @@ function getTrackingUrl(agencia: string, tracking: string): string {
   if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
   if (ag.includes("correos")) return `https://www.correosexpress.com/web/correosexpress/busqueda-de-envios?referencia=${tracking}`;
   if (ag.includes("dhl")) return `https://www.dhlparcel.es/es/particular/herramientas/seguimiento-de-envios.html?tracking=${tracking}`;
+  if (ag.includes("ctt")) return `https://www.cttexpress.com/localizador-de-envios/?sc=${tracking}`;
   return `https://www.google.com/search?q=tracking+${encodeURIComponent(agencia)}+${tracking}`;
 }
 
@@ -24,6 +25,9 @@ function getTrackingInfo(pedido: any): { tracking: string; url: string } | null 
   }
   if (agencia.includes("seur") && pedido.tracking_seur) {
     return { tracking: pedido.tracking_seur, url: getTrackingUrl("seur", pedido.tracking_seur) };
+  }
+  if (agencia.includes("ctt") && pedido.tracking_ctt) {
+    return { tracking: pedido.tracking_ctt, url: getTrackingUrl("ctt", pedido.tracking_ctt) };
   }
   if (pedido.tracking) {
     return { tracking: pedido.tracking, url: getTrackingUrl(agencia, pedido.tracking) };
