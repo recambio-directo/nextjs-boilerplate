@@ -89,6 +89,16 @@ function JBMLogo({ size = 80 }: { size?: number }) {
   );
 }
 
+function STALogo({ size = 80 }: { size?: number }) {
+  return (
+    <img
+      src="/catalogos/sta-logo.png"
+      alt="STA"
+      style={{ width: size, height: "auto", objectFit: "contain", borderRadius: "6px" }}
+    />
+  );
+}
+
 // ── CATÁLOGOS ──
 const CATALOGOS: Catalogo[] = [
   {
@@ -9555,6 +9565,64 @@ const CATALOGOS: Catalogo[] = [
       ] },
     ],
   },
+  {
+    slug: "sta",
+    marca: "STA",
+    descripcion: "Catálogo 2026 — Aditivos, químicos de taller, limpieza DPF, radiadores, tratamientos de combustible y equipamiento profesional",
+    color: "#d97706",
+    categoriaFiltro: "lubricantes",
+    pdfUrl: "",
+    secciones: [
+      { titulo: "Lubricación y motor", icon: "🛢️", productos: [
+        { ref: "STA-2-100", nombre: "Motor PROTECT + Antifricción motor 250 ml", desc: "Tratamiento antifricción para motor. Reduce rozamiento, consumo y emisiones. 250 ml" },
+        { ref: "STA-10-100", nombre: "Motor PROTECT + Antifricción motor 1 L", desc: "Tratamiento antifricción para motor 1 litro, vehículo industrial y gran cilindrada" },
+        { ref: "TLA-20228", nombre: "Limpieza interna motor con antifricción 250 ml", desc: "Limpiador interno de motor con aditivo antifricción. Disuelve lodos y barnices. 250 ml" },
+        { ref: "TLA-20229", nombre: "Limpieza interna motor con antifricción 1 L", desc: "Limpiador interno de motor con antifricción 1 litro, gran cilindrada e industrial" },
+        { ref: "STA-20234", nombre: "Antifricción transmisiones AUTOMÁTICAS 1 L", desc: "Tratamiento antifricción para cajas de cambio automáticas. Suaviza cambios y reduce temperatura" },
+      ] },
+      { titulo: "AdBlue y SCR", icon: "💧", productos: [
+        { ref: "STA-9-101", nombre: "Adblu Protec ANTICRISTALIZANTE 250 ml", desc: "Aditivo anticristalizante para sistemas AdBlue y SCR. Evita cristalización de urea. 250 ml" },
+        { ref: "STA-9-102", nombre: "Adblu Protec ANTICRISTALIZANTE 1 L", desc: "Aditivo anticristalizante para sistemas AdBlue y SCR 1 litro, industrial y flotas" },
+      ] },
+      { titulo: "Limpieza de DPF por inmersión", icon: "🔥", productos: [
+        { ref: "STA-10-800", nombre: "Ceramic Clean+ Eliminador Carbonillas INMERSIÓN 10 L", desc: "Producto de inmersión para limpieza de filtros DPF/FAP. Elimina carbonilla y cenizas. 10 litros" },
+        { ref: "STA-1-190-N", nombre: "Útil de inmersión con equipación neumática", desc: "Útil de inmersión con equipación neumática para limpieza de filtros DPF/FAP desmontados" },
+        { ref: "STA-1-190-K", nombre: "Manga de aclarado con llave 1 m", desc: "Manga de aclarado con llave de 1 metro para limpieza de filtros por inmersión" },
+        { ref: "STA-1-191-US", nombre: "Útil de soplado con llave de cierre", desc: "Útil de soplado con llave de cierre para secado de filtros de partículas" },
+        { ref: "STA-1-1000-KN", nombre: "Kit neumático para contenedor 1000 litros", desc: "Kit neumático para adaptar sistema de limpieza a contenedores tipo GRG de 1000 litros" },
+        { ref: "STA-1-220-AZ", nombre: "Útil de aclarado 220 L sin tapa boca ancha", desc: "Útil de aclarado 220 litros sin tapa, boca ancha, para aclarado de filtros de partículas" },
+        { ref: "STA-1-150-AZ", nombre: "Útil de aclarado 150 L sin tapa", desc: "Útil de aclarado 150 litros sin tapa para aclarado de filtros de partículas" },
+        { ref: "STA-1-120-AZ", nombre: "Útil de aclarado 120 L sin tapa", desc: "Útil de aclarado 120 litros sin tapa para aclarado de filtros de partículas" },
+      ] },
+      { titulo: "Tratamientos de combustible", icon: "⛽", productos: [
+        { ref: "STA-3-1203", nombre: "Limpiador de inyectores y Pre ITV 1 L", desc: "Limpiador de inyectores y preparador pre-ITV. Limpia circuito de inyección y reduce emisiones" },
+        { ref: "STA-3-1010", nombre: "Predator Diesel Biocida antibacterias gasoil 1 L", desc: "Biocida antibacterias para gasóleo. Elimina contaminación microbiana en depósitos" },
+        { ref: "STA-3-1002", nombre: "Predator Diesel Biocida antibacterias gasoil 5 L", desc: "Biocida antibacterias gasóleo 5 litros para depósitos de gran capacidad, flotas y maquinaria" },
+        { ref: "STA-3-1004", nombre: "Antifreeze Diesel Anticongelante gasoil 1 L", desc: "Anticongelante para gasóleo. Evita parafinación a baja temperatura y asegura el arranque" },
+        { ref: "STA-3-1006", nombre: "Regenerator FAP Regenerador filtro partículas 1 L", desc: "Regenerador de filtro de partículas FAP/DPF sin desmontar. Reduce acumulación de carbonilla" },
+      ] },
+      { titulo: "Radiadores", icon: "🌡️", productos: [
+        { ref: "STA-41518", nombre: "Alu-1000 Descarbonizador desengrasante 10 L", desc: "Descarbonizador y desengrasante Alu-1000 para limpieza externa de radiadores e intercoolers" },
+        { ref: "STA-41519", nombre: "Kit limpieza externa radiadores con pulverizador neumático", desc: "Kit completo limpieza externa de radiadores, intercoolers y condensadores sin desmontar" },
+        { ref: "STA-41544", nombre: "Limpiador interno de radiadores 1 L", desc: "Limpiador interno de radiadores. Elimina cal, óxido y depósitos del circuito de refrigeración" },
+        { ref: "STA-41540-L", nombre: "Espadín con enchufe rápido macho 1 m", desc: "Espadín con enchufe rápido macho 1 metro para kit de limpieza externa de radiadores" },
+        { ref: "STA-41540-C", nombre: "Espadín con enchufe rápido macho 0,60 mm", desc: "Espadín con enchufe rápido macho 0,60 mm para zonas de acceso reducido" },
+      ] },
+      { titulo: "Químicos de taller", icon: "🔧", productos: [
+        { ref: "STA-41100", nombre: "STA CHAIN PROTECT+ 400 ml", desc: "Lubricante protector de cadena. Alta adherencia para cadenas de moto y maquinaria. Aerosol 400 ml" },
+        { ref: "STA-41006", nombre: "Multilubricante Super Desgripante con antifricción 400 ml", desc: "Multilubricante super desgripante. Desbloquea, lubrica, protege del óxido. Aerosol 400 ml" },
+      ] },
+      { titulo: "Limpieza e higiene", icon: "🧹", productos: [
+        { ref: "STA-41531", nombre: "Champú profesional concentrado carrocerías 10 L", desc: "Champú profesional concentrado para lavado de carrocerías. Alto poder detergente. 10 litros" },
+        { ref: "STA-41532", nombre: "Champú profesional concentrado Plus carrocerías 10 L", desc: "Champú profesional Plus con mayor poder desengrasante y brillo. 10 litros" },
+        { ref: "STA-4128", nombre: "Multiuso desengrasante CONCENTRADO 10 L", desc: "Multiuso desengrasante concentrado para taller. Suelos, motores, piezas y utillaje. 10 litros" },
+        { ref: "LA-21062", nombre: "Toallitas lavamanos mecánico 72 unidades", desc: "Toallitas lavamanos para mecánico. Limpian grasa, aceite y suciedad sin agua. Bote 72 uds" },
+      ] },
+      { titulo: "Electrónica", icon: "📡", productos: [
+        { ref: "RADAGO-EVO", nombre: "RADAGO EVO detector de radar portátil", desc: "Detector de radar portátil nueva generación. Antena digital, perfil ES, GPS y Bluetooth" },
+      ] },
+    ],
+  },
 ];
 
 
@@ -9640,7 +9708,7 @@ export default function CatalogosPage() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
               <div style={{ flexShrink: 0 }}>
-                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : catalogoSeleccionado.slug === "carpriss" ? <CarprissLogo size={100} /> : catalogoSeleccionado.slug === "toolhub" ? <ToolhubLogo size={100} /> : catalogoSeleccionado.slug === "jbm" ? <JBMLogo size={100} /> : <AuxolLogo size={100} />}
+                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : catalogoSeleccionado.slug === "carpriss" ? <CarprissLogo size={100} /> : catalogoSeleccionado.slug === "toolhub" ? <ToolhubLogo size={100} /> : catalogoSeleccionado.slug === "jbm" ? <JBMLogo size={100} /> : catalogoSeleccionado.slug === "sta" ? <STALogo size={100} /> : <AuxolLogo size={100} />}
               </div>
               <div style={{ flex: 1, minWidth: "200px" }}>
                 <h1 style={{ fontSize: "24px", fontWeight: 800, margin: 0 }}>
@@ -9740,8 +9808,8 @@ export default function CatalogosPage() {
                       <div style={{ flex: 1, minWidth: "200px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                           <span style={{
-                            background: catalogoSeleccionado.slug === "liqui-moly" ? "rgba(220,38,38,0.15)" : catalogoSeleccionado.slug === "toolhub" ? "rgba(225,29,72,0.15)" : catalogoSeleccionado.slug === "jbm" ? "rgba(22,163,74,0.15)" : "rgba(205,127,50,0.15)",
-                            color: catalogoSeleccionado.slug === "liqui-moly" ? "#fca5a5" : catalogoSeleccionado.slug === "toolhub" ? "#fb7185" : catalogoSeleccionado.slug === "jbm" ? "#4ade80" : "#E8B86D",
+                            background: catalogoSeleccionado.slug === "liqui-moly" ? "rgba(220,38,38,0.15)" : catalogoSeleccionado.slug === "toolhub" ? "rgba(225,29,72,0.15)" : catalogoSeleccionado.slug === "jbm" ? "rgba(22,163,74,0.15)" : catalogoSeleccionado.slug === "sta" ? "rgba(217,119,6,0.15)" : "rgba(205,127,50,0.15)",
+                            color: catalogoSeleccionado.slug === "liqui-moly" ? "#fca5a5" : catalogoSeleccionado.slug === "toolhub" ? "#fb7185" : catalogoSeleccionado.slug === "jbm" ? "#4ade80" : catalogoSeleccionado.slug === "sta" ? "#fbbf24" : "#E8B86D",
                             padding: "3px 10px", borderRadius: "6px",
                             fontSize: "13px", fontWeight: 700, fontFamily: "monospace",
                           }}>
@@ -9853,7 +9921,7 @@ export default function CatalogosPage() {
                   borderBottom: "1px solid #1e293b",
                   background: `linear-gradient(135deg, ${catalogo.color}15, transparent)`,
                 }}>
-                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : catalogo.slug === "carpriss" ? <CarprissLogo size={90} /> : catalogo.slug === "toolhub" ? <ToolhubLogo size={90} /> : catalogo.slug === "jbm" ? <JBMLogo size={90} /> : <AuxolLogo size={90} />}
+                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : catalogo.slug === "carpriss" ? <CarprissLogo size={90} /> : catalogo.slug === "toolhub" ? <ToolhubLogo size={90} /> : catalogo.slug === "jbm" ? <JBMLogo size={90} /> : catalogo.slug === "sta" ? <STALogo size={90} /> : <AuxolLogo size={90} />}
                   <div>
                     <h3 style={{ fontSize: "20px", fontWeight: 800, margin: 0 }}>
                       {catalogo.marca}
