@@ -99,6 +99,16 @@ function STALogo({ size = 80 }: { size?: number }) {
   );
 }
 
+function FerveLogo({ size = 80 }: { size?: number }) {
+  return (
+    <svg width={size} height={size * 0.45} viewBox="0 0 200 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="90" rx="8" fill="#DC2626"/>
+      <text x="100" y="58" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="42" fill="white" letterSpacing="3">FERVE</text>
+      <rect x="15" y="72" width="170" height="3" rx="1.5" fill="white" opacity="0.5"/>
+    </svg>
+  );
+}
+
 // ── CATÁLOGOS ──
 const CATALOGOS: Catalogo[] = [
   {
@@ -9623,6 +9633,119 @@ const CATALOGOS: Catalogo[] = [
       ] },
     ],
   },
+  {
+    slug: "ferve",
+    marca: "FERVE",
+    descripcion: "Catálogo 2026 — Cargadores de baterías, arrancadores (boosters), testers, comprobadores de circuitos, pinzas, cables de emergencia y accesorios para taller",
+    color: "#DC2626",
+    categoriaFiltro: "herramientas",
+    pdfUrl: "",
+    secciones: [
+      { titulo: "Cargadores HF", icon: "🔋", productos: [
+        { ref: "F-2201", nombre: "Cargador HF 6/12V 100W", desc: "Cargador alta frecuencia 6/12V 100W. Automático con microprocesador. LIQ, GEL, AGM. RF." },
+        { ref: "F-2505", nombre: "Cargador HF 12V 350W", desc: "Cargador alta frecuencia 12V 350W. Automático. LIQ, GEL, AGM, Start-Stop. RF." },
+        { ref: "F-2507", nombre: "Cargador HF 12/24V 500W", desc: "Cargador alta frecuencia 12/24V 500W. Automático. LIQ, GEL, AGM, Start-Stop, EFB. RF." },
+        { ref: "F-2520", nombre: "Cargador HF 12V 1400W", desc: "Cargador alta frecuencia 12V 1400W. Fuente de alimentación. LIQ, GEL, AGM, Start-Stop, EFB." },
+        { ref: "F-2525", nombre: "Cargador HF 12/24V 1800W", desc: "Cargador alta frecuencia 12/24V 1800W. Fuente de alimentación. LIQ, GEL, AGM, Start-Stop, EFB." },
+      ] },
+      { titulo: "Cargadores HF PLUS", icon: "⚡", productos: [
+        { ref: "F-2805", nombre: "Cargador HF PLUS 12V 350W", desc: "HF PLUS 12V 350W. Microprocesador con reinicio de carga. LIQ, GEL, AGM, EFB, Lithium. RF." },
+        { ref: "F-2810", nombre: "Cargador HF PLUS 12V 700W", desc: "HF PLUS 12V 700W. Microprocesador con reinicio de carga. LIQ, GEL, AGM, EFB, Lithium. RF." },
+        { ref: "F-2815", nombre: "Cargador HF PLUS 12V 1050W", desc: "HF PLUS 12V 1050W. Microprocesador con reinicio de carga. LIQ, GEL, AGM, EFB, Lithium. RF." },
+        { ref: "F-2820", nombre: "Cargador HF PLUS 12/24V 1400W", desc: "HF PLUS 12/24V 1400W. Microprocesador con reinicio de carga. LIQ, GEL, AGM, EFB, Lithium. RF." },
+      ] },
+      { titulo: "Cargadores HF PRO", icon: "🏭", productos: [
+        { ref: "F-9012", nombre: "Cargador HF PRO 12V 850W", desc: "Profesional HF PRO 12V 850W. LIQ, GEL, AGM. RF. Con asa de transporte." },
+        { ref: "F-9030", nombre: "Cargador HF PRO 12/24V 2100W", desc: "Profesional HF PRO 12/24V 2100W. LIQ, GEL, AGM. RF. Con asa de transporte." },
+        { ref: "F-9100", nombre: "Cargador HF PRO 12/24V 7200W", desc: "Profesional HF PRO 12/24V 7200W. LIQ, GEL, AGM. Caja metálica resistente." },
+        { ref: "F-9124", nombre: "Cargador HF PRO 12/24V 8600W", desc: "Profesional HF PRO 12/24V 8600W. LIQ, GEL, AGM. Caja metálica resistente." },
+      ] },
+      { titulo: "Cargadores PRIMA", icon: "🔌", productos: [
+        { ref: "F-705", nombre: "Cargador PRIMA 6/12V", desc: "Cargador convencional PRIMA 6/12V. Manual. LIQ. Amperímetro analógico." },
+        { ref: "F-903", nombre: "Cargador PRIMA 12V", desc: "Cargador convencional PRIMA 12V. Manual. LIQ. Amperímetro analógico." },
+        { ref: "F-905", nombre: "Cargador PRIMA 12V", desc: "Cargador convencional PRIMA 12V. Manual. LIQ, GEL. Amperímetro analógico." },
+        { ref: "F-805", nombre: "Cargador PRIMA 12V automático", desc: "PRIMA 12V automático. LIQ, GEL. Visor electrónico." },
+        { ref: "F-806", nombre: "Cargador PRIMA 12V automático", desc: "PRIMA 12V automático. LIQ, GEL, AGM. Visor electrónico." },
+        { ref: "F-807", nombre: "Cargador PRIMA 12V automático", desc: "PRIMA 12V automático. LIQ, GEL, AGM. Caja metálica." },
+        { ref: "F-811", nombre: "Cargador PRIMA 12V con fuente", desc: "PRIMA 12V automático con fuente de alimentación. LIQ, GEL, AGM. Caja metálica." },
+        { ref: "F-812", nombre: "Cargador PRIMA 12/24V con fuente", desc: "PRIMA 12/24V automático con fuente de alimentación. LIQ, GEL, AGM. Caja metálica." },
+        { ref: "F-915", nombre: "Cargador PRIMA 12V con ruedas", desc: "PRIMA 12V automático con ruedas para taller. LIQ, GEL, AGM. Caja metálica. 22kg." },
+        { ref: "F-918", nombre: "Cargador PRIMA 12/24V con ruedas", desc: "PRIMA 12/24V automático con ruedas para taller. LIQ, GEL, AGM. Caja metálica. 23.5kg." },
+      ] },
+      { titulo: "Cargadores AUTOMATIC", icon: "🤖", productos: [
+        { ref: "F-968", nombre: "Cargador AUTOMATIC 6/12V", desc: "Automático 6/12V con microprocesador. LIQ, GEL, AGM. LCD." },
+        { ref: "F-908", nombre: "Cargador AUTOMATIC 12V", desc: "Automático 12V con microprocesador. LIQ, GEL, AGM. LCD." },
+        { ref: "F-909", nombre: "Cargador AUTOMATIC 12V", desc: "Automático 12V con microprocesador. LIQ, GEL, AGM, Start-Stop. LCD." },
+        { ref: "F-2320", nombre: "Cargador AUTOMATIC 12/24V", desc: "Automático 12/24V con microprocesador. LIQ, GEL, AGM, Start-Stop. LCD." },
+      ] },
+      { titulo: "Cargadores TETRA", icon: "🔲", productos: [
+        { ref: "F-2908", nombre: "Cargador TETRA 12V", desc: "TETRA 12V con microprocesador. LIQ, GEL, AGM, Start-Stop, EFB. LCD." },
+        { ref: "F-2914", nombre: "Cargador TETRA 12/24V", desc: "TETRA 12/24V con microprocesador. LIQ, GEL, AGM, Start-Stop, EFB. LCD." },
+        { ref: "F-2916", nombre: "Cargador TETRA 12/24V", desc: "TETRA 12/24V con reinicio de carga. LIQ, GEL, AGM, Start-Stop, EFB. LCD." },
+        { ref: "F-2920", nombre: "Cargador TETRA 12/24V con fuente", desc: "TETRA 12/24V con reinicio y fuente de alimentación. LIQ, GEL, AGM, EFB. LCD." },
+        { ref: "F-2930", nombre: "Cargador TETRA 12/24V con fuente", desc: "TETRA 12/24V máxima potencia con reinicio y fuente. LIQ, GEL, AGM, EFB. LCD." },
+      ] },
+      { titulo: "Cargadores rápidos FAST", icon: "⚡", productos: [
+        { ref: "F-925", nombre: "FAST 12/24V 1500W Booster 250A", desc: "Cargador rápido y booster 12/24V 1500W. 8 funciones. Booster 250A. Para taller." },
+        { ref: "F-925RF", nombre: "FAST RF 12/24V 1500W Booster 250A", desc: "Cargador rápido RF (Ripple Free) 12/24V 1500W. 8 funciones. Booster 250A." },
+        { ref: "F-970", nombre: "FAST 12/24V 2300W Booster 450A", desc: "Cargador rápido y booster 12/24V 2300W. 8 funciones. Booster 450A con cable 4m." },
+        { ref: "F-970RF", nombre: "FAST RF 12/24V 2300W Booster 450A", desc: "Cargador rápido RF 12/24V 2300W. 8 funciones. Booster 450A con cable 4m." },
+      ] },
+      { titulo: "Boosters / Arrancadores", icon: "🚗", productos: [
+        { ref: "F-505", nombre: "Booster Box 12V 400A Lithium 18000mAh", desc: "Arrancador portátil litio 12V 400A/800A pico. 18000mAh. USB. 650g." },
+        { ref: "F-580", nombre: "Booster 12-24V Lithium 24000mAh", desc: "Arrancador portátil 12/24V 600A/1200A pico. Litio 24000mAh. USB, LED 8h." },
+        { ref: "F-590", nombre: "Booster THE BIG ONE 12-24V 54000mAh", desc: "Arrancador máxima potencia 12/24V 1500A/3000A pico. Litio 54000mAh. NUEVO." },
+        { ref: "F-515", nombre: "EDLC Booster 12V 500A Supercondensadores", desc: "Arrancador sin batería. Supercondensadores EDLC 500F. 500A/1100A pico. IP65. +500.000 ciclos." },
+        { ref: "F-1900", nombre: "Booster 12V 400A AGM", desc: "Arrancador profesional 12V 400A/1000A pico. Batería AGM 19Ah. Caja metálica." },
+        { ref: "F-2000", nombre: "Booster 12V 400A AGM con asa", desc: "Arrancador profesional 12V 400A/1000A pico. AGM 19Ah. Caja metálica con asa." },
+        { ref: "F-2001", nombre: "Booster 12V 600A AGM con asa", desc: "Arrancador profesional 12V 600A/1500A pico. AGM 27Ah. Caja metálica con asa." },
+        { ref: "F-2101", nombre: "Booster 12V 600A Genesis", desc: "Arrancador profesional 12V 600A/1500A pico. Baterías Genesis 16Ah. Caja metálica." },
+        { ref: "F-2124", nombre: "Booster 12/24V 1200A Genesis", desc: "Arrancador profesional 12/24V 1200A/3000A pico. 2x Genesis 16Ah. Cargador integrado." },
+        { ref: "F-2125", nombre: "Booster 12/24V 2400A Genesis", desc: "Arrancador máxima potencia 12/24V 2400A/6000A pico. 4x Genesis 16Ah. Cargador integrado." },
+      ] },
+      { titulo: "Testers y analizadores", icon: "📊", productos: [
+        { ref: "F-814", nombre: "Comprobador baterías 12V 250A", desc: "Comprobador con descarga 250A. Digital 0.01V. Para baterías 12V 32-180Ah. Caja metálica." },
+        { ref: "F-1830", nombre: "Multímetro digital 600V CAT III", desc: "Multímetro digital. DC/AC Volts, DC Amps, Resistencia, Diodo, Continuidad." },
+        { ref: "F-1880", nombre: "Multímetro/Pinza 1000V CAT IV", desc: "Multímetro y pinza 1000V CAT IV. PC-Link USB. Temperatura, frecuencia, duty cycle." },
+        { ref: "F-1902", nombre: "Analizador baterías digital 12V", desc: "Analizador digital 12V. Test batería, arranque, carga. SAE, EN, IEC, DIN, CA." },
+        { ref: "F-1810", nombre: "Analizador baterías y sistema 12/24V", desc: "Analizador profesional 12/24V. Test batería 6-300Ah, arranque, carga. CCA/SAE, JIS, EN." },
+        { ref: "F-1707", nombre: "Pinza amperimétrica 1000V CAT II", desc: "Pinza amperimétrica 1000V CAT II / 600V CAT III. DC/AC Amps, temperatura, frecuencia." },
+        { ref: "F-1708", nombre: "Pinza amperimétrica 600V CAT III", desc: "Pinza amperimétrica 600V CAT III con LED y NCV. DC/AC Amps, frecuencia, capacitancia." },
+      ] },
+      { titulo: "Circuit Test", icon: "🔍", productos: [
+        { ref: "F-416-12V", nombre: "Comprobador circuitos 12V", desc: "Comprobador tipo lápiz 12V con LED." },
+        { ref: "F-416-24V", nombre: "Comprobador circuitos 24V", desc: "Comprobador tipo lápiz 24V con LED." },
+        { ref: "F-30", nombre: "Comprobador circuitos 2.8-48V", desc: "Comprobador multivoltaje 2.8-48V (6 rangos). LEDs por tensión." },
+        { ref: "F-916", nombre: "Comprobador circuitos 6/12/24V", desc: "Comprobador 6V, 12V y 24V con indicadores LED." },
+        { ref: "F-85", nombre: "Comprobador baterías 12/13V con pinzas", desc: "Comprobador batería y alternador 12/13V con pinzas. LEDs." },
+        { ref: "F-90", nombre: "Comprobador circuitos 12/24V", desc: "Comprobador 12V y 24V con LEDs batería/alternador." },
+        { ref: "F-2200", nombre: "Comprobador digital 12/24V", desc: "Comprobador digital de circuitos 12/24V. Resolución 0.1V." },
+      ] },
+      { titulo: "Pinzas de batería", icon: "🔧", productos: [
+        { ref: "F-410B", nombre: "Pinzas 25A (blister par)", desc: "Par de pinzas de batería 25A en blister." },
+        { ref: "F-427B", nombre: "Pinzas 75A (blister par)", desc: "Par de pinzas de batería 75A en blister." },
+        { ref: "F-435B", nombre: "Pinzas 150A (blister par)", desc: "Par de pinzas de batería 150A en blister." },
+        { ref: "F-444B", nombre: "Pinzas 200A (blister par)", desc: "Par de pinzas de batería 200A en blister." },
+        { ref: "F-600B", nombre: "Pinzas 600A (blister par)", desc: "Par de pinzas de batería 600A en blister." },
+        { ref: "F-600", nombre: "Pinzas 600A", desc: "Pinzas de batería 600A profesionales." },
+      ] },
+      { titulo: "Cables de emergencia Roll-Flex", icon: "🔗", productos: [
+        { ref: "F-540", nombre: "Cables Roll-Flex 150A 2.5m", desc: "Cables emergencia 150A. 16mm². 2.5m. Pinzas CCA cobre-aluminio." },
+        { ref: "F-440", nombre: "Cables Roll-Flex 220A 3m", desc: "Cables emergencia 220A. 25mm². 3m. Pinzas CCA cobre-aluminio." },
+        { ref: "F-945", nombre: "Cables Roll-Flex 220A 4.5m", desc: "Cables emergencia 220A. 25mm². 4.5m. Pinzas CCA cobre-aluminio." },
+        { ref: "F-950", nombre: "Cables Roll-Flex 350A 5m", desc: "Cables emergencia 350A. 40mm². 5m. Pinzas CCA cobre-aluminio." },
+      ] },
+      { titulo: "Accesorios", icon: "🛠️", productos: [
+        { ref: "F-1", nombre: "Cargador USB 12/24V", desc: "Cargador USB mechero 12/24V DC. Salida 5V 1A. Smartphone, tablet." },
+        { ref: "F-438", nombre: "Botella automática llenado 1L", desc: "Botella automática de llenado para baterías. 1 litro." },
+        { ref: "F-432", nombre: "Limpiabornes y terminales", desc: "Limpiador de bornes y conectores de batería." },
+        { ref: "F-425", nombre: "Densímetro alta precisión", desc: "Densímetro de alta precisión para electrolito de baterías." },
+        { ref: "F-502", nombre: "Conector salvamemorias OBDII", desc: "Conector OBDII salvamemorias para booster F-505. Mantiene memoria durante cambio batería." },
+        { ref: "F-219", nombre: "Cargador 12V 2A para boosters", desc: "Cargador automático 12V 2A para recargar boosters F-1900/F-2000/F-2001/F-2101." },
+        { ref: "F-280", nombre: "Cargador para boosters F-580/F-590", desc: "Cargador 13.8V 2A para boosters F-580 y F-590." },
+      ] },
+    ],
+  },
 ];
 
 
@@ -9708,7 +9831,7 @@ export default function CatalogosPage() {
 
             <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
               <div style={{ flexShrink: 0 }}>
-                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : catalogoSeleccionado.slug === "carpriss" ? <CarprissLogo size={100} /> : catalogoSeleccionado.slug === "toolhub" ? <ToolhubLogo size={100} /> : catalogoSeleccionado.slug === "jbm" ? <JBMLogo size={100} /> : catalogoSeleccionado.slug === "sta" ? <STALogo size={100} /> : <AuxolLogo size={100} />}
+                {catalogoSeleccionado.slug === "liqui-moly" ? <LiquiMolyLogo size={100} /> : catalogoSeleccionado.slug === "carpriss" ? <CarprissLogo size={100} /> : catalogoSeleccionado.slug === "toolhub" ? <ToolhubLogo size={100} /> : catalogoSeleccionado.slug === "jbm" ? <JBMLogo size={100} /> : catalogoSeleccionado.slug === "sta" ? <STALogo size={100} /> : catalogoSeleccionado.slug === "ferve" ? <FerveLogo size={100} /> : <AuxolLogo size={100} />}
               </div>
               <div style={{ flex: 1, minWidth: "200px" }}>
                 <h1 style={{ fontSize: "24px", fontWeight: 800, margin: 0 }}>
@@ -9809,7 +9932,7 @@ export default function CatalogosPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                           <span style={{
                             background: catalogoSeleccionado.slug === "liqui-moly" ? "rgba(220,38,38,0.15)" : catalogoSeleccionado.slug === "toolhub" ? "rgba(225,29,72,0.15)" : catalogoSeleccionado.slug === "jbm" ? "rgba(22,163,74,0.15)" : catalogoSeleccionado.slug === "sta" ? "rgba(217,119,6,0.15)" : "rgba(205,127,50,0.15)",
-                            color: catalogoSeleccionado.slug === "liqui-moly" ? "#fca5a5" : catalogoSeleccionado.slug === "toolhub" ? "#fb7185" : catalogoSeleccionado.slug === "jbm" ? "#4ade80" : catalogoSeleccionado.slug === "sta" ? "#fbbf24" : "#E8B86D",
+                            color: catalogoSeleccionado.slug === "liqui-moly" ? "#fca5a5" : catalogoSeleccionado.slug === "toolhub" ? "#fb7185" : catalogoSeleccionado.slug === "jbm" ? "#4ade80" : catalogoSeleccionado.slug === "sta" ? "#fbbf24" : catalogoSeleccionado.slug === "ferve" ? "#fca5a5" : "#E8B86D",
                             padding: "3px 10px", borderRadius: "6px",
                             fontSize: "13px", fontWeight: 700, fontFamily: "monospace",
                           }}>
@@ -9921,7 +10044,7 @@ export default function CatalogosPage() {
                   borderBottom: "1px solid #1e293b",
                   background: `linear-gradient(135deg, ${catalogo.color}15, transparent)`,
                 }}>
-                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : catalogo.slug === "carpriss" ? <CarprissLogo size={90} /> : catalogo.slug === "toolhub" ? <ToolhubLogo size={90} /> : catalogo.slug === "jbm" ? <JBMLogo size={90} /> : catalogo.slug === "sta" ? <STALogo size={90} /> : <AuxolLogo size={90} />}
+                  {catalogo.slug === "liqui-moly" ? <LiquiMolyLogo size={90} /> : catalogo.slug === "carpriss" ? <CarprissLogo size={90} /> : catalogo.slug === "toolhub" ? <ToolhubLogo size={90} /> : catalogo.slug === "jbm" ? <JBMLogo size={90} /> : catalogo.slug === "sta" ? <STALogo size={90} /> : catalogo.slug === "ferve" ? <FerveLogo size={90} /> : <AuxolLogo size={90} />}
                   <div>
                     <h3 style={{ fontSize: "20px", fontWeight: 800, margin: 0 }}>
                       {catalogo.marca}
