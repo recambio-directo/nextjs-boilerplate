@@ -5,7 +5,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.recambio-directo.com";
   const ahora = new Date();
 
-  const ciudades = ["madrid", "barcelona", "valencia", "sevilla", "bilbao"];
+  const ciudades = [
+    "madrid", "barcelona", "valencia", "sevilla", "bilbao",
+    "alicante", "almeria", "asturias", "badajoz", "baleares",
+    "burgos", "caceres", "cadiz", "cantabria", "castellon",
+    "ciudad-real", "cordoba", "cuenca", "girona", "granada",
+    "guadalajara", "guipuzcoa", "huelva", "huesca", "jaen",
+    "la-coruna", "la-rioja", "las-palmas", "leon", "lleida",
+    "lugo", "malaga", "murcia", "navarra", "ourense",
+    "palencia", "pontevedra", "salamanca", "santa-cruz-de-tenerife",
+    "segovia", "soria", "tarragona", "teruel", "toledo",
+    "valladolid", "vizcaya", "zamora", "zaragoza", "alava", "albacete",
+  ];
 
   const blogPosts = [
     "como-elegir-recambios-oem-o-iam",
@@ -68,7 +79,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
-    // Landings de ciudad
+    // Landings de ciudad/provincia (50 provincias)
     ...ciudades.map((ciudad) => ({
       url: `${base}/recambios-${ciudad}`,
       lastModified: ahora,
