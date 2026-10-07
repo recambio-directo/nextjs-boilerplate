@@ -28,6 +28,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "reducir-costes-recambios-taller",
     "como-ahorrar-recambios-taller",
     "comparar-precios-recambios-online",
+    "buscar-recambios-por-referencia-oem",
+    "mejores-marcas-recambios-aftermarket",
   ];
 
   const categorias = [
@@ -55,6 +57,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/registro`,
+      lastModified: ahora,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    // Landing proveedores
+    {
+      url: `${base}/para-proveedores`,
+      lastModified: ahora,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    // Landing talleres
+    {
+      url: `${base}/para-talleres`,
       lastModified: ahora,
       changeFrequency: "monthly",
       priority: 0.9,
