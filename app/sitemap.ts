@@ -5,17 +5,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.recambio-directo.com";
   const ahora = new Date();
 
-  const ciudades = [
-    "madrid", "barcelona", "valencia", "sevilla", "bilbao",
-    "alicante", "almeria", "asturias", "badajoz", "baleares",
-    "burgos", "caceres", "cadiz", "cantabria", "castellon",
-    "ciudad-real", "cordoba", "cuenca", "girona", "granada",
-    "guadalajara", "guipuzcoa", "huelva", "huesca", "jaen",
-    "la-coruna", "la-rioja", "las-palmas", "leon", "lleida",
-    "lugo", "malaga", "murcia", "navarra", "ourense",
-    "palencia", "pontevedra", "salamanca", "santa-cruz-de-tenerife",
-    "segovia", "soria", "tarragona", "teruel", "toledo",
-    "valladolid", "vizcaya", "zamora", "zaragoza", "alava", "albacete",
+  const provincias = [
+    "madrid", "barcelona", "valencia", "sevilla", "bilbao", "zaragoza", "malaga",
+    "murcia", "palma-de-mallorca", "las-palmas", "alicante", "cordoba", "valladolid",
+    "vigo", "gijon", "hospitalet", "vitoria", "a-coruna", "granada", "elche",
+    "oviedo", "santa-cruz-de-tenerife", "pamplona", "almeria", "donostia",
+    "burgos", "albacete", "santander", "castellon", "logrono", "badajoz",
+    "salamanca", "huelva", "lleida", "tarragona", "leon", "cadiz", "jaen",
+    "ourense", "girona", "lugo", "caceres", "guadalajara", "toledo", "pontevedra",
+    "palencia", "ciudad-real", "zamora", "avila", "cuenca", "segovia", "huesca",
+    "teruel", "soria",
   ];
 
   const blogPosts = [
@@ -27,6 +26,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "buscar-recambios-por-matricula-como-funciona",
     "marketplace-b2b-vs-distribuidor-tradicional",
     "reducir-costes-recambios-taller",
+    "como-ahorrar-recambios-taller",
+    "comparar-precios-recambios-online",
   ];
 
   const categorias = [
@@ -79,9 +80,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
-    // Landings de ciudad/provincia (50 provincias)
-    ...ciudades.map((ciudad) => ({
-      url: `${base}/recambios-${ciudad}`,
+    // Landings de provincia
+    ...provincias.map((prov) => ({
+      url: `${base}/recambios-${prov}`,
       lastModified: ahora,
       changeFrequency: "monthly" as const,
       priority: 0.8,
