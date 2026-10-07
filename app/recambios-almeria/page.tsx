@@ -6,12 +6,49 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.recambio-directo.com/recambios-almeria" },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": "Recambio Directo — Recambios en Almería",
+  "description": "Marketplace B2B de recambios de automoción para talleres y proveedores en Almería, Andalucía.",
+  "url": "https://www.recambio-directo.com/recambios-almeria",
+  "areaServed": {
+    "@type": "AdministrativeArea",
+    "name": "Almería",
+    "containedInPlace": {
+      "@type": "Country",
+      "name": "España"
+    }
+  },
+  "provider": {
+    "@type": "Organization",
+    "name": "Recambio Directo",
+    "url": "https://www.recambio-directo.com",
+    "logo": "https://www.recambio-directo.com/icons/manifest-icon-512.maskable.png",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+34744487895",
+      "contactType": "customer service",
+      "availableLanguage": "Spanish"
+    }
+  },
+  "serviceType": "Marketplace B2B de recambios de automoción",
+  "offers": {
+    "@type": "Offer",
+    "description": "Suscripción mensual al marketplace",
+    "price": "25",
+    "priceCurrency": "EUR",
+    "priceValidUntil": "2027-12-31"
+  }
+};
+
 const badge: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 20, fontSize: 13, letterSpacing: "0.05em" };
 const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 32, border: "1px solid rgba(255,255,255,0.06)" };
 
 export default function RecambiosAlmeriaPage() {
   return (
     <main style={ { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" } }>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div style={ { maxWidth: 900, margin: "0 auto" } }>
 
         <div style={ { textAlign: "center", marginBottom: 48 } }>
