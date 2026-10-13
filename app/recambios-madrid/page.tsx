@@ -1,17 +1,27 @@
 import type { Metadata } from "next";
+import ProvinciaJsonLd from "../components/ProvinciaJsonLd";
 
 export const metadata: Metadata = {
   title: "Recambios de Automoción en Madrid — Marketplace B2B | Recambio Directo",
   description: "Compra recambios de automoción en Madrid al mejor precio. Marketplace B2B para talleres y proveedores en Comunidad de Madrid. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-madrid" },
+  openGraph: {
+    title: "Recambios de Automoción en Madrid — Marketplace B2B",
+    description: "Marketplace B2B de recambios para talleres en Madrid. Compara precios entre proveedores y recibe piezas OEM e IAM en 24h.",
+    url: "https://www.recambio-directo.com/recambios-madrid",
+    type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Recambios en Madrid — Recambio Directo" }],
+  },
 };
 
 const badge: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 20, fontSize: 13, letterSpacing: "0.05em" };
 const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", borderRadius: 24, padding: 32, border: "1px solid rgba(255,255,255,0.06)" };
+const linkStyle: React.CSSProperties = { color: "#60a5fa", textDecoration: "underline" };
 
 export default function RecambiosMadridPage() {
   return (
     <main style={ { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" } }>
+      <ProvinciaJsonLd provincia="Madrid" comunidad="Comunidad de Madrid" slug="recambios-madrid" />
       <div style={ { maxWidth: 900, margin: "0 auto" } }>
 
         <div style={ { textAlign: "center", marginBottom: 48 } }>
@@ -47,12 +57,25 @@ export default function RecambiosMadridPage() {
         <div style={ { ...card, marginTop: 24 } }>
           <h2 style={ { fontSize: 24, fontWeight: 900, marginBottom: 16 } }>¿Qué puedes hacer en Recambio Directo?</h2>
           <ul style={ { listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 12 } }>
-            {["Buscar referencias OEM e IAM entre proveedores verificados de " + "Comunidad de Madrid", "Comparar precios en tiempo real sin llamar a cada proveedor", "Pedir piezas con entrega en 24h en Madrid y alrededores", "Gestionar pedidos, albaranes y facturas desde un único panel", "Chatear en tiempo real con el proveedor vinculado a cada pedido", "Acceder a RD Pago: compra ahora, paga en 15 días"].map((item, i) => (
+            {["Buscar referencias OEM e IAM entre proveedores verificados de Comunidad de Madrid", "Comparar precios en tiempo real sin llamar a cada proveedor", "Pedir piezas con entrega en 24h en Madrid y alrededores", "Gestionar pedidos, albaranes y facturas desde un único panel", "Chatear en tiempo real con el proveedor vinculado a cada pedido", "Acceder a RD Pago: compra ahora, paga en 15 días"].map((item, i) => (
               <li key={i} style={ { display: "flex", gap: 10, alignItems: "flex-start" } }>
                 <span style={ { color: "#22c55e", fontWeight: 900, fontSize: 18, flexShrink: 0 } }>✓</span>
                 <span style={ { color: "#cbd5e1", fontSize: 15, lineHeight: 1.6 } }>{item}</span>
               </li>
             ))}
+          </ul>
+        </div>
+
+        {/* Enlaces internos a contenido relacionado */}
+        <div style={ { ...card, marginTop: 24 } }>
+          <h2 style={ { fontSize: 24, fontWeight: 900, marginBottom: 16 } }>Recursos para talleres</h2>
+          <ul style={ { listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 10 } }>
+            <li><a href="/blog/como-ahorrar-recambios-taller" style={linkStyle}>Cómo ahorrar en recambios si tienes un taller mecánico</a></li>
+            <li><a href="/blog/comparar-precios-recambios-online" style={linkStyle}>Comparar precios de recambios online: guía práctica</a></li>
+            <li><a href="/blog/marketplace-b2b-vs-distribuidor-tradicional" style={linkStyle}>Marketplace B2B vs distribuidor tradicional</a></li>
+            <li><a href="/recambios/frenos" style={linkStyle}>Recambios de frenos</a></li>
+            <li><a href="/recambios/filtros" style={linkStyle}>Filtros de aceite, aire y habitáculo</a></li>
+            <li><a href="/marcas/bosch" style={linkStyle}>Recambios Bosch</a></li>
           </ul>
         </div>
 
