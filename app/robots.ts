@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/registro", "/quienes-somos", "/blog", "/blog/"],
+        allow: "/",
         disallow: [
           "/login",
           "/dashboard/",
@@ -15,8 +15,6 @@ export default function robots(): MetadataRoute.Robots {
           "/perfil/",
           "/chat/",
           "/api/",
-          "/cookies",
-          "/devoluciones",
         ],
       },
     ],
