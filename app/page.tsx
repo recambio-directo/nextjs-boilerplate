@@ -1,621 +1,320 @@
-"use client";
+import type { Metadata } from "next";
+import React from "react";
+import LoginBox from "./components/LoginBox";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { supabase } from "../lib/supabase";
+export const metadata: Metadata = {
+  title: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
+  description: "Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h. Madrid, Barcelona, Valencia, Sevilla y toda España.",
+  alternates: { canonical: "https://www.recambio-directo.com" },
+};
 
-export default function Dashboard() {
-  const [pedidos, setPedidos] = useState<any[]>([]);
-  const [facturacion, setFacturacion] = useState(0);
-  const [piezasTaller, setPiezasTaller] = useState<any[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
-  const [nombreEmpresa, setNombreEmpresa] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [creditoRD, setCreditoRD] = useState(0);
-  const [rdPagoActivo, setRdPagoActivo] = useState(false);
-  const [rdPagoSolicitado, setRdPagoSolicitado] = useState(false);
-  const [fechaRegistro, setFechaRegistro] = useState<string | null>(null);
-  const [solicitandoRD, setSolicitandoRD] = useState(false);
-  const [rdSolicitadoOk, setRdSolicitadoOk] = useState(false);
-  const [cif, setCif] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [iban, setIban] = useState("");
-  const [slideActual, setSlideActual] = useState(0);
-  const totalSlides = 3;
+const badgeStyle: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 16px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, marginBottom: "24px", letterSpacing: "0.05em" };
+const footerLink: React.CSSProperties = { display: "block", color: "#94a3b8", fontSize: 13, textDecoration: "none", marginBottom: 8 };
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => { cargarDatos(); }, []);
-
-  // Auto-rotación del carrusel hero
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSlideActual((prev) => (prev + 1) % totalSlides);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  async function cargarDatos() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = "/"; return; }
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, tipo, credito_rd, rd_pago_activo, rd_pago_solicitado, fecha_registro, cif, telefono, iban").eq("id", user.id).single();
-    if (!perfil || perfil.tipo !== "taller") { window.location.href = "/"; return; }
-    await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", user.id);
-    if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
-    setUserId(user.id);
-    setUserEmail(user.email || null);
-    setCreditoRD(Number(perfil.credito_rd || 0));
-    setRdPagoActivo(!!perfil.rd_pago_activo);
-    setRdPagoSolicitado(!!perfil.rd_pago_solicitado);
-    setFechaRegistro(perfil.fecha_registro || null);
-    setCif(perfil.cif || "");
-    setTelefono(perfil.telefono || "");
-    setIban(perfil.iban || "");
-
-    const { data } = await supabase.from("pedidos").select("*").eq("cliente_email", user.email).order("created_at", { ascending: false });
-    if (data) {
-      setPedidos(data);
-      setFacturacion(data.reduce((acc, p) => acc + (Number(p.total) || 0), 0));
-    }
-
-    const { data: piezas } = await supabase.from("piezas_publicadas").select("*").eq("proveedor_id", user.id).eq("tipo_vendedor", "taller").order("id", { ascending: false });
-    setPiezasTaller(piezas || []);
-  }
-
-  async function cerrarSesion() {
-    await supabase.auth.signOut();
-    location.href = "/";
-  }
-
-  // Calcular requisitos RD Pago
-  function calcularRequisitos() {
-    const diasActivo = fechaRegistro
-      ? Math.floor((new Date().getTime() - new Date(fechaRegistro).getTime()) / (1000 * 60 * 60 * 24))
-      : 0;
-    const pedidoConTarjeta = pedidos.some(p => !p.anulado && (p.forma_pago === "tarjeta" || p.metodo_pago === "tarjeta" || p.estado_pago === "pagado"));
-    return {
-      diasActivo,
-      cumpleMes: diasActivo >= 30,
-      cumplePedido: pedidoConTarjeta,
-      cumpleTodo: diasActivo >= 30 && pedidoConTarjeta,
-    };
-  }
-
-  async function solicitarRDPago() {
-    if (!userId || !userEmail) return;
-    setSolicitandoRD(true);
-    try {
-      // Marcar solicitud en Supabase
-      await supabase.from("usuarios").update({ rd_pago_solicitado: true }).eq("id", userId);
-      setRdPagoSolicitado(true);
-
-      // Email a Vicente
-      await fetch("/api/send-rd-pago-solicitud", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tallerNombre: nombreEmpresa,
-          tallerEmail: userEmail,
-          tallerCif: cif,
-          tallerTelefono: telefono,
-          tallerIban: iban,
-          pedidosTotales: pedidos.filter(p => !p.anulado).length,
-          facturacionTotal: facturacion,
-          diasActivo: calcularRequisitos().diasActivo,
-        }),
-      });
-
-      setRdSolicitadoOk(true);
-    } catch (e) {
-      console.error("Error solicitando RD Pago:", e);
-    }
-    setSolicitandoRD(false);
-  }
-
-  const req = calcularRequisitos();
-
-  // Bloque RD Pago
-  function BloqueRDPago() {
-    if (rdPagoActivo) {
-      return (
-        <div style={{ background: "linear-gradient(135deg,rgba(37,99,235,0.15),rgba(37,99,235,0.05))", border: "1px solid rgba(37,99,235,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>💳 RD PAGO ACTIVO</div>
-              <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 6 }}>Crédito disponible</h3>
-              <p style={{ color: "#94a3b8", fontSize: 14 }}>Compra ahora y paga en 15 días sin recargos</p>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: isMobile ? 36 : 52, fontWeight: 900, color: creditoRD > 0 ? "#22c55e" : "#f87171", lineHeight: 1 }}>{creditoRD.toFixed(2)}€</p>
-              <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>disponibles</p>
-            </div>
-          </div>
-          {creditoRD <= 0 && (
-            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px", marginTop: 14 }}>
-              <p style={{ color: "#f87171", fontSize: 13, fontWeight: 700, margin: 0 }}>⚠️ Crédito agotado — contacta con Recambio Directo para renovar tu límite</p>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (rdPagoSolicitado || rdSolicitadoOk) {
-      return (
-        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
-          <div style={{ display: "inline-block", background: "rgba(245,158,11,0.2)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>⏳ SOLICITUD EN REVISIÓN</div>
-          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>RD Pago — Pendiente de activación</h3>
-          <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6 }}>Tu solicitud ha sido recibida. Revisaremos tu cuenta y te notificaremos por email cuando esté activada.</p>
-        </div>
-      );
-    }
-
-    if (!req.cumpleTodo) {
-      return (
-        <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
-          <div style={{ display: "inline-block", background: "rgba(255,255,255,0.05)", color: "#94a3b8", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>💳 RD PAGO</div>
-          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>Paga en 15 días sin recargos</h3>
-          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 18 }}>Completa los siguientes requisitos para solicitar RD Pago:</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumpleMes ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumpleMes ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
-              <span style={{ fontSize: 20 }}>{req.cumpleMes ? "✅" : "⏳"}</span>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 14, color: req.cumpleMes ? "#4ade80" : "white" }}>1 mes activo en la plataforma</p>
-                <p style={{ color: "#94a3b8", fontSize: 12 }}>{req.cumpleMes ? "Completado" : `${req.diasActivo} de 30 días`}</p>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumplePedido ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumplePedido ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
-              <span style={{ fontSize: 20 }}>{req.cumplePedido ? "✅" : "🛒"}</span>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: 14, color: req.cumplePedido ? "#4ade80" : "white" }}>Al menos 1 pedido pagado con tarjeta</p>
-                <p style={{ color: "#94a3b8", fontSize: 12 }}>{req.cumplePedido ? "Completado" : "Pendiente"}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ background: "linear-gradient(135deg,rgba(22,163,74,0.1),rgba(22,163,74,0.03))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
-        <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>✅ REQUISITOS CUMPLIDOS</div>
-        <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 8 }}>Solicitar RD Pago</h3>
-        <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>Ya puedes solicitar RD Pago. Con un crédito inicial de hasta <strong style={{ color: "white" }}>200€</strong>, compra ahora y paga en 15 días sin recargos.</p>
-        <button onClick={solicitarRDPago} disabled={solicitandoRD} style={{ background: solicitandoRD ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "16px 32px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: solicitandoRD ? "not-allowed" : "pointer", opacity: solicitandoRD ? 0.7 : 1 }}>
-          {solicitandoRD ? "Enviando solicitud..." : "💳 Solicitar RD Pago"}
-        </button>
-      </div>
-    );
-  }
-
-  const pedidosMes = pedidos.filter(p => {
-    if (!p.created_at) return false;
-    const fecha = new Date(p.created_at);
-    const ahora = new Date();
-    return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
-  });
-
-  const accesos = [
-    { href: "/dashboard/pedidos",  icon: "📦", title: "Mis Pedidos",  text: "Estados y tracking" },
-    { href: "/dashboard/mis-piezas", icon: "🔩", title: "Mis Piezas",   text: "Vende piezas sueltas" },
-    { href: "/chat",               icon: "💬", title: "Chat",          text: "Mensajes con proveedores" },
-    { href: "/perfil",             icon: "👤", title: "Mi Cuenta",     text: "Datos y contraseña" },
-  ];
-
-  const estadoColor = (estado?: string) => {
-    if (estado === "entregado") return { bg: "rgba(22,163,74,0.18)", color: "#4ade80" };
-    if (estado === "enviado")   return { bg: "rgba(139,92,246,0.18)", color: "#a78bfa" };
-    if (estado === "preparando") return { bg: "rgba(37,99,235,0.18)", color: "#60a5fa" };
-    return { bg: "rgba(245,158,11,0.18)", color: "#f59e0b" };
-  };
-
-  // ── Barra de búsqueda fija (matrícula + referencia) ──
-  const barraBusqueda = (
-    <div style={{
-      position: "sticky", top: 0, zIndex: 50,
-      background: "rgba(2,6,23,0.97)", backdropFilter: "blur(12px)",
-      borderBottom: "1px solid rgba(255,255,255,0.06)",
-      padding: isMobile ? "10px 12px" : "12px 50px",
-    }}>
-      <div style={{ display: "flex", gap: isMobile ? 8 : 16, alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap" }}>
-        {/* Campo matrícula estilo placa española */}
-        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("mat") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
-          <div style={{
-            display: "flex", alignItems: "center",
-            background: "white", borderRadius: 6, overflow: "hidden",
-            border: "2px solid #1e3a5f",
-            height: isMobile ? 44 : 48,
-          }}>
-            {/* Banda azul EU */}
-            <div style={{
-              width: isMobile ? 28 : 34, height: "100%",
-              background: "linear-gradient(180deg,#003399,#002277)",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <span style={{ color: "#ffcc00", fontSize: isMobile ? 7 : 8, fontWeight: 900, lineHeight: 1, letterSpacing: 1 }}>★★★</span>
-              <span style={{ color: "white", fontSize: isMobile ? 11 : 13, fontWeight: 900, lineHeight: 1.2 }}>E</span>
-              <span style={{ color: "#ffcc00", fontSize: isMobile ? 7 : 8, fontWeight: 900, lineHeight: 1, letterSpacing: 1 }}>★★★</span>
-            </div>
-            <input
-              name="mat" type="text"
-              placeholder={isMobile ? "Matrícula..." : "Matrícula / Bastidor"}
-              style={{
-                border: "none", outline: "none", background: "transparent",
-                color: "#1a1a1a", fontWeight: 900,
-                fontSize: isMobile ? 16 : 18, letterSpacing: 2,
-                padding: isMobile ? "0 8px" : "0 14px",
-                width: isMobile ? "100%" : 220,
-                fontFamily: "'Arial', sans-serif",
-                textTransform: "uppercase",
-              }}
-            />
-            <button type="submit" style={{
-              background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none",
-              color: "white", fontWeight: 800, fontSize: isMobile ? 12 : 13,
-              padding: isMobile ? "0 12px" : "0 18px",
-              height: "100%", cursor: "pointer", whiteSpace: "nowrap",
-            }}>🔍</button>
-          </div>
-        </form>
-        {/* Campo bastidor (VIN) */}
-        <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem("vin") as HTMLInputElement)?.value?.trim(); if (v) window.location.href = `/dashboard/vehiculo?q=${encodeURIComponent(v)}`; }} style={{ display: "flex", flex: 1 }}>
-          <div style={{
-            display: "flex", alignItems: "center", flex: 1,
-            background: "rgba(15,23,42,0.9)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 10, overflow: "hidden",
-            height: isMobile ? 44 : 48,
-          }}>
-            <span style={{ padding: isMobile ? "0 8px" : "0 14px", color: "#64748b", fontSize: isMobile ? 14 : 16, flexShrink: 0 }}>🔧</span>
-            <input
-              name="vin" type="text"
-              placeholder={isMobile ? "Bastidor VIN..." : "Bastidor (VIN) — Ej: WVWZZZ3CZWE123456"}
-              maxLength={17}
-              style={{
-                border: "none", outline: "none", background: "transparent",
-                color: "white", fontSize: isMobile ? 14 : 15,
-                flex: 1, padding: "0",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                fontWeight: 700,
-              }}
-            />
-            <button type="submit" style={{
-              background: "rgba(37,99,235,0.2)", border: "none", borderLeft: "1px solid rgba(255,255,255,0.06)",
-              color: "#60a5fa", fontWeight: 800, fontSize: isMobile ? 12 : 13,
-              padding: isMobile ? "0 12px" : "0 20px",
-              height: "100%", cursor: "pointer", whiteSpace: "nowrap",
-            }}>Buscar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-
-  /* ── MÓVIL ── */
-  if (isMobile) return (
-    <main style={{ background: "linear-gradient(180deg,#020617,#020b2d)", color: "white", minHeight: "100vh" }}>
-      {barraBusqueda}
-      {/* CARRUSEL MÓVIL */}
-      <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
-        {[
-          { bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", badge: "MARKETPLACE PROFESIONAL", badgeColor: "#60a5fa", titulo: nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido", sub: "Busca OEM, IAM y equivalencias", href: "/dashboard/buscar" },
-          { bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=800&auto=format&fit=crop') center/cover", badge: "🆕 NUEVO", badgeColor: "#4ade80", titulo: "Catálogo Vehículos", sub: "Matrícula → piezas compatibles", href: "/dashboard/vehiculo" },
-          { bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800&auto=format&fit=crop') center/cover", badge: "📚 CATÁLOGOS", badgeColor: "#fbbf24", titulo: "Catálogos Proveedores", sub: "Referencias y stock al instante", href: "/dashboard/catalogos" },
-        ].map((s, i) => (
-          <Link key={i} href={s.href} style={{
-            position: "absolute", inset: 0, background: s.bg, display: "flex", alignItems: "flex-end", padding: "20px 16px",
-            textDecoration: "none", color: "white",
-            opacity: slideActual === i ? 1 : 0, transition: "opacity 0.8s ease-in-out",
-            pointerEvents: slideActual === i ? "auto" : "none",
-          }}>
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(2,6,23,0.4),rgba(2,6,23,0.92))" }} />
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <p style={{ color: s.badgeColor, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{s.badge}</p>
-              <h1 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.1, marginBottom: 4 }}>{s.titulo}</h1>
-              <p style={{ color: "#94a3b8", fontSize: 12 }}>{s.sub}</p>
-            </div>
-          </Link>
-        ))}
-        <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
-          {[0, 1, 2].map(i => (
-            <button key={i} onClick={() => setSlideActual(i)} style={{ width: slideActual === i ? 24 : 8, height: 8, borderRadius: 4, border: "none", background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "all 0.3s" }} />
-          ))}
-        </div>
-      </div>
-      <div style={{ display: "grid", gap: 10, padding: "16px 16px 0" }}>
-        <Link href="/dashboard/vehiculo" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(16,185,129,0.12) 100%)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 16, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 50, opacity: 0.1 }}>🚗</div>
-          <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 6 }}>🆕 NUEVO</div>
-          <h3 style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>Catálogo de Vehículos</h3>
-          <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>Matrícula o VIN → piezas compatibles con stock en tiempo real</p>
-          <span style={{ display: "inline-flex", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 8, padding: "7px 14px", fontSize: 11, fontWeight: 800 }}>Explorar →</span>
-        </Link>
-        <Link href="/dashboard/catalogos" style={{ display: "block", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 16, padding: "18px 16px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -10, right: -10, fontSize: 50, opacity: 0.1 }}>📚</div>
-          <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 6 }}>📚 CATÁLOGOS</div>
-          <h3 style={{ fontSize: 16, fontWeight: 900, marginBottom: 4 }}>Catálogos de Proveedores</h3>
-          <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>Busca referencias en catálogos y consulta stock disponible</p>
-          <span style={{ display: "inline-flex", background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 8, padding: "7px 14px", fontSize: 11, fontWeight: 800 }}>Ver catálogos →</span>
-        </Link>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, padding: "16px 16px 0" }}>
-        {[
-          { label: "Este mes", value: pedidosMes.length, unit: "pedidos" },
-          { label: "Facturado", value: `${facturacion.toFixed(0)}€`, unit: "" },
-          { label: "Mis piezas", value: piezasTaller.length, unit: "refs" },
-        ].map(({ label, value, unit }) => (
-          <div key={label} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 12px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
-            <p style={{ color: "#64748b", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{label}</p>
-            <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{value}</p>
-            {unit && <p style={{ color: "#94a3b8", fontSize: 10, marginTop: 2 }}>{unit}</p>}
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: "16px 16px 0" }}><BloqueRDPago /></div>
-      <div style={{ padding: "16px 16px 0" }}>
-        <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700, marginBottom: 10 }}>ACCESOS RÁPIDOS</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {accesos.map(({ href, icon, title, text }) => (
-            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "16px 14px", textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
-              <span style={{ fontSize: 26, display: "block", marginBottom: 8 }}>{icon}</span>
-              <p style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{title}</p>
-              <p style={{ color: "#94a3b8", fontSize: 11 }}>{text}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
-      {pedidos.length > 0 && (
-        <div style={{ padding: "16px 16px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <p style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>ACTIVIDAD RECIENTE</p>
-            <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Ver todos →</Link>
-          </div>
-          <div style={{ display: "grid", gap: 10 }}>
-            {pedidos.slice(0, 4).map((pedido) => {
-              const est = estadoColor(pedido.estado_envio);
-              return (
-                <Link key={pedido.id} href="/dashboard/pedidos" style={{ background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)", textDecoration: "none", color: "white", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <p style={{ fontWeight: 800, fontSize: 14 }}>{pedido.codigo || `#${pedido.id}`}</p>
-                    <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontWeight: 900, fontSize: 16, color: "#22c55e" }}>{Number(pedido.total).toFixed(2)}€</p>
-                    <span style={{ background: est.bg, color: est.color, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{pedido.estado_envio || "pendiente"}</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      <div style={{ padding: "16px" }}>
-        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Cerrar sesión</button>
-      </div>
-    </main>
-  );
-
-  /* ── DESKTOP ── */
+export default function Home() {
   return (
-    <main style={{ display: "flex", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
-      <aside style={{ width: 280, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "30px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between", backdropFilter: "blur(18px)", flexShrink: 0 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 40 }}>
-            <div style={{ width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20 }}>RD</div>
-            <div><h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2><p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p></div>
+    <main style={{ minHeight: "100vh", background: "#020617", color: "white", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(37,99,235,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.07) 1px, transparent 1px)", backgroundSize: "60px 60px", pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ width: "600px", height: "600px", borderRadius: "999px", background: "rgba(37,99,235,0.22)", filter: "blur(160px)", position: "absolute", top: "-200px", left: "-200px", pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.12)", filter: "blur(140px)", position: "absolute", bottom: "0", right: "-100px", pointerEvents: "none", zIndex: 1 }} />
+
+      {/* ── HERO ── */}
+      <section className="landing-hero">
+        <div className="landing-hero-mobile-header">
+          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1.1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
+            Marketplace B2B de Recambios de Automoción en España
+          </h1>
+          <p style={{ color: "#94a3b8", marginBottom: "24px", fontSize: "15px", lineHeight: 1.6 }}>
+            La plataforma B2B que conecta talleres y proveedores de recambios en toda España.
+          </p>
+        </div>
+        <div className="landing-hero-text">
+          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 className="sr-only">Marketplace B2B de Recambios de Automoción en España — Recambio Directo</h1>
+          <div aria-hidden="true" style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
+            RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
+            La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
+          </p>
+          <div className="landing-stats">
             {[
-              { href: "/dashboard", label: "🏠 Inicio" },
-              { href: "/dashboard/catalogos", label: "📚 Catálogos" },
-              { href: "/dashboard/pedidos", label: "📦 Pedidos" },
-              { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
-              { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
-              { href: "/checkout", label: "🛒 Cesta" },
-              { href: "/perfil", label: "👤 Mi Cuenta" },
-              { href: "/chat", label: "💬 Chat" },
-            ].map(({ href, label }) => (
-              <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>{label}</Link>
+              { num: "B2B", label: "Solo profesionales" },
+              { num: "24h", label: "Entrega express" },
+              { num: "100%", label: "Digital y seguro" },
+              { num: "25€", label: "Precio fijo al mes" },
+            ].map(({ num, label }) => (
+              <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, textAlign: "center" as const }}>{label}</span>
+              </div>
             ))}
           </div>
         </div>
-        <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 24, padding: 24 }}>
-          <p style={{ color: "#94a3b8", marginBottom: 10, fontSize: 12 }}>FACTURACIÓN TOTAL</p>
-          <h2 style={{ fontSize: 42, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
-          <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
-        </div>
-      </aside>
-      <section style={{ flex: 1, overflow: "auto" }}>
-        {barraBusqueda}
-        {/* ═══ CARRUSEL HERO ═══ */}
-        <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
-          {[
-            {
-              bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))",
-              badge: "MARKETPLACE PROFESIONAL",
-              badgeColor: "#60a5fa",
-              badgeBg: "rgba(37,99,235,0.18)",
-              badgeBorder: "rgba(37,99,235,0.3)",
-              titulo: "ENCUENTRA\nRECAMBIOS",
-              subtitulo: "Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.",
-              href: "/dashboard/buscar",
-              boton: "Buscar ahora →",
-              botonBg: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-            },
-            {
-              bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
-              badge: "🆕 NUEVO SERVICIO",
-              badgeColor: "#4ade80",
-              badgeBg: "rgba(22,163,74,0.18)",
-              badgeBorder: "rgba(22,163,74,0.3)",
-              titulo: "CATÁLOGO DE\nVEHÍCULOS",
-              subtitulo: "Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles.",
-              href: "/dashboard/vehiculo",
-              boton: "Explorar vehículos →",
-              botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
-            },
-            {
-              bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
-              badge: "📚 CATÁLOGOS",
-              badgeColor: "#fbbf24",
-              badgeBg: "rgba(245,158,11,0.18)",
-              badgeBorder: "rgba(245,158,11,0.3)",
-              titulo: "CATÁLOGOS DE\nPROVEEDORES",
-              subtitulo: "Consulta los catálogos completos de los proveedores conectados y encuentra stock disponible al instante.",
-              href: "/dashboard/catalogos",
-              boton: "Ver catálogos →",
-              botonBg: "linear-gradient(135deg,#d97706,#b45309)",
-            },
-          ].map((slide, i) => (
-            <Link
-              key={i}
-              href={slide.href}
-              style={{
-                position: "absolute", inset: 0,
-                background: slide.bg,
-                display: "flex", alignItems: "center", padding: 70,
-                textDecoration: "none", color: "white",
-                opacity: slideActual === i ? 1 : 0,
-                transition: "opacity 0.8s ease-in-out",
-                pointerEvents: slideActual === i ? "auto" : "none",
-              }}
-            >
-              <div style={{ position: "absolute", inset: 0, background: slide.overlay }} />
-              <div style={{ position: "relative", zIndex: 2 }}>
-                <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: slide.badgeBg, border: `1px solid ${slide.badgeBorder}`, color: slide.badgeColor, fontWeight: 700, marginBottom: 16, fontSize: 14 }}>{slide.badge}</div>
-                <h1 style={{ fontSize: 72, lineHeight: 1, fontWeight: 900, marginBottom: 22, whiteSpace: "pre-line" }}>{slide.titulo}</h1>
-                <p style={{ fontSize: 20, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 660, marginBottom: 28 }}>{slide.subtitulo}</p>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: slide.botonBg, borderRadius: 14, padding: "14px 28px", fontSize: 16, fontWeight: 800, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>{slide.boton}</span>
-              </div>
-            </Link>
-          ))}
-          {/* Dots de navegación */}
-          <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10, zIndex: 10 }}>
-            {[0, 1, 2].map((i) => (
-              <button
-                key={i}
-                onClick={(e) => { e.preventDefault(); setSlideActual(i); }}
-                style={{
-                  width: slideActual === i ? 32 : 10, height: 10, borderRadius: 5, border: "none",
-                  background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)",
-                  cursor: "pointer", transition: "all 0.3s",
-                }}
-              />
-            ))}
-          </div>
-          {/* Flechas */}
-          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual - 1 + totalSlides) % totalSlides); }} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>‹</button>
-          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual + 1) % totalSlides); }} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>›</button>
-        </div>
-        {/* BANNERS VEHÍCULOS + CATÁLOGOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "40px 50px 24px" }}>
-          <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>🚗</div>
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>🆕 NUEVO</div>
-              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
-              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Busca por matrícula o bastidor (VIN), identifica el vehículo y navega piezas compatibles con stock y precios en tiempo real.</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {["🔍 Matrícula / VIN", "🔧 Datos motor", "📦 Stock real"].map(t => (
-                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Explorar vehículos →</span>
-          </Link>
-          <Link href="/dashboard/catalogos" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>📚</div>
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>📚 CATÁLOGOS</div>
-              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogos de Proveedores</h3>
-              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Consulta los catálogos completos de los proveedores conectados, busca referencias y comprueba el stock disponible al instante.</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {["🔎 Buscar referencias", "📋 Catálogos PDF", "✅ Stock directo"].map(t => (
-                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(217,119,6,0.3)" }}>Ver catálogos →</span>
-          </Link>
-        </div>
-        {/* STATS + ACCESOS RÁPIDOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
-          {[
-            { label: "PEDIDOS MES", value: pedidosMes.length },
-            { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
-            { label: "MIS PIEZAS", value: piezasTaller.length },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: 34, borderRadius: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: 14 }}>{label}</p>
-              <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
-          {[
-            { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
-            { href: "/dashboard/mis-piezas", title: "MIS PIEZAS", text: "Publica piezas sueltas para vender a otros talleres." },
-            { href: "/perfil", title: "MI CUENTA", text: "Gestiona tus datos y empresa." },
-          ].map(({ href, title, text }) => (
-            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.92)", borderRadius: 28, padding: 38, textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
-              <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 18 }}>{title}</h2>
-              <p style={{ color: "#94a3b8", lineHeight: 1.7, fontSize: 15 }}>{text}</p>
-            </Link>
-          ))}
-        </div>
-        {/* RD PAGO */}
-        <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
-        {pedidos.length > 0 && (
-          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 40, margin: "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
-              <h2 style={{ fontSize: 40, fontWeight: 900 }}>ACTIVIDAD RECIENTE</h2>
-              <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 800 }}>VER TODOS</Link>
-            </div>
-            <div style={{ display: "grid", gap: 16 }}>
-              {pedidos.slice(0, 5).map((pedido) => {
-                const est = estadoColor(pedido.estado_envio);
-                return (
-                  <div key={pedido.id} style={{ background: "#0f172a", borderRadius: 24, padding: 30, border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                      <div>
-                        <h3 style={{ fontSize: 28, fontWeight: 900 }}>Pedido #{pedido.id}</h3>
-                        <p style={{ color: "#60a5fa", marginTop: 4, fontWeight: 700, fontSize: 13 }}>{pedido.codigo}</p>
-                        <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
-                      </div>
-                      <span style={{ padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: est.bg, color: est.color }}>{pedido.estado_envio || "pendiente"}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
-                      {[
-                        { l: "Transporte", v: pedido.transporte || pedido.agencia || "-" },
-                        { l: "Pago", v: pedido.metodo_pago || "-" },
-                        { l: "Total", v: `${pedido.total}€`, green: true },
-                        { l: "Estado", v: pedido.estado_envio || "pendiente" },
-                      ].map(({ l, v, green }) => (
-                        <div key={l}>
-                          <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11 }}>{l}</p>
-                          <h3 style={{ fontSize: 22, fontWeight: 800, color: green ? "#22c55e" : "white" }}>{v}</h3>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>CERRAR SESIÓN</button>
+        <LoginBox />
       </section>
+
+      {/* ── PARA TALLERES Y PROVEEDORES ── */}
+      <section className="landing-section">
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>¿QUIÉN SOY?</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Recambios para talleres y proveedores</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
+        </div>
+        <div className="landing-grid-2">
+          <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
+            <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Busca por matrícula, bastidor o aplicación y compra en 3 clics</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Introduce la matrícula o el VIN del vehículo y encuentra las piezas compatibles al instante. Compara precios de varios proveedores en la misma pantalla y haz el pedido sin llamadas ni esperas.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Búsqueda por matrícula o bastidor (VIN) del vehículo", "Búsqueda por aplicación: marca, modelo, versión y motor", "Catálogos completos de múltiples proveedores en un solo sitio", "Acceso a referencias OEM, IAM y Universal", "Compara precios de varios proveedores al instante", "Entrega 24h con las principales agencias de transporte", "RD Pago — compra ahora y paga en 15 días"].map(item => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="/registro" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como taller →</a>
+          </div>
+          <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
+            <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "Precio fijo mensual — sin sorpresas"].map(item => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="/registro?tipo=proveedor" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como proveedor →</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CÓMO FUNCIONA ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PROCESO</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Cómo comprar recambios en 3 pasos</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Sin burocracia, sin esperas, sin complicaciones</p>
+        </div>
+        <div className="landing-grid-3">
+          {[
+            { num: "01", icon: "📝", title: "Crea tu cuenta", desc: "Rellena tus datos profesionales en menos de 3 minutos. Solo necesitas tu CIF y email de empresa.", color: "#2563eb" },
+            { num: "02", icon: "✅", title: "Verificación en 24h", desc: "Nuestro equipo valida tu perfil profesional y activa tu acceso. Recibirás un email de confirmación.", color: "#16a34a" },
+            { num: "03", icon: "🚀", title: "Opera desde el primer día", desc: "Busca piezas, sube tu catálogo o gestiona tus pedidos. Todo desde un panel diseñado para el sector.", color: "#7c3aed" },
+          ].map(({ num, icon, title, desc, color }) => (
+            <div key={num} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, position: "relative" as const }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, background: `${color}30`, border: `1px solid ${color}60`, marginBottom: 16 }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+              </div>
+              <div style={{ position: "absolute" as const, top: 32, right: 32, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.04)" }}>{num}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{title}</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FEATURES ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PLATAFORMA</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda por matrícula, bastidor y aplicación de vehículo incluida</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Diseñado específicamente para el sector del recambio de automoción en España</p>
+        </div>
+        <div className="landing-grid-2">
+          {[
+            { icon: "🔍", title: "Busca por matrícula, bastidor o aplicación de vehículo", desc: "Introduce la matrícula o el VIN y encuentra las piezas compatibles automáticamente. También puedes buscar por marca, modelo, versión y motor, o por referencia OEM e IAM. Precios en tiempo real de múltiples proveedores.", color: "#2563eb" },
+            { icon: "📦", title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
+            { icon: "🚚", title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { icon: "🔒", title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
+          ].map(({ icon, title, desc, color }) => (
+            <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{title}</h3>
+                <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── ZONAS ── */}
+      <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={badgeStyle}>COBERTURA NACIONAL</div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Proveedores de recambios en toda España</h2>
+          <p style={{ color: "#94a3b8", fontSize: 15, maxWidth: 600, margin: "0 auto" }}>Proveedores y talleres conectados en las principales ciudades y provincias españolas</p>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {[
+            { nombre: "Madrid", href: "/recambios-madrid" },
+            { nombre: "Barcelona", href: "/recambios-barcelona" },
+            { nombre: "Valencia", href: "/recambios-valencia" },
+            { nombre: "Sevilla", href: "/recambios-sevilla" },
+            { nombre: "Bilbao", href: "/recambios-vizcaya" },
+            { nombre: "Zaragoza", href: "/recambios-zaragoza" },
+            { nombre: "Málaga", href: "/recambios-malaga" },
+            { nombre: "Murcia", href: "/recambios-murcia" },
+            { nombre: "Baleares", href: "/recambios-baleares" },
+            { nombre: "Las Palmas", href: "/recambios-las-palmas" },
+            { nombre: "Alicante", href: "/recambios-alicante" },
+            { nombre: "Córdoba", href: "/recambios-cordoba" },
+            { nombre: "Valladolid", href: "/recambios-valladolid" },
+            { nombre: "Granada", href: "/recambios-granada" },
+            { nombre: "A Coruña", href: "/recambios-la-coruna" },
+            { nombre: "S.C. Tenerife", href: "/recambios-santa-cruz-de-tenerife" },
+            { nombre: "Asturias", href: "/recambios-asturias" },
+            { nombre: "Navarra", href: "/recambios-navarra" },
+            { nombre: "Cantabria", href: "/recambios-cantabria" },
+            { nombre: "Almería", href: "/recambios-almeria" },
+            { nombre: "Cádiz", href: "/recambios-cadiz" },
+            { nombre: "Huelva", href: "/recambios-huelva" },
+            { nombre: "Jaén", href: "/recambios-jaen" },
+            { nombre: "Toledo", href: "/recambios-toledo" },
+            { nombre: "Burgos", href: "/recambios-burgos" },
+            { nombre: "León", href: "/recambios-leon" },
+            { nombre: "Salamanca", href: "/recambios-salamanca" },
+            { nombre: "Castellón", href: "/recambios-castellon" },
+            { nombre: "Girona", href: "/recambios-girona" },
+            { nombre: "Lleida", href: "/recambios-lleida" },
+            { nombre: "Tarragona", href: "/recambios-tarragona" },
+            { nombre: "Badajoz", href: "/recambios-badajoz" },
+            { nombre: "Cáceres", href: "/recambios-caceres" },
+            { nombre: "Pontevedra", href: "/recambios-pontevedra" },
+            { nombre: "Lugo", href: "/recambios-lugo" },
+            { nombre: "Ourense", href: "/recambios-ourense" },
+            { nombre: "Guipúzcoa", href: "/recambios-guipuzcoa" },
+            { nombre: "Álava", href: "/recambios-alava" },
+            { nombre: "La Rioja", href: "/recambios-la-rioja" },
+            { nombre: "Huesca", href: "/recambios-huesca" },
+            { nombre: "Teruel", href: "/recambios-teruel" },
+            { nombre: "Cuenca", href: "/recambios-cuenca" },
+            { nombre: "Guadalajara", href: "/recambios-guadalajara" },
+            { nombre: "Ciudad Real", href: "/recambios-ciudad-real" },
+            { nombre: "Albacete", href: "/recambios-albacete" },
+            { nombre: "Segovia", href: "/recambios-segovia" },
+            { nombre: "Soria", href: "/recambios-soria" },
+            { nombre: "Palencia", href: "/recambios-palencia" },
+            { nombre: "Zamora", href: "/recambios-zamora" },
+          ].map(({ nombre, href }) => (
+            <a key={nombre} href={href} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{nombre}</a>
+          ))}
+        </div>
+      </section>
+
+      {/* ── AGENCIAS ── */}
+      <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="landing-agencias" style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, padding: "32px 48px", display: "flex", alignItems: "center", gap: 32 }}>
+          <div style={{ fontSize: 36, flexShrink: 0 }}>🚚</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con las principales agencias de transporte nacionales</h3>
+            <p style={{ color: "#94a3b8", fontSize: 15, margin: 0, lineHeight: 1.6 }}>Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España. Trabajamos con las agencias líderes del mercado para garantizar la mejor cobertura en cada envío.</p>
+          </div>
+          <div style={{ flexShrink: 0, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 20px", textAlign: "center" as const }}>
+            <p style={{ color: "#60a5fa", fontWeight: 900, fontSize: 22, margin: 0 }}>24-48h</p>
+            <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Entrega en España</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PREGUNTAS FRECUENTES</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Preguntas frecuentes sobre recambios B2B</h2>
+        </div>
+        <div className="landing-grid-2 landing-faq-grid" style={{ gap: 20, maxWidth: 1000, margin: "0 auto" }}>
+          {[
+            { q: "¿Cuánto cuesta Recambio Directo?", a: "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." },
+            { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
+            { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
+            { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
+            { q: "¿Puedo controlar quién ve mis precios?", a: "Sí. Los proveedores pueden excluir talleres concretos o códigos postales específicos para que no vean su catálogo ni sus precios." },
+            { q: "¿Cómo funciona RD Pago?", a: "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." },
+          ].map(({ q, a }) => (
+            <div key={q} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10, color: "#60a5fa" }}>{q}</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA FINAL ── */}
+      <section style={{ padding: "clamp(32px, 6vw, 80px)", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
+          <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
+          <h2 style={{ fontSize: 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>1 mes gratis.<br />Sin compromiso.</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17, marginBottom: 32, lineHeight: 1.7 }}>Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes.</p>
+          <div className="landing-cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
+            <a href="/registro" style={{ display: "inline-flex", alignItems: "center", padding: "18px 48px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: 14, fontSize: 17, fontWeight: 800, cursor: "pointer", textDecoration: "none", boxShadow: "0 10px 30px rgba(37,99,235,0.35)" }}>EMPEZAR GRATIS →</a>
+            <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>Hablar con el equipo</a>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 32, flexWrap: "wrap" as const }}>
+            {["Sin permanencia", "Precio fijo mensual", "Soporte incluido", "Alta en 24h"].map(g => (
+              <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>
+                <span style={{ color: "#94a3b8", fontSize: 13 }}>{g}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer style={{ padding: "clamp(32px, 6vw, 60px) clamp(20px, 6vw, 80px) 30px", position: "relative", zIndex: 10 }}>
+        <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div>
+            <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
+            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores de recambios en toda España.</p>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
+            <a href="/registro" style={footerLink}>Crear cuenta</a>
+            <a href="/quienes-somos" style={footerLink}>Quiénes somos</a>
+            <a href="/blog" style={footerLink}>Blog</a>
+            <a href="mailto:info@recambio-directo.com" style={footerLink}>Contacto</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Recambios por ciudad</h4>
+            <a href="/recambios-madrid" style={footerLink}>Recambios en Madrid</a>
+            <a href="/recambios-barcelona" style={footerLink}>Recambios en Barcelona</a>
+            <a href="/recambios-valencia" style={footerLink}>Recambios en Valencia</a>
+            <a href="/recambios-sevilla" style={footerLink}>Recambios en Sevilla</a>
+            <a href="/recambios-bilbao" style={footerLink}>Recambios en Bilbao</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Legal</h4>
+            <a href="/aviso-legal" style={footerLink}>Aviso legal</a>
+            <a href="/privacidad" style={footerLink}>Política de privacidad</a>
+            <a href="/terminos" style={footerLink}>Términos y condiciones</a>
+            <a href="/cookies" style={footerLink}>Política de cookies</a>
+            <a href="/devoluciones" style={footerLink}>Política de devoluciones</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>
+            <p style={{ color: "#94a3b8", fontSize: 13 }}>info@recambio-directo.com</p>
+            <a href="tel:+34650495270" style={{ color: "#94a3b8", fontSize: 13, marginTop: 4, display: "block", textDecoration: "none" }}>650 49 52 70</a>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>España</p>
+            <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+              <a href="https://www.instagram.com/recambiodirect/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>📷</a>
+              <a href="https://www.linkedin.com/company/135907554" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>💼</a>
+              <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>● Online</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
+          <p>© 2026 Recambio Directo · Marketplace B2B de Recambios de Automoción · España</p>
+        </div>
+      </footer>
     </main>
   );
 }
