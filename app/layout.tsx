@@ -134,7 +134,7 @@ const jsonLd = {
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "info@recambio-directo.com",
-        "telephone": "+34744487895",
+        "telephone": "+34650495270",
         "contactType": "customer service",
         "availableLanguage": "Spanish",
         "areaServed": "ES",
