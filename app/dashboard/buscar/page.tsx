@@ -227,7 +227,7 @@ function BuscarPageInner() {
         <p style={{ fontSize: 12, color: "#cbd5e1", marginBottom: 6 }}>{descripcion}{oferta.marca ? ` · ${oferta.marca}` : ""}</p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, fontSize: 11 }}>
           <span style={{ color: "#94a3b8" }}>🏭 {proveedor}</span>
-          {oferta.provincia && <span style={{ color: "#94a3b8" }}>📍 {oferta.provincia}</span>}
+          {(oferta.poblacion || oferta.provincia) && <span style={{ color: "#94a3b8" }}>📍 {[oferta.poblacion, oferta.provincia].filter(Boolean).join(", ")}</span>}
           <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 6px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
         </div>
         {tieneImagenes && (
@@ -287,7 +287,7 @@ function BuscarPageInner() {
             <div style={{ fontWeight: 700, fontSize: 12, color: "#cbd5e1" }}>{proveedor}</div>
           </div>
           <div><span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "3px 8px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>{oferta.stock}</span></div>
-          <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{oferta.provincia || "-"}</div>
+          <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{oferta.poblacion ? `${oferta.poblacion}, ${oferta.provincia || ""}` : oferta.provincia || "-"}</div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
             {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</div>}
