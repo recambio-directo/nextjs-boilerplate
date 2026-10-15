@@ -58,7 +58,8 @@ function BuscarPageInner() {
   useEffect(() => {
     cargarStockOEMeIAM();
     setPestañaActiva("IAM");
-  }, [q]);
+    setImagenesExpandidas(new Set());
+  }, [q, searchParams.get("t")]);
 
   useEffect(() => {
     if (!loadingCruce && stockIAM.length === 0 && stockOEM.length > 0) {
