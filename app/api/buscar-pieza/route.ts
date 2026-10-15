@@ -292,10 +292,10 @@ export async function GET(request: NextRequest) {
     // Construir URLs de imágenes desde los tokens de IPDA
     const imagenes: string[] = [];
     if (infoEquivalencia?.grafico) {
-      imagenes.push(`${IPDA_BASE}/document/retrieve2?img=${infoEquivalencia.grafico}`);
+      imagenes.push(`/api/tecdoc-img?img=${encodeURIComponent(infoEquivalencia.grafico)}`);
     }
     if (infoEquivalencia?.graficoLogo) {
-      imagenes.push(`${IPDA_BASE}/document/retrieve2?img=${infoEquivalencia.graficoLogo}`);
+      imagenes.push(`/api/tecdoc-img?img=${encodeURIComponent(infoEquivalencia.graficoLogo)}`);
     }
 
     return {
