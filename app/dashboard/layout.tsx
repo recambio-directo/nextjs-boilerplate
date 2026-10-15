@@ -207,7 +207,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   function buscarAhora() {
     if (busqueda.trim() === "") return;
-    router.push(`/dashboard/buscar?q=${encodeURIComponent(busqueda)}`);
+    router.push(`/dashboard/buscar?q=${encodeURIComponent(busqueda)}&t=${Date.now()}`);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
