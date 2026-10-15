@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { buscarEquivalenciasIPDA } from "../../lib/ipda";
 
+const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -197,6 +199,8 @@ export async function GET(request: NextRequest) {
     articulo_no: string;
     marca: string;
     descripcion: string;
+    grafico: string;
+    graficoLogo: string;
   }[] = [];
 
   if (exactMode) {
@@ -208,11 +212,13 @@ export async function GET(request: NextRequest) {
       buscarCrucesLocales(referenciaBuscada),
     ]);
 
-    // Resultados de IPDA (TecDoc) — tienen descripcion y marca de TecDoc
+    // Resultados de IPDA (TecDoc) — tienen descripcion, marca e imágenes de TecDoc
     const desdeIPDA: typeof equivalenciasIAM = resultadosIPDA.map((r) => ({
       articulo_no: r.referencia,
       marca: r.marca,
       descripcion: r.descripcion || r.nombre,
+      grafico: r.grafico || "",
+      graficoLogo: r.graficoLogo || "",
     }));
 
     // Resultados de cruces locales
@@ -220,6 +226,8 @@ export async function GET(request: NextRequest) {
       articulo_no: c.articulo_no,
       marca: c.marca,
       descripcion: "",
+      grafico: "",
+      graficoLogo: "",
     }));
 
     // ---- MERGE + DEDUPLICACIÓN ----
@@ -281,10 +289,20 @@ export async function GET(request: NextRequest) {
         marcaPieza.includes(marcaEquivalencia);
       return refCoincide && marcaCoincide;
     });
+    // Construir URLs de imágenes desde los tokens de IPDA
+    const imagenes: string[] = [];
+    if (infoEquivalencia?.grafico) {
+      imagenes.push(`${IPDA_BASE}/document/retrieve2?img=${infoEquivalencia.grafico}`);
+    }
+    if (infoEquivalencia?.graficoLogo) {
+      imagenes.push(`${IPDA_BASE}/document/retrieve2?img=${infoEquivalencia.graficoLogo}`);
+    }
+
     return {
       ...pieza,
       marca_iam: infoEquivalencia?.marca || null,
       descripcion_iam: infoEquivalencia?.descripcion || null,
+      imagenes_tecdoc: imagenes.length > 0 ? imagenes : null,
     };
   });
 

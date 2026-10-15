@@ -23,6 +23,7 @@ type Oferta = {
   impuesto?: number;
   marca_iam?: string;
   descripcion_iam?: string;
+  imagenes_tecdoc?: string[];
 };
 
 type PestañaKey = "OEM" | "IAM" | "EQ";
@@ -45,6 +46,7 @@ function BuscarPageInner() {
   const [isMobile, setIsMobile] = useState(false);
   const [contactoModal, setContactoModal] = useState<{ nombre: string; telefono: string; email: string } | null>(null);
   const [pestañaActiva, setPestañaActiva] = useState<PestañaKey>("IAM");
+  const [imagenesExpandidas, setImagenesExpandidas] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -205,6 +207,8 @@ function BuscarPageInner() {
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
+    const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
+    const expandida = imagenesExpandidas.has(oferta.id);
     return (
       <div key={oferta.id} style={{ background: "rgba(15,23,42,0.97)", borderRadius: 12, padding: 12, border: "1px solid rgba(255,255,255,0.07)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
@@ -226,6 +230,18 @@ function BuscarPageInner() {
           {oferta.provincia && <span style={{ color: "#94a3b8" }}>📍 {oferta.provincia}</span>}
           <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 6px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
         </div>
+        {tieneImagenes && (
+          <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 12, padding: "4px 0", textDecoration: "underline", marginBottom: 6 }}>
+            {expandida ? "Ocultar imágenes" : "📷 Mostrar imágenes"}
+          </button>
+        )}
+        {expandida && tieneImagenes && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            {oferta.imagenes_tecdoc!.map((url, i) => (
+              <img key={i} src={url} alt={`${oferta.referencia} imagen ${i + 1}`} onClick={() => setFotoVisor(url)} style={{ width: 80, height: 80, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "zoom-in", padding: 3 }} />
+            ))}
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => pedirOferta(oferta)} style={{ flex: 1, border: "none", color: "white", padding: "10px", borderRadius: 10, fontWeight: 800, cursor: "pointer", fontSize: 13, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>{enCesta ? "✓ Añadido" : "🛒 Pedir"}</button>
           <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 40, height: 40, borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: "white", fontSize: 18, cursor: "pointer", flexShrink: 0 }}>⋮</button>
@@ -234,38 +250,68 @@ function BuscarPageInner() {
     );
   }
 
+  function toggleImagenes(id: number) {
+    setImagenesExpandidas(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   function renderOfertaDesktopRow(oferta: Oferta) {
     const descripcion = oferta.descripcion || oferta.descripcion_iam || oferta.nombre || "-";
     const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
+    const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
+    const expandida = imagenesExpandidas.has(oferta.id);
     return (
-      <div key={oferta.id} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{oferta.referencia}</div>
-          <span style={{ background: badge.bg, color: badge.color, padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
-          {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
+      <div key={oferta.id}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{oferta.referencia}</div>
+            <span style={{ background: badge.bg, color: badge.color, padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
+            {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 1, color: "#e2e8f0" }}>{descripcion}</div>
+            {oferta.marca && <div style={{ color: "#64748b", fontSize: 11 }}>{oferta.marca}</div>}
+            {tieneImagenes && (
+              <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 11, padding: "2px 0", textDecoration: "underline" }}>
+                {expandida ? "Ocultar imágenes" : "Mostrar imágenes"}
+              </button>
+            )}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#cbd5e1" }}>{proveedor}</div>
+          </div>
+          <div><span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "3px 8px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>{oferta.stock}</span></div>
+          <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{oferta.provincia || "-"}</div>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
+            {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</div>}
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button onClick={() => pedirOferta(oferta)} style={{ border: "none", color: "white", padding: "7px 12px", borderRadius: 9, fontWeight: 800, cursor: "pointer", fontSize: 12, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
+              {enCesta ? "✓ AÑADIDO" : "PEDIR"}
+            </button>
+            <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)", color: "white", fontSize: 15, cursor: "pointer" }}>⋮</button>
+          </div>
         </div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 1, color: "#e2e8f0" }}>{descripcion}</div>
-          {oferta.marca && <div style={{ color: "#64748b", fontSize: 11 }}>{oferta.marca}</div>}
-        </div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 12, color: "#cbd5e1" }}>{proveedor}</div>
-        </div>
-        <div><span style={{ background: "rgba(22,163,74,0.18)", color: "#4ade80", padding: "3px 8px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>{oferta.stock}</span></div>
-        <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12 }}>{oferta.provincia || "-"}</div>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 900, color: "#22c55e" }}>{Number(oferta.precio).toFixed(2)}€</div>
-          {oferta.impuesto && Number(oferta.impuesto) > 0 && <div style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</div>}
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={() => pedirOferta(oferta)} style={{ border: "none", color: "white", padding: "7px 12px", borderRadius: 9, fontWeight: 800, cursor: "pointer", fontSize: 12, background: enCesta ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
-            {enCesta ? "✓ AÑADIDO" : "PEDIR"}
-          </button>
-          <button data-menu="true" onClick={(e) => toggleMenu(e, oferta.id)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: menuAbierto === oferta.id ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.04)", color: "white", fontSize: 15, cursor: "pointer" }}>⋮</button>
-        </div>
+        {expandida && tieneImagenes && (
+          <div style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.04)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {oferta.imagenes_tecdoc!.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`${oferta.referencia} imagen ${i + 1}`}
+                onClick={() => setFotoVisor(url)}
+                style={{ width: 120, height: 120, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "zoom-in", padding: 4 }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
