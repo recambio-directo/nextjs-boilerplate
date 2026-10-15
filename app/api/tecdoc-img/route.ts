@@ -6,15 +6,25 @@ const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const img = request.nextUrl.searchParams.get("img");
+  let img = request.nextUrl.searchParams.get("img");
   if (!img) {
     return NextResponse.json({ error: "Falta el parámetro img" }, { status: 400 });
+  }
+
+  // Si llega la URL completa de IPDA, extraer solo el token JWT
+  if (img.startsWith("http")) {
+    try {
+      const parsed = new URL(img);
+      img = parsed.searchParams.get("img") || img;
+    } catch {
+      // no es URL válida, usar tal cual
+    }
   }
 
   try {
     const token = await getIpdaToken();
     const url = `${IPDA_BASE}/document/retrieve2?img=${img}`;
-    console.log("[tecdoc-img] Fetching image, URL length:", url.length);
+    console.log("[tecdoc-img] Fetching image, token start:", img.slice(0, 30));
 
     const res = await fetch(url, {
       headers: {
