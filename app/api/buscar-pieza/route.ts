@@ -307,6 +307,29 @@ export async function GET(request: NextRequest) {
   });
 
   // -----------------------------------------------------------
+  // PASO 5: Añadir población de cada proveedor
+  // -----------------------------------------------------------
+  const todosProveedores = Array.from(
+    new Set([...stockOEM, ...stockIAMEnriquecido].map((p) => p.proveedor_id))
+  );
+  const poblacionMap: Record<string, string> = {};
+  if (todosProveedores.length > 0) {
+    const { data: perfiles } = await supabase
+      .from("usuarios")
+      .select("id, ciudad")
+      .in("id", todosProveedores);
+    if (perfiles) {
+      for (const p of perfiles) {
+        if (p.ciudad) poblacionMap[p.id] = p.ciudad;
+      }
+    }
+  }
+  const conPoblacion = (pieza: any) => ({
+    ...pieza,
+    poblacion: poblacionMap[pieza.proveedor_id] || null,
+  });
+
+  // -----------------------------------------------------------
   // RESPUESTA FINAL
   // -----------------------------------------------------------
   return NextResponse.json({
@@ -315,11 +338,11 @@ export async function GET(request: NextRequest) {
     tipo_detectado: coincidenciaDirecta?.tipo || null,
     stock_oem: {
       total: stockOEM.length,
-      proveedores: stockOEM,
+      proveedores: stockOEM.map(conPoblacion),
     },
     stock_iam: {
       total: stockIAMEnriquecido.length,
-      proveedores: stockIAMEnriquecido,
+      proveedores: stockIAMEnriquecido.map(conPoblacion),
     },
   });
 }
