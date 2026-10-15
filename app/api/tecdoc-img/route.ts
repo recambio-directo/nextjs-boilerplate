@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getIpdaToken } from "../../lib/ipda";
 
 const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
 
@@ -9,8 +10,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${IPDA_BASE}/document/retrieve2?img=${encodeURIComponent(img)}`, {
-      headers: { "Accept": "image/*" },
+    const token = await getIpdaToken();
+    const res = await fetch(`${IPDA_BASE}/document/retrieve2?img=${img}`, {
+      headers: {
+        "Accept": "image/*",
+        "App-Token": token,
+      },
     });
 
     if (!res.ok) {
