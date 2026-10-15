@@ -203,7 +203,7 @@ function BuscarPageInner() {
 
   function renderOfertaMobile(oferta: Oferta) {
     const descripcion = oferta.descripcion || oferta.descripcion_iam || oferta.nombre || "-";
-    const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
+    const proveedor = (oferta.proveedor_nombre || oferta.proveedor || "-").toUpperCase();
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
@@ -260,7 +260,7 @@ function BuscarPageInner() {
 
   function renderOfertaDesktopRow(oferta: Oferta) {
     const descripcion = oferta.descripcion || oferta.descripcion_iam || oferta.nombre || "-";
-    const proveedor = oferta.proveedor_nombre || oferta.proveedor || "-";
+    const proveedor = (oferta.proveedor_nombre || oferta.proveedor || "-").toUpperCase();
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
