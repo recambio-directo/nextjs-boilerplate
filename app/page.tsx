@@ -3,7 +3,9 @@ import React from "react";
 import LoginBox from "./components/LoginBox";
 
 export const metadata: Metadata = {
-  title: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
+  title: {
+    absolute: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
+  },
   description: "Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h. Madrid, Barcelona, Valencia, Sevilla y toda España.",
   alternates: { canonical: "https://www.recambio-directo.com" },
 };
