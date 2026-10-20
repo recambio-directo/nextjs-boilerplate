@@ -526,7 +526,7 @@ export default function CheckoutPage() {
         proveedorCodigoPostal = prov?.codigo_postal || ""; proveedorProvincia = prov?.provincia || "";
       }
       const productosConCantidad = grupo.productos.map(p => ({ ...p, cantidad: cantidades[p.referencia] || 1 }));
-      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: productosConCantidad };
+      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, gastos_gestion: gastosGestion, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: productosConCantidad };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
