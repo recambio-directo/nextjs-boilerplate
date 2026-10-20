@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     // Obtener URLs de PDFs y coste de transporte
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte, gastos_gestion, forma_pago")
+      .select("albaran_url, albaran_proveedor_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte, gastos_gestion, forma_pago")
       .eq("id", pedidoId)
       .single();
 
@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     const totalCliente = Number(total) + gastosGestion;
 
     const albaranUrl = pedidoData?.albaran_url || null;
+    const albaranProveedorUrl = pedidoData?.albaran_proveedor_url || null;
 
     // Elegir la etiqueta correcta según la agencia del pedido
     const agenciaPedido = (pedidoData?.agencia || pedidoData?.transporte || agencia || "").toLowerCase();
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
     }
 
     const albaranBase64  = albaranUrl  ? await urlToBase64(albaranUrl)  : null;
+    const albaranProvBase64 = albaranProveedorUrl ? await urlToBase64(albaranProveedorUrl) : null;
     const etiquetaBase64 = etiquetaUrl ? await urlToBase64(etiquetaUrl) : null;
 
     const fechaFormateada = fecha
@@ -143,9 +145,6 @@ export async function POST(request: Request) {
                   <span style="color:#16a34a;font-weight:700">${((Number(p.precio) + Number(p.impuesto || 0)) * (p.cantidad || 1)).toFixed(2)}€</span>
                 </div>
               `).join("")}
-              <div style="text-align:right;margin-top:12px;font-size:14px">
-                <strong style="color:#0b1736">TOTAL: ${totalProveedor.toFixed(2)}€ (IVA incl.)</strong>
-              </div>
             </div>
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
               <p style="color:#1e40af;font-size:13px;margin:0">
@@ -160,7 +159,7 @@ export async function POST(request: Request) {
           <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px">Recambio Directo — info@recambio-directo.com — www.recambio-directo.com</p>
         </div>
       `,
-      attachments: albaranBase64 ? [{ filename: `albaran-${codigo}.pdf`, content: albaranBase64 }] : [],
+      attachments: albaranProvBase64 ? [{ filename: `albaran-${codigo}.pdf`, content: albaranProvBase64 }] : (albaranBase64 ? [{ filename: `albaran-${codigo}.pdf`, content: albaranBase64 }] : []),
     });
 
     // ── MAIL 2: CLIENTE — Confirmación + albarán ────────────────────────────

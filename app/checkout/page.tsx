@@ -467,18 +467,22 @@ export default function CheckoutPage() {
     try {
       const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
       const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, cliente: empresa, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia, agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion, numeroEnvio, numeroSolicitud };
-      const albaranBlob = await pdf(React.createElement(AlbaranPDF, props) as any).toBlob();
+      const albaranTallerBlob = await pdf(React.createElement(AlbaranPDF, { ...props, destinatario: "taller" }) as any).toBlob();
+      const albaranProvBlob = await pdf(React.createElement(AlbaranPDF, { ...props, destinatario: "proveedor" }) as any).toBlob();
       const etiquetaBlob = await pdf(React.createElement(EtiquetaEnvioPDF, props) as any).toBlob();
       const albaranPath = `documentos/${codigo}/albaran-${codigo}.pdf`;
+      const albaranProvPath = `documentos/${codigo}/albaran-proveedor-${codigo}.pdf`;
       const etiquetaPath = `documentos/${codigo}/etiqueta-envio-${codigo}.pdf`;
-      await supabase.storage.from("FACTURAS").upload(albaranPath, albaranBlob, { contentType: "application/pdf", upsert: true });
+      await supabase.storage.from("FACTURAS").upload(albaranPath, albaranTallerBlob, { contentType: "application/pdf", upsert: true });
+      await supabase.storage.from("FACTURAS").upload(albaranProvPath, albaranProvBlob, { contentType: "application/pdf", upsert: true });
       await supabase.storage.from("FACTURAS").upload(etiquetaPath, etiquetaBlob, { contentType: "application/pdf", upsert: true });
       const { data: albaranUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranPath);
+      const { data: albaranProvUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranProvPath);
       const { data: etiquetaUrl } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
       const agLower = (transporte || "").toLowerCase();
       const tieneEtiquetaAgencia = agLower.includes("mrw") || agLower.includes("nacex") || agLower.includes("seur") || agLower.includes("correos") || agLower.includes("ctt") || agLower.includes("dhl") || agLower.includes("gls");
-      await supabase.from("pedidos").update({ albaran_url: albaranUrl.publicUrl, ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }) }).eq("id", pedidoId);
-      return { albaran_url: albaranUrl.publicUrl, etiqueta_envio_url: tieneEtiquetaAgencia ? null : etiquetaUrl.publicUrl };
+      await supabase.from("pedidos").update({ albaran_url: albaranUrl.publicUrl, albaran_proveedor_url: albaranProvUrl.publicUrl, ...(tieneEtiquetaAgencia ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }) }).eq("id", pedidoId);
+      return { albaran_url: albaranUrl.publicUrl, albaran_proveedor_url: albaranProvUrl.publicUrl, etiqueta_envio_url: tieneEtiquetaAgencia ? null : etiquetaUrl.publicUrl };
     } catch (e) { console.error("Error generando PDFs:", e); return null; }
   }
 
