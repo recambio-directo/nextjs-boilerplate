@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Monroe — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Monroe — Comprar Online B2B",
   description: "Compra recambios Monroe al mejor precio en nuestro marketplace B2B. Monroe, líder mundial en amortiguadores con más de 100 años de experiencia. amortiguadores Monroe, suspensión Monroe. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/monroe" },
 };

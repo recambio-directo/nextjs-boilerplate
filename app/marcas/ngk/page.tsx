@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios NGK — Comprar Online B2B | Recambio Directo",
+  title: "Recambios NGK — Comprar Online B2B",
   description: "Compra recambios NGK al mejor precio en nuestro marketplace B2B. NGK, número uno mundial en bujías y sondas lambda. bujías NGK, calentadores NGK, sonda lambda NGK. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/ngk" },
 };

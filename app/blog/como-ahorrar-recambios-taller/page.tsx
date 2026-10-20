@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cómo Ahorrar en Recambios si Tienes un Taller Mecánico — Guía 2026 | Recambio Directo",
+  title: "Cómo Ahorrar en Recambios si Tienes un Taller Mecánico — Guía 2026",
   description: "Descubre 7 estrategias probadas para reducir el coste de recambios en tu taller mecánico. Compara proveedores, negocia mejor y usa marketplaces B2B para ahorrar hasta un 30%.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/como-ahorrar-recambios-taller" },
   openGraph: {

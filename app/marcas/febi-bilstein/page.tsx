@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios febi bilstein — Comprar Online B2B | Recambio Directo",
+  title: "Recambios febi bilstein — Comprar Online B2B",
   description: "Compra recambios febi bilstein al mejor precio en nuestro marketplace B2B. febi bilstein, catálogo de recambios más amplio del mercado europeo aftermarket. recambios febi, distribución febi bilstein. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/febi-bilstein" },
 };

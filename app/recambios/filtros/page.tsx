@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Filtros de Automoción — Marketplace B2B | Recambio Directo",
+  title: "Filtros de Automoción — Marketplace B2B",
   description: "Filtros de aceite, aire, combustible y habitáculo. Marketplace B2B para talleres con precios competitivos y entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/filtros" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Marketplace B2B vs distribuidor tradicional de recambios: comparativa | Recambio Directo",
+  title: "Marketplace B2B vs distribuidor tradicional de recambios: comparativa",
   description: "Comparativa entre comprar recambios en un marketplace B2B y usar un distribuidor tradicional. Ventajas, desventajas y cuándo usar cada canal.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/marketplace-b2b-vs-distribuidor-tradicional" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cómo vender recambios de automoción online en el canal B2B | Recambio Directo",
+  title: "Cómo vender recambios de automoción online en el canal B2B",
   description: "Guía para proveedores y distribuidores que quieren abrir un nuevo canal de ventas B2B online. Estrategias y plataformas para llegar a más talleres.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/vender-recambios-online-b2b" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Buscar recambios por matrícula — Recambio Directo",
+  title: "Buscar recambios por matrícula",
   description: "Busca recambios de automoción por matrícula del vehículo. Identifica la pieza exacta, compara precios B2B entre proveedores y recibe en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/buscar-por-matricula" },
 };

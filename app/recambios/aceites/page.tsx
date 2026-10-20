@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Aceites y Lubricantes — Marketplace B2B | Recambio Directo",
+  title: "Aceites y Lubricantes — Marketplace B2B",
   description: "Aceites de motor, transmisión, dirección y líquidos. Marketplace B2B con precios de distribuidor para talleres.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/aceites" },
 };

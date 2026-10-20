@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Sachs — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Sachs — Comprar Online B2B",
   description: "Compra recambios Sachs al mejor precio en nuestro marketplace B2B. Sachs, especialista en amortiguación y embragues del grupo ZF. amortiguadores Sachs, embrague Sachs, volante bimasa Sachs. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/sachs" },
 };

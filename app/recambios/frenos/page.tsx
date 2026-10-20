@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Frenos — Marketplace B2B | Recambio Directo",
+  title: "Recambios de Frenos — Marketplace B2B",
   description: "Pastillas, discos, pinzas y latiguillos de freno para talleres. Compara precios entre proveedores B2B verificados en Recambio Directo.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/frenos" },
 };

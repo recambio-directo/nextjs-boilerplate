@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Continental — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Continental — Comprar Online B2B",
   description: "Compra recambios Continental al mejor precio en nuestro marketplace B2B. Continental, gigante alemán especializado en distribución, correas y sensores. distribución Continental, correa Continental, ContiTech. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/continental" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Las 10 Mejores Marcas de Recambios Aftermarket en 2026 | Recambio Directo",
+  title: "Las 10 Mejores Marcas de Recambios Aftermarket en 2026",
   description: "Ranking de las mejores marcas de recambios aftermarket para talleres: Bosch, Brembo, Valeo, MANN-FILTER y más. Calidad OE a precio IAM.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/mejores-marcas-recambios-aftermarket" },
   openGraph: {

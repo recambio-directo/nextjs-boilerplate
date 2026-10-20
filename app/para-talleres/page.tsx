@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios para Talleres Mecánicos — Compara Precios B2B | Recambio Directo",
+  title: "Recambios para Talleres Mecánicos — Compara Precios B2B",
   description: "Compara precios de recambios entre proveedores verificados y recibe en 24h. Más de 300.000 referencias OEM e IAM. Primer mes gratis para talleres.",
   alternates: { canonical: "https://www.recambio-directo.com/para-talleres" },
   openGraph: {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Buscar recambios por matrícula: cómo funciona y por qué ahorra tiempo | Recambio Directo",
+  title: "Buscar recambios por matrícula: cómo funciona y por qué ahorra tiempo",
   description: "Descubre cómo buscar recambios de automoción por matrícula del vehículo. Identifica la pieza exacta sin errores y ahorra tiempo en cada pedido.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/buscar-recambios-por-matricula-como-funciona" },
 };

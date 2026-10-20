@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sistemas de Encendido — Marketplace B2B | Recambio Directo",
+  title: "Sistemas de Encendido — Marketplace B2B",
   description: "Bujías, bobinas, cables y módulos de encendido. Precios B2B para talleres con envío rápido en España.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/encendido" },
 };

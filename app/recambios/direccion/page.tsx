@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Dirección — Marketplace B2B | Recambio Directo",
+  title: "Recambios de Dirección — Marketplace B2B",
   description: "Cremalleras, bombas de dirección, rótulas y guardapolvos. Marketplace B2B para talleres en toda España.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/direccion" },
 };

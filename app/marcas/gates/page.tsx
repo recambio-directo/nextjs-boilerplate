@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Gates — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Gates — Comprar Online B2B",
   description: "Compra recambios Gates al mejor precio en nuestro marketplace B2B. Gates, especialista global en correas de distribución y sistemas de refrigeración. distribución Gates, correa Gates, PowerGrip Gates. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/gates" },
 };

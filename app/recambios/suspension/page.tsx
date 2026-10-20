@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Suspensión — Marketplace B2B | Recambio Directo",
+  title: "Recambios de Suspensión — Marketplace B2B",
   description: "Amortiguadores, muelles, rótulas y silent blocks. Precios B2B para talleres con entrega rápida en toda España.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/suspension" },
 };

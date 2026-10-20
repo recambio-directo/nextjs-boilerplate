@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios LuK — Comprar Online B2B | Recambio Directo",
+  title: "Recambios LuK — Comprar Online B2B",
   description: "Compra recambios LuK al mejor precio en nuestro marketplace B2B. LuK, inventor del volante bimasa y líder en sistemas de embrague. embrague LuK, volante bimasa LuK, kit RepSet LuK. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/luk" },
 };
