@@ -1,3 +1,4 @@
+// app/api/dhl/tracking/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const DHL_USER = process.env.DHL_USER!;
@@ -17,6 +18,35 @@ async function getToken(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// Mapear estado DHL España a estado interno RD
+function mapearEstado(data: any): string {
+  if (!data) return "preparando";
+
+  // DHL España API devuelve distintos formatos
+  const eventos = data.events || data.Tracking?.Events || data.shipments?.[0]?.events || [];
+
+  if (Array.isArray(eventos) && eventos.length > 0) {
+    for (const evento of eventos) {
+      const desc = (evento.description || evento.Description || evento.statusDescription || "").toLowerCase();
+      const status = (evento.status || evento.StatusCode || "").toLowerCase();
+
+      if (desc.includes("entregado") || desc.includes("entrega") || desc.includes("delivered") ||
+          status.includes("delivered") || status === "ok") {
+        return "entregado";
+      }
+    }
+    // Si hay eventos pero ninguno es entrega → en tránsito
+    return "enviado";
+  }
+
+  // Fallback: comprobar campos de nivel superior
+  const estado = (data.Status || data.status || data.estadoEnvio || "").toLowerCase();
+  if (estado.includes("entregado") || estado.includes("delivered")) return "entregado";
+  if (estado.includes("tránsito") || estado.includes("transit") || estado.includes("reparto")) return "enviado";
+
+  return "preparando";
 }
 
 export async function GET(req: NextRequest) {
@@ -44,7 +74,9 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await res.json();
-    return NextResponse.json({ ok: true, data });
+    const estadoRD = mapearEstado(data);
+
+    return NextResponse.json({ ok: true, estadoRD, data });
 
   } catch (e: any) {
     console.error("Error DHL tracking:", e);

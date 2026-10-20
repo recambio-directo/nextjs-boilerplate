@@ -13,6 +13,22 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/ctt/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/gls/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/correos-express/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/dhl/cron-tracking",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/ftp/procesar",
       "schedule": "0 5 * * *"
     },
@@ -33,6 +49,18 @@
       "maxDuration": 30
     },
     "app/api/seur/**": {
+      "maxDuration": 30
+    },
+    "app/api/ctt/**": {
+      "maxDuration": 30
+    },
+    "app/api/gls/**": {
+      "maxDuration": 30
+    },
+    "app/api/correos-express/**": {
+      "maxDuration": 30
+    },
+    "app/api/dhl/**": {
       "maxDuration": 30
     },
     "app/api/devolucion/**": {

@@ -67,8 +67,9 @@ function getTrackingUrl(agencia: string, tracking: string): string {
   if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
   if (ag.includes("nacex")) return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${tracking.split("/")[0]}&numero_albaran=${tracking.split("/")[1]}&externo=N`;
   if (ag.includes("seur")) return `https://www.seur.com/es/particular/herramientas/localizador-de-envios.html?referencia=${tracking}`;
-  if (ag.includes("gls")) return `https://gls-group.eu/track/${tracking}`;
-  if (ag.includes("correos")) return `https://www.correos.es/es/es/herramientas/localizador/envios/detalle?codigoEnvio=${tracking}`;
+  if (ag.includes("ctt")) return `https://www.cttexpress.com/localizador-de-envios/?sc=${tracking}`;
+  if (ag.includes("gls")) return `https://mygls.gls-spain.es/es/seguimiento?referencia=${tracking}`;
+  if (ag.includes("correos")) return `https://s.correosexpress.com/c?n=${tracking}`;
   if (ag.includes("dhl")) return `https://www.dhlparcel.es/es/particular/herramientas/seguimiento-de-envios.html?tracking=${tracking}`;
   return `https://www.google.com/search?q=tracking+${agencia}+${tracking}`;
 }
