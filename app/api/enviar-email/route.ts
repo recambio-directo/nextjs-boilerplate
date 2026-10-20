@@ -52,14 +52,15 @@ export async function POST(request: Request) {
     // Obtener URLs de PDFs y coste de transporte
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte")
+      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte, gastos_gestion, forma_pago")
       .eq("id", pedidoId)
       .single();
 
-    // Calcular totales separados: proveedor NO ve porte, cliente SÍ
+    // Calcular totales separados: proveedor NO ve porte ni recargo, cliente SÍ
     const costeTransporte = Number(pedidoData?.coste_transporte || 0);
+    const gastosGestion = Number(pedidoData?.gastos_gestion || 0);
     const totalProveedor = Number(total) - costeTransporte;
-    const totalCliente = Number(total);
+    const totalCliente = Number(total) + gastosGestion;
 
     const albaranUrl = pedidoData?.albaran_url || null;
 
@@ -202,6 +203,11 @@ export async function POST(request: Request) {
               <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #cbd5e1;margin-top:4px;font-size:13px">
                 <span style="color:#64748b;font-weight:600">🚚 Porte (${agenciaUpper})</span>
                 <span style="color:#0b1736;font-weight:700">${costeTransporte.toFixed(2)}€</span>
+              </div>` : ""}
+              ${gastosGestion > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #cbd5e1;margin-top:4px;font-size:13px">
+                <span style="color:#64748b;font-weight:600">💳 Recargo tarjeta (3%)</span>
+                <span style="color:#0b1736;font-weight:700">${gastosGestion.toFixed(2)}€</span>
               </div>` : ""}
               <div style="text-align:right;margin-top:12px;font-size:14px">
                 <strong style="color:#0b1736">TOTAL: ${totalCliente.toFixed(2)}€ (IVA incl.)</strong>
