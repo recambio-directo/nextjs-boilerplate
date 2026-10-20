@@ -266,6 +266,7 @@ export default function VehiculoPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(false);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
+  const [filtroCategorias, setFiltroCategorias] = useState("");
   const [nombreCategoria, setNombreCategoria] = useState("");
   const [articulos, setArticulos] = useState<ArticuloCatalogo[]>([]);
   const [loadingArticulos, setLoadingArticulos] = useState(false);
@@ -346,6 +347,21 @@ export default function VehiculoPage() {
     }
   };
 
+  // Filtrar categorías recursivamente por texto
+  const filtrarCategorias = (cats: Categoria[], texto: string): Categoria[] => {
+    if (!texto.trim()) return cats;
+    const t = texto.toLowerCase();
+    return cats.reduce<Categoria[]>((acc, cat) => {
+      const nombreCoincide = cat.nombre.toLowerCase().includes(t);
+      const genericsCoinciden = cat.generics?.some(g => g.nombre.toLowerCase().includes(t));
+      const hijosFiltrados = filtrarCategorias(cat.hijos || [], texto);
+      if (nombreCoincide || genericsCoinciden || hijosFiltrados.length > 0) {
+        acc.push({ ...cat, hijos: hijosFiltrados.length > 0 ? hijosFiltrados : cat.hijos });
+      }
+      return acc;
+    }, []);
+  };
+
   // Cargar categorías para el vehículo seleccionado
   const cargarCategorias = async (vehicleId: string) => {
     setLoadingCategorias(true);
@@ -405,6 +421,7 @@ export default function VehiculoPage() {
     setVarianteSeleccionada(v);
     setCategorias([]);
     setCategoriaSeleccionada(null);
+    setFiltroCategorias("");
     setArticulos([]);
     setInfoCatalogo(null);
     setErrorPiezas(null);
@@ -830,9 +847,24 @@ export default function VehiculoPage() {
                       Categorias ({categorias.length})
                     </p>
                   </div>
+                  {categorias.length > 0 && (
+                    <div style={{ padding: "4px 8px 8px" }}>
+                      <input
+                        type="text"
+                        value={filtroCategorias}
+                        onChange={(e) => setFiltroCategorias(e.target.value)}
+                        placeholder="🔍 Buscar categoria..."
+                        style={{
+                          width: "100%", padding: "8px 12px", borderRadius: "8px",
+                          border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0",
+                          fontSize: "13px", outline: "none",
+                        }}
+                      />
+                    </div>
+                  )}
                   {categorias.length > 0 ? (
                     <ArbolCategorias
-                      categorias={categorias}
+                      categorias={filtrarCategorias(categorias, filtroCategorias)}
                       categoriaSeleccionada={categoriaSeleccionada}
                       onSeleccionar={cargarPiezas}
                     />
