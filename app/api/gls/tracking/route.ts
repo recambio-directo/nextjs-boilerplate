@@ -4,6 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 const GLS_URL  = "https://ws-customer.gls-spain.es/b2b.asmx";
 const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
 
+// Mapear codEstado GLS a estado interno RD
+// GLS Spain: 0=sin info, 1=grabado, 2=en tránsito, 3=en reparto, 7=entregado, 8=incidencia
+function mapearEstado(codEstado: string | null): string {
+  if (!codEstado) return "preparando";
+  const cod = codEstado.trim();
+  if (cod === "7") return "entregado";
+  if (["2", "3", "5", "6"].includes(cod)) return "enviado";
+  if (["0", "1"].includes(cod)) return "preparando";
+  return "enviado"; // incidencia u otro = sigue en tránsito
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { codbarras } = await req.json();
@@ -29,17 +40,18 @@ export async function POST(req: NextRequest) {
 
     const rawText = await res.text();
 
-    // Extraer estado y eventos de tracking
     const codEstadoMatch = rawText.match(/<codestado>([\s\S]*?)<\/codestado>/);
     const codEstado = codEstadoMatch?.[1]?.trim() || null;
 
-    // URL pública de tracking para el taller
+    const estadoRD = mapearEstado(codEstado);
+
     const trackingUrl = `https://mygls.gls-spain.es/es/seguimiento?referencia=${codbarras}`;
 
     return NextResponse.json({
       ok: true,
       codbarras,
       codEstado,
+      estadoRD,
       trackingUrl,
       raw: rawText.substring(0, 600),
     });
