@@ -5,16 +5,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.recambio-directo.com";
   const ahora = new Date();
 
+  // Slugs que coinciden EXACTAMENTE con las carpetas /app/recambios-{slug}/
   const provincias = [
-    "madrid", "barcelona", "valencia", "sevilla", "bilbao", "zaragoza", "malaga",
-    "murcia", "palma-de-mallorca", "las-palmas", "alicante", "cordoba", "valladolid",
-    "vigo", "gijon", "hospitalet", "vitoria", "a-coruna", "granada", "elche",
-    "oviedo", "santa-cruz-de-tenerife", "pamplona", "almeria", "donostia",
-    "burgos", "albacete", "santander", "castellon", "logrono", "badajoz",
-    "salamanca", "huelva", "lleida", "tarragona", "leon", "cadiz", "jaen",
-    "ourense", "girona", "lugo", "caceres", "guadalajara", "toledo", "pontevedra",
-    "palencia", "ciudad-real", "zamora", "avila", "cuenca", "segovia", "huesca",
-    "teruel", "soria",
+    "alava", "albacete", "alicante", "almeria", "asturias",
+    "badajoz", "baleares", "barcelona", "bilbao", "burgos",
+    "caceres", "cadiz", "cantabria", "castellon", "ciudad-real",
+    "cordoba", "cuenca", "girona", "granada", "guadalajara",
+    "guipuzcoa", "huelva", "huesca", "jaen", "la-coruna",
+    "la-rioja", "las-palmas", "leon", "lleida", "lugo",
+    "madrid", "malaga", "murcia", "navarra", "ourense",
+    "palencia", "pontevedra", "salamanca", "santa-cruz-de-tenerife",
+    "segovia", "sevilla", "soria", "tarragona", "teruel",
+    "toledo", "valencia", "valladolid", "vizcaya", "zamora",
+    "zaragoza",
   ];
 
   const blogPosts = [
@@ -96,7 +99,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
-    // Landings de provincia
+    // Landings de provincia (slugs = nombres de carpeta)
     ...provincias.map((prov) => ({
       url: `${base}/recambios-${prov}`,
       lastModified: ahora,
@@ -131,18 +134,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/terminos`,
-      lastModified: ahora,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${base}/cookies`,
-      lastModified: ahora,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${base}/devoluciones`,
       lastModified: ahora,
       changeFrequency: "yearly",
       priority: 0.3,
