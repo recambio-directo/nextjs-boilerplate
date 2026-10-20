@@ -49,12 +49,17 @@ export async function POST(request: Request) {
       clienteProvincia = clientePerfil.provincia || "";
     }
 
-    // Obtener URLs de PDFs
+    // Obtener URLs de PDFs y coste de transporte
     const { data: pedidoData } = await supabase
       .from("pedidos")
-      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte")
+      .select("albaran_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte")
       .eq("id", pedidoId)
       .single();
+
+    // Calcular totales separados: proveedor NO ve porte, cliente SÍ
+    const costeTransporte = Number(pedidoData?.coste_transporte || 0);
+    const totalProveedor = Number(total) - costeTransporte;
+    const totalCliente = Number(total);
 
     const albaranUrl = pedidoData?.albaran_url || null;
 
@@ -138,7 +143,7 @@ export async function POST(request: Request) {
                 </div>
               `).join("")}
               <div style="text-align:right;margin-top:12px;font-size:14px">
-                <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
+                <strong style="color:#0b1736">TOTAL: ${totalProveedor.toFixed(2)}€ (IVA incl.)</strong>
               </div>
             </div>
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
@@ -193,8 +198,13 @@ export async function POST(request: Request) {
                   <span style="color:#16a34a;font-weight:700">${((Number(p.precio) + Number(p.impuesto || 0)) * (p.cantidad || 1)).toFixed(2)}€</span>
                 </div>
               `).join("")}
+              ${costeTransporte > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #cbd5e1;margin-top:4px;font-size:13px">
+                <span style="color:#64748b;font-weight:600">🚚 Porte (${agenciaUpper})</span>
+                <span style="color:#0b1736;font-weight:700">${costeTransporte.toFixed(2)}€</span>
+              </div>` : ""}
               <div style="text-align:right;margin-top:12px;font-size:14px">
-                <strong style="color:#0b1736">TOTAL: ${Number(total).toFixed(2)}€ (IVA incl.)</strong>
+                <strong style="color:#0b1736">TOTAL: ${totalCliente.toFixed(2)}€ (IVA incl.)</strong>
               </div>
             </div>
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
