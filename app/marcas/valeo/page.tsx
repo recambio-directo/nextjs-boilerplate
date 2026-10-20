@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Valeo — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Valeo — Comprar Online B2B",
   description: "Compra recambios Valeo al mejor precio en nuestro marketplace B2B. Valeo, especialista francés en embragues, climatización y sistemas eléctricos. embrague Valeo, kit embrague Valeo, alternador Valeo. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/valeo" },
 };

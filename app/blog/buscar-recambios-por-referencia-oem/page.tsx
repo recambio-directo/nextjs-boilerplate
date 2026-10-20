@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cómo Buscar Recambios por Referencia OEM — Guía para Talleres | Recambio Directo",
+  title: "Cómo Buscar Recambios por Referencia OEM — Guía para Talleres",
   description: "Aprende a buscar recambios por referencia OEM, encontrar equivalencias IAM y usar cruces de referencias para comprar la pieza correcta al mejor precio.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/buscar-recambios-por-referencia-oem" },
   openGraph: {

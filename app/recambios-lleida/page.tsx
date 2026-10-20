@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Automoción en Lleida — Marketplace B2B | Recambio Directo",
+  title: "Recambios de Automoción en Lleida — Marketplace B2B",
   description: "Compra recambios de automoción en Lleida al mejor precio. Marketplace B2B para talleres y proveedores en Cataluña. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-lleida" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios SKF — Comprar Online B2B | Recambio Directo",
+  title: "Recambios SKF — Comprar Online B2B",
   description: "Compra recambios SKF al mejor precio en nuestro marketplace B2B. SKF, líder mundial en rodamientos y kits de rueda. rodamientos SKF, kit rueda SKF. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/skf" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Blog de Recambios de Automoción B2B — Recambio Directo",
+  title: "Blog de Recambios de Automoción B2B",
   description:
     "Artículos, guías y novedades sobre recambios de automoción, logística B2B, piezas OEM e IAM y gestión de talleres mecánicos en España.",
   alternates: {

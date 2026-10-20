@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cómo encontrar nuevos proveedores de recambios para tu taller | Recambio Directo",
+  title: "Cómo encontrar nuevos proveedores de recambios para tu taller",
   description: "Guía práctica para talleres que buscan nuevos proveedores de recambios de automoción. Compara opciones y encuentra el canal más eficiente.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/como-encontrar-nuevos-proveedores-recambios" },
 };

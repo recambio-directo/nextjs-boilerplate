@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios TRW — Comprar Online B2B | Recambio Directo",
+  title: "Recambios TRW — Comprar Online B2B",
   description: "Compra recambios TRW al mejor precio en nuestro marketplace B2B. TRW, referencia en seguridad activa: frenos, dirección y suspensión. pastillas TRW, frenos TRW, rótulas TRW. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/trw" },
 };

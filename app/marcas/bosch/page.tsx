@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Bosch — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Bosch — Comprar Online B2B",
   description: "Compra recambios Bosch al mejor precio en nuestro marketplace B2B. Bosch, referencia global en tecnología de automoción y recambios multisegmento. filtros Bosch, bujías Bosch, baterías Bosch. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/bosch" },
 };

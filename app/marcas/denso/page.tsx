@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Denso — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Denso — Comprar Online B2B",
   description: "Compra recambios Denso al mejor precio en nuestro marketplace B2B. Denso, tecnología japonesa de primer nivel en encendido, climatización y motores de arranque. bujías Denso, compresor Denso, arranque Denso. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/denso" },
 };

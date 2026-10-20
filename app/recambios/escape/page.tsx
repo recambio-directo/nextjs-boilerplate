@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sistemas de Escape — Marketplace B2B | Recambio Directo",
+  title: "Sistemas de Escape — Marketplace B2B",
   description: "Catalizadores, filtros de partículas, silenciosos y tubos de escape. Precios B2B para talleres profesionales.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/escape" },
 };

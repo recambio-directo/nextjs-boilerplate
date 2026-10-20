@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Baterías de Automoción — Marketplace B2B | Recambio Directo",
+  title: "Baterías de Automoción — Marketplace B2B",
   description: "Baterías de arranque, AGM, EFB y auxiliares. Precios B2B para talleres con envío en 24-48h en toda España.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/baterias" },
 };

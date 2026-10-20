@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios Brembo — Comprar Online B2B | Recambio Directo",
+  title: "Recambios Brembo — Comprar Online B2B",
   description: "Compra recambios Brembo al mejor precio en nuestro marketplace B2B. Brembo, líder mundial en sistemas de frenado de alto rendimiento. frenos Brembo, discos Brembo, pastillas Brembo. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/brembo" },
 };

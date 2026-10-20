@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Kits de Distribución — Marketplace B2B | Recambio Directo",
+  title: "Kits de Distribución — Marketplace B2B",
   description: "Kits de distribución, correas, tensores y bombas de agua. Precios B2B competitivos para talleres profesionales.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/distribucion" },
 };

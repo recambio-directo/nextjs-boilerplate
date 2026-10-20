@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Kits de Embrague — Marketplace B2B | Recambio Directo",
+  title: "Kits de Embrague — Marketplace B2B",
   description: "Kits de embrague, volantes bimasa y cilindros. Compara precios B2B entre proveedores verificados en toda España.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios/embragues" },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios INA — Comprar Online B2B | Recambio Directo",
+  title: "Recambios INA — Comprar Online B2B",
   description: "Compra recambios INA al mejor precio en nuestro marketplace B2B. INA, marca del grupo Schaeffler especializada en componentes de distribución y motor. tensor INA, distribución INA, kit INA. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/ina" },
 };

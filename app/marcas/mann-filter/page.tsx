@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios MANN-FILTER — Comprar Online B2B | Recambio Directo",
+  title: "Recambios MANN-FILTER — Comprar Online B2B",
   description: "Compra recambios MANN-FILTER al mejor precio en nuestro marketplace B2B. MANN-FILTER, la marca de filtración más utilizada por talleres profesionales en Europa. filtro MANN, filtro aire MANN, filtro aceite MANN. Entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/marcas/mann-filter" },
 };

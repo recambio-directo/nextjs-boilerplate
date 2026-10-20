@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "5 formas de reducir el coste de recambios en tu taller | Recambio Directo",
+  title: "5 formas de reducir el coste de recambios en tu taller",
   description: "Estrategias prácticas para que tu taller mecánico ahorre en la compra de recambios sin sacrificar calidad. Comparar, negociar y optimizar.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/reducir-costes-recambios-taller" },
 };

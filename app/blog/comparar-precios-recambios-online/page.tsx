@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Comparar Precios de Recambios de Automoción Online: Guía B2B 2026 | Recambio Directo",
+  title: "Comparar Precios de Recambios de Automoción Online: Guía B2B 2026",
   description: "Aprende a comparar precios de recambios de automoción online entre proveedores B2B. Marketplaces, buscadores de referencias y trucos para encontrar la mejor oferta.",
   alternates: { canonical: "https://www.recambio-directo.com/blog/comparar-precios-recambios-online" },
   openGraph: {

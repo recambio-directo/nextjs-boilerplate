@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Automoción en Almería — Marketplace B2B | Recambio Directo",
+  title: "Recambios de Automoción en Almería — Marketplace B2B",
   description: "Compra recambios de automoción en Almería al mejor precio. Marketplace B2B para talleres y proveedores en Andalucía. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-almeria" },
 };
