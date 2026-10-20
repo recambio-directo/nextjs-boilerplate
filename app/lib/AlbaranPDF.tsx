@@ -88,6 +88,7 @@ export type AlbaranProps = {
   iva: number;
   total: number;
   gastosGestion?: number;
+  destinatario?: "proveedor" | "taller";
 };
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
@@ -101,13 +102,14 @@ export function AlbaranPDF({
   proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono,
   proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
   cliente, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia,
-  agencia, formaPago, productos, subtotal, iva, total, gastosGestion,
+  agencia, formaPago, productos, subtotal, iva, total, gastosGestion, destinatario,
 }: AlbaranProps) {
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
     : new Date().toLocaleDateString("es-ES");
 
-  const tieneGastosGestion = formaPago === "tarjeta" && gastosGestion && gastosGestion > 0;
+  const esProveedor = destinatario === "proveedor";
+  const tieneGastosGestion = !esProveedor && formaPago === "tarjeta" && gastosGestion && gastosGestion > 0;
   const totalFinal = tieneGastosGestion ? total + gastosGestion : total;
 
   // Formatear dirección completa con CP y provincia
@@ -227,14 +229,16 @@ export function AlbaranPDF({
           </View>
         )}
 
-        <View style={{ backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b", padding: 10, marginTop: 8 }}>
-          <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#92400e", marginBottom: 4 }}>
-            GASTOS DE TRANSPORTE — Facturados independientemente
-          </Text>
-          <Text style={{ fontSize: 9, color: "#78350f" }}>
-            Agencia: {agencia} — El coste del porte sera facturado por separado y no esta incluido en el importe de piezas indicado.
-          </Text>
-        </View>
+        {!esProveedor && (
+          <View style={{ backgroundColor: "#fef3c7", borderWidth: 1, borderColor: "#f59e0b", padding: 10, marginTop: 8 }}>
+            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#92400e", marginBottom: 4 }}>
+              GASTOS DE TRANSPORTE — Facturados independientemente
+            </Text>
+            <Text style={{ fontSize: 9, color: "#78350f" }}>
+              Agencia: {agencia} — El coste del porte sera facturado por separado y no esta incluido en el importe de piezas indicado.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.formaPagoBox}>
           <Text style={styles.formaPagoLabel}>Forma de pago:</Text>
