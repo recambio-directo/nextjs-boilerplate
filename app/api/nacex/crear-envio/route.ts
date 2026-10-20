@@ -119,7 +119,7 @@ export async function POST(request: Request) {
     const delCli = process.env.NACEX_DEL_CLI || "";
     const numCli = process.env.NACEX_NUM_CLI || "";
     const tipSer = process.env.NACEX_TIP_SER || "08";
-    const tipCob = process.env.NACEX_TIP_COB || "O";
+    const tipCob = process.env.NACEX_TIP_COB || "T";
     const tipEnv = process.env.NACEX_TIP_ENV || "2";
 
     function limpiarTelefono(tel: string): string {
