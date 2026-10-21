@@ -200,7 +200,7 @@ export default function SeccionDashboard({ usuarios, pedidos, setSeccion }: Prop
                     <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.cliente_nombre || "-"}</td>
                     <td style={tdStyle}><span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{p.agencia || "-"}</span></td>
                     <td style={tdStyle}>
-                      <span style={{ background: `${estadoColor[p.estado_envio] || "#94a3b8"}20`, color: estadoColor[p.estado_envio] || "#94a3b8", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+                      <span style={{ background: `${estadoColor[p.estado_envio || ""] || "#94a3b8"}20`, color: estadoColor[p.estado_envio || ""] || "#94a3b8", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
                         {p.estado_envio || "—"}
                       </span>
                     </td>
