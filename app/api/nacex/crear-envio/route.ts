@@ -210,6 +210,7 @@ export async function POST(request: Request) {
       etiqueta_envio_url: etiquetaNacexUrl || undefined,
       estado_envio: "preparando",
       agencia: "NACEX",
+      codigo_postal_destino: cpDest,
     }).eq("id", pedidoId);
 
     return Response.json({

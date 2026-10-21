@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ numeroEnvio: pedido.tracking }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "MRW",
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ localizador: pedido.tracking_nacex }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "NACEX",
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ collectionRef: pedido.collection_ref_seur }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "SEUR",
@@ -90,6 +93,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ keyRecogida: pedido.collection_ref_correos_express }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "Correos Express",
@@ -106,6 +110,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ shippingCode: pedido.tracking_ctt }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "CTT Express",
@@ -122,6 +127,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ codbarras: pedido.tracking_gls }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "GLS",
@@ -138,6 +144,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({ pedidoId }),
       });
       const data = await res.json();
+      if (data.ok) await supabase.from("pedidos").update({ estado_envio: "anulado" }).eq("id", pedidoId);
       return Response.json({
         ok: data.ok,
         agencia: "DHL",

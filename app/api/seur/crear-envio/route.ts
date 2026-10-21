@@ -156,6 +156,21 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "SEUR no devolvió localizador", rawResponse: rawText }, { status: 400 });
     }
 
+    // Guardar tracking, collection_ref, estado y agencia en pedido
+    if (pedidoId) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      await supabase.from("pedidos").update({
+        tracking: tracking,
+        tracking_seur: tracking,
+        collection_ref_seur: collectionRef,
+        estado_envio: "preparando",
+        agencia: "SEUR",
+      }).eq("id", pedidoId);
+    }
+
     // Pedir etiqueta PDF
     let etiquetaSeurUrl: string | null = null;
     let etiquetaPdfBase64: string | null = null;
