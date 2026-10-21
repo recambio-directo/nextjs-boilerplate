@@ -1,10 +1,11 @@
+import { useState } from "react";
 import * as XLSX from "xlsx";
 import { Usuario, Pedido, tipoBadge, tableContainer, tableStyle, thStyle, trStyle, tdStyle, kpiCard, kpiLabel, kpiNum, btnExportar } from "./types";
 
 type Props = { usuarios: Usuario[]; pedidos: Pedido[] };
 
 export default function SeccionFacturacion({ usuarios, pedidos }: Props) {
-  const [mesFacturacion, setMesFacturacion] = require("react").useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; });
+  const [mesFacturacion, setMesFacturacion] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; });
 
   function calcularFacturacionUsuario(u: Usuario) {
     const [anio, mesNum] = mesFacturacion.split("-").map(Number);

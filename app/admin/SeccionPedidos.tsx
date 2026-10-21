@@ -11,6 +11,7 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
   const [filtroPedidoEstado, setFiltroPedidoEstado] = useState("todos");
   const [filtroPedidoPago, setFiltroPedidoPago] = useState("todos");
   const [filtroPedidoAnulado, setFiltroPedidoAnulado] = useState("todos");
+  const [filtroPedidoAgencia, setFiltroPedidoAgencia] = useState("todos");
   const [paginaPedidos, setPaginaPedidos] = useState(1);
   const [cambiandoAgencia, setCambiandoAgencia] = useState<number | null>(null);
   const [agenciaTemp, setAgenciaTemp] = useState<Record<number, string>>({});
@@ -18,14 +19,53 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
   const [cambiandoAgenciaCompleto, setCambiandoAgenciaCompleto] = useState<number | null>(null);
   const [reenviandoEmail, setReenviandoEmail] = useState<number | null>(null);
   const [msgAccion, setMsgAccion] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
+  const [cambiandoEstado, setCambiandoEstado] = useState<number | null>(null);
   const PEDIDOS_POR_PAGINA = 20;
+
+  const TRACKING_URLS: Record<string, (t: string) => string> = {
+    "MRW": (t) => `https://www.mrw.es/seguimiento_envios/MRWEnvio_seguimiento.asp?codigo=${t}`,
+    "NACEX": (t) => `https://www.nacex.es/irSegupsimiento.do?agencia_org=&numero_albaran=${t}`,
+    "SEUR": (t) => `https://www.seur.com/livetracking/?segOnlineIdentificador=${t}`,
+    "CTT Express": (t) => `https://www.cttexpress.com/seguimiento?numero=${t}`,
+    "GLS": (t) => `https://www.gls-spain.es/es/seguimiento-de-envios/?match=${t}`,
+    "Correos Express": (t) => `https://www.correosexpress.com/web/correosexpress/seguimiento-online?envio=${t}`,
+    "DHL": (t) => `https://www.dhl.com/es-es/home/tracking/tracking-express.html?submit=1&tracking-id=${t}`,
+  };
+
+  function getTrackingNumber(p: Pedido): string {
+    return (p as any).tracking_number || p.tracking || (p as any).tracking_nacex || (p as any).tracking_dhl || (p as any).tracking_gls || (p as any).tracking_ctt || (p as any).tracking_seur || "";
+  }
+
+  function getTrackingUrl(p: Pedido): string | null {
+    const tn = getTrackingNumber(p);
+    if (!tn) return null;
+    const ag = (p.agencia || p.transporte || "").trim();
+    for (const [key, fn] of Object.entries(TRACKING_URLS)) {
+      if (ag.toLowerCase().includes(key.toLowerCase())) return fn(tn);
+    }
+    return null;
+  }
+
+  async function cambiarEstadoManual(pedidoId: number, nuevoEstado: string) {
+    setCambiandoEstado(pedidoId);
+    const updates: any = { estado_envio: nuevoEstado };
+    if (nuevoEstado === "entregado") updates.fecha_entrega_confirmada = new Date().toISOString();
+    await supabase.from("pedidos").update(updates).eq("id", pedidoId);
+    if (nuevoEstado === "entregado") {
+      const pedido = pedidos.find(p => p.id === pedidoId);
+      if (pedido) await crearPagoProveedorSiNoExiste(pedido);
+    }
+    cargarDatos();
+    setCambiandoEstado(null);
+  }
 
   const pedidosFiltrados = pedidos.filter(p => {
     if (filtroPedidoEstado !== "todos" && p.estado_envio !== filtroPedidoEstado) return false;
     if (filtroPedidoPago !== "todos" && p.forma_pago !== filtroPedidoPago) return false;
     if (filtroPedidoAnulado === "activos" && p.anulado) return false;
     if (filtroPedidoAnulado === "anulados" && !p.anulado) return false;
-    if (busquedaPedidos) { const q = busquedaPedidos.toLowerCase(); return (p.codigo||"").toLowerCase().includes(q) || (p.cliente_nombre||"").toLowerCase().includes(q) || (p.cliente_email||"").toLowerCase().includes(q) || String(p.id).includes(q); }
+    if (filtroPedidoAgencia !== "todos" && (p.agencia || p.transporte || "") !== filtroPedidoAgencia) return false;
+    if (busquedaPedidos) { const q = busquedaPedidos.toLowerCase(); return (p.codigo||"").toLowerCase().includes(q) || (p.cliente_nombre||"").toLowerCase().includes(q) || (p.cliente_email||"").toLowerCase().includes(q) || String(p.id).includes(q) || getTrackingNumber(p).toLowerCase().includes(q); }
     return true;
   });
   const totalPaginasPedidos = Math.ceil(pedidosFiltrados.length / PEDIDOS_POR_PAGINA);
@@ -151,14 +191,18 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
         <div style={{ display: "flex", gap: 6 }}>{[{key:"todos",label:"Todos"},{key:"pendiente",label:"⏳ Pendiente"},{key:"preparando",label:"🔧 Preparando"},{key:"enviado",label:"🚚 Enviado"},{key:"entregado",label:"✅ Entregado"}].map(({key,label}) => (<button key={key} onClick={() => { setFiltroPedidoEstado(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoEstado===key ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: filtroPedidoEstado===key ? "#60a5fa" : "#94a3b8", border: filtroPedidoEstado===key ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>))}</div>
         <div style={{ display: "flex", gap: 6 }}>{[{key:"todos",label:"Todos"},{key:"tarjeta",label:"💳 Tarjeta"},{key:"rd_pago",label:"🔵 RD Pago"}].map(({key,label}) => (<button key={key} onClick={() => { setFiltroPedidoPago(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoPago===key ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", color: filtroPedidoPago===key ? "#a78bfa" : "#94a3b8", border: filtroPedidoPago===key ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>))}</div>
         <div style={{ display: "flex", gap: 6 }}>{[{key:"todos",label:"Todos"},{key:"activos",label:"✅ Activos"},{key:"anulados",label:"❌ Anulados"}].map(({key,label}) => (<button key={key} onClick={() => { setFiltroPedidoAnulado(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoAnulado===key ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", color: filtroPedidoAnulado===key ? "#f87171" : "#94a3b8", border: filtroPedidoAnulado===key ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>))}</div>
+        <select value={filtroPedidoAgencia} onChange={e => { setFiltroPedidoAgencia(e.target.value); setPaginaPedidos(1); }} style={{ background: "#0f172a", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "7px 12px", fontSize: 12, outline: "none", cursor: "pointer" }}>
+          <option value="todos">🚚 Todas agencias</option>
+          {AGENCIAS.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
         <span style={{ color: "#94a3b8", fontSize: 13 }}>{pedidosFiltrados.length} pedido{pedidosFiltrados.length !== 1 ? "s" : ""}</span>
       </div>
       <div style={tableContainer}>
         <table style={tableStyle}>
-          <thead><tr>{["CÓDIGO","COMPRADOR","VENDEDOR","TOTAL","PAGO","AGENCIA","ESTADO","FECHA","ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr>{["CÓDIGO","COMPRADOR","VENDEDOR","TOTAL","PAGO","AGENCIA","TRACKING","ESTADO","FECHA","ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {pedidosPagina.length === 0 ? (
-              <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
+              <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
             ) : pedidosPagina.map(p => (
               <React.Fragment key={p.id}>
               <tr style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
@@ -182,14 +226,27 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
                   </span>
                 </td>
                 <td style={tdStyle}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</span>
-                  
-                  </div>
+                  <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</span>
                 </td>
                 <td style={tdStyle}>
-                  <span style={{ color: p.estado_envio==="entregado" ? "#4ade80" : p.estado_envio==="enviado" ? "#a78bfa" : p.estado_envio==="preparando" ? "#60a5fa" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>
-                    {p.estado_envio==="entregado" ? "✅ Entregado" : p.estado_envio==="enviado" ? "🚚 Enviado" : p.estado_envio==="preparando" ? "🔧 Preparando" : "⏳ Pendiente"}
+                  {(() => {
+                    const tn = getTrackingNumber(p);
+                    const url = getTrackingUrl(p);
+                    if (!tn) return <span style={{ color: "#475569", fontSize: 12 }}>—</span>;
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {url ? (
+                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#4ade80", fontWeight: 700, textDecoration: "none" }} title="Ver tracking">{tn.length > 18 ? tn.substring(0, 18) + "…" : tn} 🔗</a>
+                        ) : (
+                          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{tn.length > 18 ? tn.substring(0, 18) + "…" : tn}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </td>
+                <td style={tdStyle}>
+                  <span style={{ color: p.estado_envio==="entregado" ? "#4ade80" : p.estado_envio==="en_transito" ? "#a78bfa" : p.estado_envio==="preparando" ? "#60a5fa" : p.estado_envio==="recogido" ? "#38bdf8" : p.estado_envio==="incidencia" ? "#f87171" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>
+                    {p.estado_envio || "pendiente"}
                   </span>
                 </td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
@@ -206,8 +263,32 @@ export default function SeccionPedidos({ pedidos, cargarDatos, crearPagoProveedo
               </tr>
               {pedidoExpandido === p.id && (
                 <tr>
-                  <td colSpan={9} style={{ padding: "0 0 12px 0", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb" }}>
+                  <td colSpan={10} style={{ padding: "0 0 12px 0", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb" }}>
                     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+                      {/* TRACKING INFO */}
+                      {getTrackingNumber(p) && (
+                        <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.15)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                          <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>📦 TRACKING:</span>
+                          <span style={{ fontFamily: "monospace", color: "#4ade80", fontWeight: 800, fontSize: 14 }}>{getTrackingNumber(p)}</span>
+                          {getTrackingUrl(p) && <a href={getTrackingUrl(p)!} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🔗 Ver en web de la agencia</a>}
+                        </div>
+                      )}
+                      {/* CAMBIO DE ESTADO MANUAL */}
+                      <div>
+                        <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>📋 CAMBIAR ESTADO DEL ENVÍO</p>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                          {["pendiente", "preparando", "recogido", "en_transito", "entregado", "incidencia"].map(est => (
+                            <button key={est} onClick={() => cambiarEstadoManual(p.id, est)} disabled={cambiandoEstado === p.id || p.estado_envio === est} style={{
+                              background: p.estado_envio === est ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)",
+                              border: p.estado_envio === est ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.08)",
+                              color: p.estado_envio === est ? "#60a5fa" : "#94a3b8",
+                              padding: "6px 12px", borderRadius: 8, cursor: p.estado_envio === est ? "default" : "pointer", fontWeight: 700, fontSize: 12, opacity: cambiandoEstado === p.id ? 0.5 : 1
+                            }}>
+                              {est}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       {msgAccion?.id === p.id && (
                         <div style={{ background: msgAccion.ok ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${msgAccion.ok ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: msgAccion.ok ? "#4ade80" : "#f87171" }}>
                           {msgAccion.msg}
