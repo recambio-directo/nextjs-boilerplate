@@ -2,31 +2,31 @@
   "crons": [
     {
       "path": "/api/mrw/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/nacex/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/seur/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/ctt/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/gls/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/correos-express/cron",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/dhl/cron-tracking",
-      "schedule": "0 8,13,17 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/ftp/procesar",
