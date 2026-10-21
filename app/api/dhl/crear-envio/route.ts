@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         await supabase.storage.from("FACTURAS").upload(path, buffer, { contentType: "application/pdf", upsert: true });
         const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
         etiquetaUrl = urlData.publicUrl;
-        await supabase.from("pedidos").update({ etiqueta_envio_url: etiquetaUrl }).eq("id", pedidoId);
+        await supabase.from("pedidos").update({ etiqueta_dhl_url: etiquetaUrl, etiqueta_envio_url: etiquetaUrl }).eq("id", pedidoId);
       } catch (e) {
         console.error("Error guardando etiqueta DHL:", e);
       }

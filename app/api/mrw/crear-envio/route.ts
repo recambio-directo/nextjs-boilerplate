@@ -214,7 +214,9 @@ export async function POST(request: Request) {
     if (numeroEnvio && numeroEnvio.trim() !== "") {
       await supabaseAdmin.from("pedidos").update({
         tracking: numeroEnvio.trim(),
+        tracking_mrw: numeroEnvio.trim(),
         estado_envio: "preparando",
+        agencia: "MRW",
         notas_internas: `MRW OK — Envio: ${numeroEnvio.trim()} — Solicitud: ${numeroSolicitud || ""}`,
       }).eq("id", pedidoId);
 
