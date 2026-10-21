@@ -14,10 +14,11 @@ import SeccionPedidos from "./SeccionPedidos";
 import SeccionFTP from "./SeccionFTP";
 import SeccionChats from "./SeccionChats";
 import SeccionDevoluciones from "./SeccionDevoluciones";
+import SeccionSistema from "./SeccionSistema";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"chats"|"devoluciones">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"chats"|"devoluciones"|"sistema">("dashboard");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [pagosProveedores, setPagosProveedores] = useState<PagoProveedor[]>([]);
@@ -169,6 +170,7 @@ export default function AdminPage() {
             { key: "ftp",         label: "🔄 FTP Sync" },
             { key: "chats",       label: "💬 Chats" },
             { key: "devoluciones", label: "🔄 Devoluciones" },
+            { key: "sistema",      label: "⚙️ Sistema" },
           ].map(({ key, label }) => (
             <div key={key} onClick={() => setSeccion(key as any)} style={seccion === (key as any) ? menuActivo : menuItem}>{label}</div>
           ))}
@@ -188,6 +190,7 @@ export default function AdminPage() {
         {seccion === "ftp"         && <SeccionFTP usuarios={usuarios} ftpProveedorId={ftpProveedorId} setFtpProveedorId={setFtpProveedorId} ftpPassword={ftpPassword} setFtpPassword={setFtpPassword} ftpTipoReferencias={ftpTipoReferencias} setFtpTipoReferencias={setFtpTipoReferencias} ftpCreando={ftpCreando} ftpResultado={ftpResultado} setFtpResultado={setFtpResultado} crearUsuarioFTP={crearUsuarioFTP} descargarCredencialesFTP={descargarCredencialesFTP} />}
         {seccion === "chats"        && <SeccionChats />}
         {seccion === "devoluciones" && <SeccionDevoluciones />}
+        {seccion === "sistema"      && <SeccionSistema />}
       </section>
 
       {/* MODAL NOTAS */}
