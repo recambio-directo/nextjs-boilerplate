@@ -46,6 +46,13 @@ export type Pedido = {
   albaran_url?: string;
   etiqueta_envio_url?: string;
   tracking_number?: string;
+  tracking?: string;
+  tracking_nacex?: string;
+  tracking_dhl?: string;
+  tracking_gls?: string;
+  tracking_ctt?: string;
+  tracking_seur?: string;
+  cliente_telefono?: string;
 };
 
 export type PagoProveedor = {
