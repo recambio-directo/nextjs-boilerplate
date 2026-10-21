@@ -45,6 +45,7 @@ export type Pedido = {
   direccion?: string;
   albaran_url?: string;
   etiqueta_envio_url?: string;
+  tracking_number?: string;
 };
 
 export type PagoProveedor = {
