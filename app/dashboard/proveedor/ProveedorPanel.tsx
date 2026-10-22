@@ -130,7 +130,7 @@ export default function ProveedorDashboard() {
     const peds = (todosPeds || []).filter(p => (p.productos || []).some((prod: any) => prod.proveedor_id === uid));
     setPedidos(peds);
     setTotalPedidos(peds.filter(p => !p.anulado).length);
-    setFacturacion(peds.filter(p => !p.anulado).reduce((acc, p) => acc + (Number(p.total) || 0), 0));
+    setFacturacion(peds.filter(p => !p.anulado).reduce((acc, p) => acc + ((Number(p.total) || 0) - (Number(p.coste_transporte) || 0)), 0));
     setPedidosPendientes(peds.filter(p => !p.anulado && (p.estado_envio || "pendiente") === "pendiente").length);
 
     // Horarios
@@ -500,7 +500,7 @@ export default function ProveedorDashboard() {
                             <div style={{ fontSize: 11, color: "#94a3b8" }}>{p.cliente_nombre || p.cliente_email || "—"}</div>
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            <div style={{ color: "#22c55e", fontWeight: 700, fontSize: 13 }}>{Number(p.total || 0).toFixed(2)}€</div>
+                            <div style={{ color: "#22c55e", fontWeight: 700, fontSize: 13 }}>{((Number(p.total) || 0) - (Number(p.coste_transporte) || 0)).toFixed(2)}€</div>
                             <span style={{ background: `${estadoColor[estado]}22`, color: estadoColor[estado], padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{estadoEmoji[estado]} {estado.toUpperCase()}</span>
                           </div>
                         </>
@@ -509,7 +509,7 @@ export default function ProveedorDashboard() {
                           <div style={{ fontSize: 12, color: "#94a3b8" }}>{new Date(p.created_at).toLocaleDateString("es-ES")}</div>
                           <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.codigo || `#${p.id}`} — {refs || "—"}</div>
                           <div style={{ fontSize: 12, color: "#cbd5e1" }}>{p.cliente_nombre || p.cliente_email || "—"}</div>
-                          <div style={{ color: "#22c55e", fontWeight: 700, fontSize: 13 }}>{Number(p.total || 0).toFixed(2)}€</div>
+                          <div style={{ color: "#22c55e", fontWeight: 700, fontSize: 13 }}>{((Number(p.total) || 0) - (Number(p.coste_transporte) || 0)).toFixed(2)}€</div>
                           <span style={{ background: `${estadoColor[estado]}22`, color: estadoColor[estado], padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700, textAlign: "center" }}>{estadoEmoji[estado]} {estado.toUpperCase()}</span>
                           <span style={{ color: "#64748b", fontSize: 16 }}>{expanded ? "▲" : "▼"}</span>
                         </>
