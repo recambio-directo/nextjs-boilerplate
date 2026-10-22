@@ -78,11 +78,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         agregarNotif({ id: m.id, tipo: "chat", texto: `💬 ${texto}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id });
         try { new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=").play(); } catch {}
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
+        const p = payload.new as any;
+        // Notificar al proveedor cuando recibe un pedido nuevo
+        const productos = p.productos || [];
+        const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
+        if (esParaProveedor) {
+          agregarNotif({ id: `new-${p.id}-${Date.now()}`, tipo: "pedido", texto: `🆕 Nuevo pedido ${p.codigo || `#${p.id}`}`, leido: false, created_at: p.created_at || new Date().toISOString(), pedido_id: p.id });
+          try { new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=").play(); } catch {}
+        }
+        // Notificar al cliente de su pedido (si lo necesita)
+        if (p.cliente_id === uid) {
+          agregarNotif({ id: `new-cli-${p.id}-${Date.now()}`, tipo: "pedido", texto: `🆕 Pedido ${p.codigo || `#${p.id}`} creado`, leido: false, created_at: p.created_at || new Date().toISOString(), pedido_id: p.id });
+        }
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, (payload) => {
         const p = payload.new as any;
         const old = payload.old as any;
-        if (p.cliente_id !== uid) return;
         if (p.estado_envio === old?.estado_envio) return;
+        // Notificar al cliente
+        const esCliente = p.cliente_id === uid;
+        // Notificar al proveedor
+        const productos = p.productos || [];
+        const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
+        if (!esCliente && !esParaProveedor) return;
         const estadoLabel: Record<string, string> = {
           preparando: "🔧 en preparación",
           enviado: "🚚 enviado",
@@ -158,7 +177,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const { data: pedidos } = await supabase
+
+    // Notificaciones de pedidos para CLIENTE (cambios de estado)
+    const { data: pedidosCliente } = await supabase
       .from("pedidos")
       .select("id, codigo, estado_envio, created_at, updated_at")
       .eq("cliente_id", uid)
@@ -168,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .order("updated_at", { ascending: false })
       .limit(5);
 
-    (pedidos || []).forEach(p => {
+    (pedidosCliente || []).forEach(p => {
       const estadoLabel: Record<string, string> = {
         preparando: "🔧 en preparación",
         enviado: "🚚 enviado",
@@ -182,6 +203,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         texto: `📦 Pedido ${p.codigo || `#${p.id}`} → ${estadoLabel[p.estado_envio] || p.estado_envio}`,
         leido: !esNuevo,
         created_at: p.updated_at || p.created_at,
+        pedido_id: p.id,
+      });
+    });
+
+    // Notificaciones de pedidos para PROVEEDOR (pedidos nuevos recibidos)
+    const { data: pedidosRecientes } = await supabase
+      .from("pedidos")
+      .select("id, codigo, estado_envio, productos, created_at, updated_at")
+      .gte("created_at", hace24h.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    (pedidosRecientes || []).forEach(p => {
+      const productos = p.productos || [];
+      const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
+      if (!esParaProveedor) return;
+      const esNuevo = new Date(p.created_at) > lastSeenDate;
+      notifsTotales.push({
+        id: `prov-${p.id}`,
+        tipo: "pedido",
+        texto: `🆕 Nuevo pedido ${p.codigo || `#${p.id}`}`,
+        leido: !esNuevo,
+        created_at: p.created_at,
         pedido_id: p.id,
       });
     });
