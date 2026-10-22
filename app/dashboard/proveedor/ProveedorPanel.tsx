@@ -595,6 +595,27 @@ export default function ProveedorDashboard() {
                           {esSeur && p.etiqueta_seur_url && <a href={p.etiqueta_seur_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.3)", color: "#F5A800", padding: "6px 12px", borderRadius: 8, fontWeight: 700, fontSize: 11, textDecoration: "none" }}>🟠 Etiqueta SEUR</a>}
                           {!esNacex && !esSeur && p.etiqueta_envio_url && <a href={p.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "6px 12px", borderRadius: 8, fontWeight: 700, fontSize: 11, textDecoration: "none" }}>📦 Etiqueta envío</a>}
                           {p.factura_url && <a href={p.factura_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "6px 12px", borderRadius: 8, fontWeight: 700, fontSize: 11, textDecoration: "none" }}>🧾 Factura</a>}
+                          {!p.albaran_proveedor_url && !p.albaran_url && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const btn = document.getElementById(`regen-btn-${p.id}`) as HTMLButtonElement;
+                                  if (btn) { btn.disabled = true; btn.textContent = "⏳ Generando..."; }
+                                  const res = await fetch("/api/generar-albaran", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: p.id }) });
+                                  const data = await res.json();
+                                  if (data.ok) {
+                                    alert("✅ Albarán generado correctamente. Recarga la página para verlo.");
+                                    window.location.reload();
+                                  } else {
+                                    alert("❌ Error: " + (data.error || "No se pudo generar"));
+                                    if (btn) { btn.disabled = false; btn.textContent = "🔄 Regenerar Albarán"; }
+                                  }
+                                } catch (err) { alert("❌ Error de conexión"); }
+                              }}
+                              id={`regen-btn-${p.id}`}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(251,146,60,0.15)", border: "1px solid rgba(251,146,60,0.3)", color: "#fb923c", padding: "6px 12px", borderRadius: 8, fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                            >🔄 Regenerar Albarán</button>
+                          )}
                         </div>
                         {/* Factura upload */}
                         {!anulado && (
