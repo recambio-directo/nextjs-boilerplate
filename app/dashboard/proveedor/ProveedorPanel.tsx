@@ -86,6 +86,8 @@ export default function ProveedorDashboard() {
   const [passNueva, setPassNueva] = useState("");
   const [passConfirm, setPassConfirm] = useState("");
   const [msgCuenta, setMsgCuenta] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -115,6 +117,7 @@ export default function ProveedorDashboard() {
     setEditDireccion(perfil.direccion || "");
     setEditIban(perfil.iban || "");
     setEditEmail(user.email || "");
+    setLogoUrl(perfil.logo_url || null);
     setAutenticado(true);
     setCargando(false);
     cargarDatos(user.id, user.email || "");
@@ -209,6 +212,34 @@ export default function ProveedorDashboard() {
   async function eliminarExclusion(id: number) {
     await supabase.from("exclusiones_proveedor").delete().eq("id", id);
     setExclusiones(prev => prev.filter(e => e.id !== id));
+  }
+
+  async function subirLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    if (!file.type.startsWith("image/")) { setMsgCuenta("❌ Solo se permiten imágenes"); return; }
+    if (file.size > 2 * 1024 * 1024) { setMsgCuenta("❌ Máximo 2MB"); return; }
+    setSubiendoLogo(true);
+    setMsgCuenta("");
+    const ext = file.name.split(".").pop() || "png";
+    const path = `logos/${userId}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("logos").upload(path, file, { upsert: true });
+    if (upErr) { setMsgCuenta("❌ Error al subir: " + upErr.message); setSubiendoLogo(false); return; }
+    const { data: urlData } = supabase.storage.from("logos").getPublicUrl(path);
+    const url = urlData.publicUrl + "?t=" + Date.now();
+    await supabase.from("usuarios").update({ logo_url: url }).eq("id", userId);
+    setLogoUrl(url);
+    setMsgCuenta("✅ Logo actualizado");
+    setSubiendoLogo(false);
+  }
+
+  async function eliminarLogo() {
+    if (!userId) return;
+    setSubiendoLogo(true);
+    await supabase.from("usuarios").update({ logo_url: null }).eq("id", userId);
+    setLogoUrl(null);
+    setMsgCuenta("✅ Logo eliminado");
+    setSubiendoLogo(false);
   }
 
   async function guardarCuenta(campo: string) {
@@ -543,6 +574,7 @@ export default function ProveedorDashboard() {
                               <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>🚛 AGENCIA DE TRANSPORTE</p>
                               <p style={{ color: "white", fontSize: 14, fontWeight: 700, margin: 0 }}>{agencia.toUpperCase()}</p>
                               {p.peso_kg && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>Peso: {p.peso_kg} kg {p.tramo_peso ? `(${p.tramo_peso})` : ""}</p>}
+
                             </div>
                           )}
                         </div>
@@ -699,6 +731,27 @@ export default function ProveedorDashboard() {
             <p style={{ ...S.desc, marginBottom: 12 }}>Gestiona los datos de tu empresa</p>
             {msgCuenta && <div style={{ background: msgCuenta.startsWith("✅") ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${msgCuenta.startsWith("✅") ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10, fontSize: 12 }}>{msgCuenta}</div>}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+              {/* Logo */}
+              <div style={{ ...S.cuentaCard, gridColumn: isMobile ? undefined : "1 / -1" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Logo de empresa</div>
+                <p style={{ color: "#64748b", fontSize: 11, marginBottom: 10 }}>Se muestra en el panel lateral. Máx. 2MB, formato imagen.</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", border: "2px solid rgba(255,255,255,0.1)" }} />
+                  ) : (
+                    <div style={{ width: 56, height: 56, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 24 }}>{inicial}</div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <label style={{ ...S.addButton, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, opacity: subiendoLogo ? 0.5 : 1 }}>
+                      📷 {logoUrl ? "Cambiar" : "Subir logo"}
+                      <input type="file" accept="image/*" onChange={subirLogo} style={{ display: "none" }} disabled={subiendoLogo} />
+                    </label>
+                    {logoUrl && (
+                      <button onClick={eliminarLogo} disabled={subiendoLogo} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, opacity: subiendoLogo ? 0.5 : 1 }}>Eliminar</button>
+                    )}
+                  </div>
+                </div>
+              </div>
               {/* Alias */}
               <div style={S.cuentaCard}>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Alias (nombre visible)</div>
@@ -785,7 +838,11 @@ export default function ProveedorDashboard() {
       {/* Sidebar */}
       <aside style={S.sidebar}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>{inicial}</div>
+          {logoUrl ? (
+            <img src={logoUrl} alt={displayName} style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>{inicial}</div>
+          )}
           <div style={{ overflow: "hidden" }}>
             <div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
             <div style={{ fontSize: 10, color: "#64748b" }}>Proveedor</div>
