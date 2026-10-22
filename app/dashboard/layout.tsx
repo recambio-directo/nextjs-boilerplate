@@ -229,16 +229,85 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (esProveedor) {
     const enCatalogos = pathname?.startsWith("/dashboard/catalogos");
     return (
-      <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
+      <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
+        {/* Header proveedor con buscador, chat y notificaciones */}
+        <header style={{ height: isMobile ? 56 : 72, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 12px" : "0 28px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 999 }}>
+          <Link href="/dashboard/proveedor" style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, textDecoration: "none", color: "white" }}>
+            <div style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44, borderRadius: 10, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
+              <Image src="/logo.svg" alt="Recambio Directo" width={isMobile ? 24 : 34} height={isMobile ? 24 : 34} priority />
+            </div>
+            {!isMobile && <div><h1 style={{ margin: 0, fontSize: 17, fontWeight: 900 }}>RECAMBIO DIRECTO</h1><p style={{ margin: 0, color: "#94a3b8", fontSize: 11 }}>Panel Proveedor</p></div>}
+          </Link>
+
+          {!isMobile && (
+            <div style={{ width: "420px", display: "flex" }}>
+              <input value={busqueda} onChange={e => setBusqueda(e.target.value)} onKeyDown={handleKeyDown} placeholder="Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px 0 0 14px", padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
+              <button onClick={buscarAhora} style={{ width: 60, border: "none", borderRadius: "0 14px 14px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>🔍</button>
+            </div>
+          )}
+
+          <nav style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 18 }}>
+            {!isMobile && (
+              <>
+                <Link href="/dashboard/catalogos" style={{ textDecoration: "none", color: pathname.startsWith("/dashboard/catalogos") ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 14 }}>Catálogos</Link>
+                <Link href="/chat" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 14 }}>💬 Chat</Link>
+              </>
+            )}
+            {isMobile && (
+              <Link href="/chat" style={{ textDecoration: "none", color: "#e2e8f0", fontSize: 20 }}>💬</Link>
+            )}
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ width: isMobile ? 36 : 42, height: isMobile ? 36 : 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" }}>
+                🔔
+                {noLeidas > 0 && <span style={{ position: "absolute", top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, padding: "0 4px", border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
+              </button>
+              {showNotifs && (
+                <div style={{ position: "absolute", right: 0, top: 50, width: isMobile ? 280 : 340, background: "#0f172a", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "2px 8px", fontSize: 10, marginLeft: 8 }}>{noLeidas} nuevas</span>}</span>
+                    {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Limpiar</button>}
+                  </div>
+                  {notifs.length === 0 ? (
+                    <div style={{ padding: 28, textAlign: "center", color: "#94a3b8", fontSize: 13 }}><p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
+                  ) : (
+                    <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                      {notifs.slice(0, 15).map((n, i) => (
+                        <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); marcarLeidas(); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); if (n.tipo === "pedido") router.push("/dashboard/proveedor"); }} style={{ display: "flex", alignItems: "flex-start", padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb", transition: "background 0.2s" }}>
+                          <span style={{ fontSize: 16, marginRight: 8, flexShrink: 0 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: 12, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
+                            <p style={{ fontSize: 10, color: "#94a3b8", margin: 0, marginTop: 2 }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                          </div>
+                          {!n.leido && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#2563eb", flexShrink: 0, marginTop: 4 }} />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </nav>
+        </header>
+
+        {isMobile && (
+          <div style={{ position: "sticky", top: 56, zIndex: 998, background: "rgba(2,6,23,0.97)", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex" }}>
+              <input value={busqueda} onChange={e => setBusqueda(e.target.value)} onKeyDown={handleKeyDown} placeholder="🔍  Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px 0 0 10px", padding: "10px 12px", color: "white", fontSize: 14, outline: "none" }} />
+              <button onClick={buscarAhora} style={{ padding: "10px 16px", border: "none", borderRadius: "0 10px 10px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 14, fontWeight: 800 }}>Ir</button>
+            </div>
+          </div>
+        )}
+
         {enCatalogos && (
-          <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)" }}>
-            <button onClick={() => router.push("/dashboard/proveedor")} style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+          <div style={{ padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)" }}>
+            <button onClick={() => router.push("/dashboard/proveedor")} style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
               ← Volver al panel
             </button>
           </div>
         )}
-        {children}
-      </main>
+
+        <main>{children}</main>
+      </div>
     );
   }
 
