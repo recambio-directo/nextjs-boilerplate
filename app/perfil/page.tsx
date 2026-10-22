@@ -13,6 +13,7 @@ export default function PerfilPage() {
   const [codigoPostal, setCodigoPostal] = useState("");
   const [email, setEmail] = useState("");
   const [emailFacturas, setEmailFacturas] = useState("");
+  const [alias, setAlias] = useState("");
   const [tipo, setTipo] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -65,6 +66,7 @@ export default function PerfilPage() {
       setCreditoRD(Number(data.credito_rd) || 0);
       setSuscripcion(data.suscripcion || "gratuito");
       setEmailFacturas(data.email_facturas || "");
+      setAlias(data.alias || "");
     }
     const { count } = await supabase.from("pedidos").select("*", { count: "exact", head: true }).eq("cliente_id", user.id);
     setTotalPedidos(count || 0);
@@ -83,6 +85,7 @@ export default function PerfilPage() {
       tipo: user.user_metadata?.tipo || tipo,
       iban: iban.trim().toUpperCase(), titular_cuenta: titularCuenta, banco,
       email_facturas: emailFacturas.trim().toLowerCase() || null,
+      ...(tipo === "proveedor" && { alias: alias.trim().toUpperCase() || null }),
     };
     const { data: existe } = await supabase.from("usuarios").select("id").eq("id", user.id).single();
     let error;
@@ -165,6 +168,20 @@ export default function PerfilPage() {
                 <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 4 }}>🔒 No modificable</p>
               </div>
             </div>
+            {tipo === "proveedor" && (
+              <div style={{ marginTop: 14 }}>
+                <p style={label}>Alias comercial <span style={{ color: "#64748b", fontSize: 11 }}>(opcional — se mostrará en lugar del nombre de empresa al publicar stock)</span></p>
+                <input
+                  placeholder="MI ALIAS COMERCIAL"
+                  value={alias}
+                  onChange={e => setAlias(e.target.value.toUpperCase())}
+                  style={{ ...input, borderColor: alias ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.08)", textTransform: "uppercase" }}
+                />
+                {alias && (
+                  <p style={{ color: "#60a5fa", fontSize: 11, marginTop: 4 }}>✓ Tu stock aparecerá publicado como &quot;{alias.toUpperCase()}&quot;</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* CONTACTO */}
