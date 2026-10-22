@@ -137,7 +137,7 @@ export default function ProveedorDashboard() {
     if (h?.horarios) setHorarios(h.horarios);
 
     // Exclusiones
-    const { data: excl } = await supabase.from("exclusiones_envio").select("*").eq("proveedor_id", uid);
+    const { data: excl } = await supabase.from("exclusiones_proveedor").select("*").eq("proveedor_id", uid);
     setExclusiones(excl || []);
   }
 
@@ -196,7 +196,7 @@ export default function ProveedorDashboard() {
 
   async function agregarExclusion() {
     if (!userId || !nuevaExclusion.trim()) return;
-    const { data, error } = await supabase.from("exclusiones_envio").insert({
+    const { data, error } = await supabase.from("exclusiones_proveedor").insert({
       proveedor_id: userId,
       tipo: tipoExclusion,
       valor: nuevaExclusion.trim(),
@@ -206,7 +206,7 @@ export default function ProveedorDashboard() {
   }
 
   async function eliminarExclusion(id: number) {
-    await supabase.from("exclusiones_envio").delete().eq("id", id);
+    await supabase.from("exclusiones_proveedor").delete().eq("id", id);
     setExclusiones(prev => prev.filter(e => e.id !== id));
   }
 
