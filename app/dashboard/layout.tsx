@@ -122,8 +122,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function cargarNotificaciones(uid: string) {
     const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
+    const CLEARED_KEY = `rd_notif_cleared_${uid}`;
     const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
     const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const clearedAt = localStorage.getItem(CLEARED_KEY);
+    const clearedDate = clearedAt ? new Date(clearedAt) : null;
 
     const notifsTotales: any[] = [];
 
@@ -183,8 +186,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
     });
 
-    notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    setNotifs(notifsTotales);
+    const filtradas = clearedDate ? notifsTotales.filter(n => new Date(n.created_at) > clearedDate) : notifsTotales;
+    filtradas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    setNotifs(filtradas);
+  }
+
+  function limpiarNotifs() {
+    const uid = userIdRef.current;
+    if (uid) localStorage.setItem(`rd_notif_cleared_${uid}`, new Date().toISOString());
+    setNotifs([]);
+    marcarLeidas();
   }
 
   async function marcarLeidas() {
@@ -265,7 +276,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div style={{ position: "absolute", right: 0, top: 50, width: isMobile ? 280 : 340, background: "#0f172a", borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "2px 8px", fontSize: 10, marginLeft: 8 }}>{noLeidas} nuevas</span>}</span>
-                    {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Limpiar</button>}
+                    {notifs.length > 0 && <button onClick={limpiarNotifs} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Limpiar</button>}
                   </div>
                   {notifs.length === 0 ? (
                     <div style={{ padding: 28, textAlign: "center", color: "#94a3b8", fontSize: 13 }}><p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
@@ -355,7 +366,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div style={{ position: "absolute", right: 0, top: 54, width: 340, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span style={{ fontWeight: 800, fontSize: 15 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "2px 8px", fontSize: 11, marginLeft: 8 }}>{noLeidas} nuevas</span>}</span>
-                    {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
+                    {notifs.length > 0 && <button onClick={limpiarNotifs} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
                   </div>
                   {notifs.length === 0 ? (
                     <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 14 }}><p style={{ fontSize: 32, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
@@ -403,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontWeight: 700 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "1px 8px", fontSize: 11, marginLeft: 6 }}>{noLeidas}</span>}</span>
             <div style={{ display: "flex", gap: 12 }}>
-              {notifs.length > 0 && <button onClick={() => { setNotifs([]); marcarLeidas(); }} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>}
+              {notifs.length > 0 && <button onClick={limpiarNotifs} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12 }}>Limpiar</button>}
               <button onClick={() => setShowNotifs(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>
           </div>
