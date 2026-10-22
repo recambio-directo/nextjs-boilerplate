@@ -1116,6 +1116,27 @@ export default function ProveedorPage() {
                 <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Cerrar sesión</button>
               )}
               <div style={{ maxWidth: 600 }}>
+                {/* ALIAS COMERCIAL */}
+                <div style={{ ...formCard, border: "1px solid rgba(96,165,250,0.3)", marginBottom: 20, background: "linear-gradient(135deg, rgba(37,99,235,0.08), rgba(15,23,42,0.95))" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏷️</div>
+                    <div>
+                      <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>Alias comercial</h2>
+                      <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>Este nombre aparecerá cuando publiques stock</p>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <input type="text" placeholder={nombreEmpresa.toUpperCase()} value={aliasProveedor} onChange={e => setAliasProveedor(e.target.value.toUpperCase())} style={{ ...formInput, borderColor: aliasProveedor ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.1)", textTransform: "uppercase" as const, fontSize: 16, fontWeight: 700, letterSpacing: "0.03em" }} />
+                    {aliasProveedor ? (
+                      <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 8 }}>✓ Tu stock aparecerá como <strong>&quot;{aliasProveedor}&quot;</strong></p>
+                    ) : (
+                      <p style={{ color: "#64748b", fontSize: 12, marginTop: 8 }}>Si no pones alias, se usará tu nombre de empresa: {nombreEmpresa}</p>
+                    )}
+                  </div>
+                  <button onClick={async () => { if (!userId) return; await supabase.from("usuarios").update({ alias: aliasProveedor.trim().toUpperCase() || null }).eq("id", userId); alert("✅ Alias guardado correctamente"); }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px" }}>
+                    Guardar alias
+                  </button>
+                </div>
                 <div style={{ ...formCard, border: "1px solid rgba(245,158,11,0.3)", marginBottom: 20 }}>
                   <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📍 Dirección de recogida</h2>
                   <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>La dirección donde la agencia pasará a recoger los envíos.</p>
