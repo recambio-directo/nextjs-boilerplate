@@ -91,10 +91,34 @@ export async function POST(request: Request) {
 
     async function urlToBase64(url: string): Promise<string | null> {
       try {
+        // Intentar descargar vía Supabase Storage (más fiable que fetch a URL pública)
+        const bucketName = "FACTURAS";
+        const match = url.match(/\/storage\/v1\/object\/public\/FACTURAS\/(.+)$/);
+        if (match) {
+          const filePath = decodeURIComponent(match[1]);
+          const { data, error } = await supabase.storage.from(bucketName).download(filePath);
+          if (data && !error) {
+            const buffer = await data.arrayBuffer();
+            return Buffer.from(buffer).toString("base64");
+          }
+          console.error("Supabase Storage download error:", error?.message, "path:", filePath);
+        }
+        // Fallback: fetch directo a la URL
         const res = await fetch(url);
+        if (!res.ok) {
+          console.error("urlToBase64 fetch failed:", res.status, res.statusText, "url:", url);
+          return null;
+        }
         const buffer = await res.arrayBuffer();
+        if (buffer.byteLength === 0) {
+          console.error("urlToBase64: archivo vacío", url);
+          return null;
+        }
         return Buffer.from(buffer).toString("base64");
-      } catch { return null; }
+      } catch (err) {
+        console.error("urlToBase64 error:", err, "url:", url);
+        return null;
+      }
     }
 
     const albaranBase64  = albaranUrl  ? await urlToBase64(albaranUrl)  : null;
