@@ -537,7 +537,7 @@ export default function CheckoutPage() {
       primerPedido = false;
       // Descontar stock en servidor — no bloqueamos la redirección
       if (pedidoInsertado?.id) fetch("/api/descontar-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) }).catch(e => console.error("Error stock:", e));
-      if (pedidoInsertado?.id) generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
@@ -613,8 +613,10 @@ export default function CheckoutPage() {
         } catch (e) { console.error("Error DHL:", e); }
       }
       if (emailProveedor) {
-        // Fire and forget — no bloqueamos
-        fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) }).catch(e => console.error("Error email:", e));
+        // Esperamos a que se envíe el email con los adjuntos correctos
+        try {
+          await fetch("/api/enviar-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proveedorEmail: emailProveedor, proveedorNombre: nombreProveedor, productos: grupo.productos, cliente: empresa, clienteEmail: user.email, telefono, cif, direccion: direccionCompleta, agencia: transporte, formaPago, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, codigo, fecha, pedidoId: pedidoInsertado?.id }) });
+        } catch (e) { console.error("Error email:", e); }
       }
     }
     await supabase.from("cesta").delete().eq("user_id", user.id);
