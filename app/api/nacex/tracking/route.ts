@@ -58,10 +58,10 @@ export async function POST(request: Request) {
     function mapearEstado(estado: string): string {
       const e = estado.toUpperCase();
       if (e === "OK") return "entregado";
-      if (e === "REPARTO" || e === "TRANSITO") return "enviado";
-      if (e === "RECOGIDO") return "preparando";
-      if (e === "INCIDENCIA") return "enviado"; // con incidencia, sigue en curso pero hay que revisar
-      return "enviado";
+      if (e === "REPARTO" || e === "TRANSITO") return "en_transito";
+      if (e === "RECOGIDO") return "recogido";
+      if (e === "INCIDENCIA") return "incidencia";
+      return "en_transito";
     }
 
     const estadoRD = mapearEstado(estadoNacex);

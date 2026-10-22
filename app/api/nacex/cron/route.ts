@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       .from("pedidos")
       .select("id, codigo, tracking_nacex, codigo_postal_destino, estado_envio, cliente_email, cliente_nombre, productos, entregado_at")
       .not("tracking_nacex", "is", null)
-      .in("estado_envio", ["enviado", "preparando"])
+      .in("estado_envio", ["preparando", "recogido", "en_transito"])
       .eq("anulado", false);
 
     if (!pedidos || pedidos.length === 0) {
