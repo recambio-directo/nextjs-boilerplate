@@ -53,6 +53,7 @@ export default function ProveedorDashboard() {
   // Pedidos
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [filtroPedidos, setFiltroPedidos] = useState("todos");
+  const [busquedaPedidos, setBusquedaPedidos] = useState("");
   const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
   const [subiendoFactura, setSubiendoFactura] = useState<number | null>(null);
   const [anulando, setAnulando] = useState<number | null>(null);
@@ -312,8 +313,8 @@ export default function ProveedorDashboard() {
     else alert("Error al abrir el chat");
   }
 
-  const estadoColor: Record<string, string> = { entregado: "#4ade80", enviado: "#60a5fa", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171" };
-  const estadoEmoji: Record<string, string> = { entregado: "✅", enviado: "🚚", preparando: "🔧", pendiente: "⏳", anulado: "❌" };
+  const estadoColor: Record<string, string> = { entregado: "#4ade80", enviado: "#60a5fa", en_transito: "#38bdf8", recogido: "#818cf8", preparando: "#a78bfa", pendiente: "#f59e0b", anulado: "#f87171" };
+  const estadoEmoji: Record<string, string> = { entregado: "✅", enviado: "🚚", en_transito: "📍", recogido: "📦", preparando: "🔧", pendiente: "⏳", anulado: "❌" };
 
   /* ── RENDER SECCIÓN ACTIVA ── */
   function renderContenido() {
@@ -440,23 +441,33 @@ export default function ProveedorDashboard() {
         );
 
       case "pedidos":
-        const pedsFiltrados = filtroPedidos === "todos" ? pedidos : pedidos.filter(p => {
+        const busqPed = busquedaPedidos.trim().toLowerCase();
+        const pedsBuscados = busqPed ? pedidos.filter(p => {
+          const refs = (p.productos || []).map((pr: any) => pr.referencia || "").join(" ").toLowerCase();
+          return (p.codigo || "").toLowerCase().includes(busqPed) || refs.includes(busqPed) || (p.cliente_nombre || "").toLowerCase().includes(busqPed) || (p.cliente_email || "").toLowerCase().includes(busqPed) || (p.agencia || p.transporte || "").toLowerCase().includes(busqPed) || String(p.id).includes(busqPed);
+        }) : pedidos;
+        const pedsFiltrados = filtroPedidos === "todos" ? pedsBuscados : pedsBuscados.filter(p => {
           if (filtroPedidos === "anulado") return p.anulado;
           if (p.anulado) return false;
-          return (p.estado_envio || "pendiente") === filtroPedidos;
+          const est = p.estado_envio || "pendiente";
+          if (filtroPedidos === "enviado") return est === "enviado" || est === "en_transito" || est === "recogido";
+          return est === filtroPedidos;
         });
         const contadores: Record<string, number> = {
-          todos: pedidos.length,
-          pendiente: pedidos.filter(p => !p.anulado && (p.estado_envio || "pendiente") === "pendiente").length,
-          preparando: pedidos.filter(p => !p.anulado && p.estado_envio === "preparando").length,
-          enviado: pedidos.filter(p => !p.anulado && p.estado_envio === "enviado").length,
-          entregado: pedidos.filter(p => !p.anulado && p.estado_envio === "entregado").length,
-          anulado: pedidos.filter(p => p.anulado).length,
+          todos: pedsBuscados.length,
+          pendiente: pedsBuscados.filter(p => !p.anulado && (p.estado_envio || "pendiente") === "pendiente").length,
+          preparando: pedsBuscados.filter(p => !p.anulado && p.estado_envio === "preparando").length,
+          enviado: pedsBuscados.filter(p => !p.anulado && (p.estado_envio === "enviado" || p.estado_envio === "en_transito" || p.estado_envio === "recogido")).length,
+          entregado: pedsBuscados.filter(p => !p.anulado && p.estado_envio === "entregado").length,
+          anulado: pedsBuscados.filter(p => p.anulado).length,
         };
         return (
           <div>
             <h2 style={{ ...S.title, marginBottom: 4 }}>Pedidos recibidos</h2>
             <p style={{ ...S.desc, marginBottom: 10 }}>{totalPedidos} pedidos · {facturacion.toFixed(2)}€ facturados</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input style={S.searchInput} placeholder="Buscar código, referencia, cliente..." value={busquedaPedidos} onChange={e => setBusquedaPedidos(e.target.value)} />
+            </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
               {[{ key: "todos", label: `Todos (${contadores.todos})` }, { key: "pendiente", label: `⏳ (${contadores.pendiente})` }, { key: "preparando", label: `🔧 (${contadores.preparando})` }, { key: "enviado", label: `🚚 (${contadores.enviado})` }, { key: "entregado", label: `✅ (${contadores.entregado})` }, { key: "anulado", label: `❌ (${contadores.anulado})` }].map(({ key, label }) => (
                 <button key={key} style={filtroPedidos === key ? S.tabActive : S.tabInactive} onClick={() => setFiltroPedidos(key)}>
@@ -516,6 +527,25 @@ export default function ProveedorDashboard() {
                               <span style={{ color: "#22c55e", fontWeight: 700 }}>{Number(pr.precio || 0).toFixed(2)}€</span>
                             </div>
                           ))}
+                        </div>
+                        {/* Dirección de envío + Agencia */}
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                          {p.direccion && (
+                            <div style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 12, padding: "10px 14px" }}>
+                              <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>📍 DIRECCIÓN DE ENVÍO</p>
+                              <p style={{ color: "white", fontSize: 13, fontWeight: 600, margin: 0 }}>{p.cliente_nombre || "—"}</p>
+                              <p style={{ color: "#cbd5e1", fontSize: 12, margin: "2px 0 0" }}>{p.direccion}</p>
+                              {p.cliente_telefono && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>📞 {p.cliente_telefono}</p>}
+                            </div>
+                          )}
+                          {agencia && (
+                            <div style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 12, padding: "10px 14px" }}>
+                              <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>🚛 AGENCIA DE TRANSPORTE</p>
+                              <p style={{ color: "white", fontSize: 14, fontWeight: 700, margin: 0 }}>{agencia.toUpperCase()}</p>
+                              {p.peso_kg && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>Peso: {p.peso_kg} kg {p.tramo_peso ? `(${p.tramo_peso})` : ""}</p>}
+                              {p.coste_transporte != null && Number(p.coste_transporte) > 0 && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>Coste: {Number(p.coste_transporte).toFixed(2)}€</p>}
+                            </div>
+                          )}
                         </div>
                         {/* Tracking */}
                         {trackingInfo && !anulado && (
