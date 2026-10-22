@@ -1,1348 +1,320 @@
-"use client";
-
+import type { Metadata } from "next";
 import React from "react";
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
-import ImportarStock from "./ImportarStock";
-import SeccionDevoluciones from "./SeccionDevoluciones";
+import LoginBox from "./components/LoginBox";
 
-type Pieza = {
-  id: number;
-  referencia: string;
-  descripcion: string;
-  precio: number;
-  stock: number;
-  marca?: string;
-  provincia?: string;
-  proveedor_id?: string;
-  proveedor_nombre?: string;
-  tipo?: string;
+export const metadata: Metadata = {
+  title: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
+  description: "Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h. Madrid, Barcelona, Valencia, Sevilla y toda España.",
+  alternates: { canonical: "https://www.recambio-directo.com" },
 };
 
-type Pedido = {
-  id: number;
-  codigo?: string;
-  cliente_id?: string;
-  cliente_nombre?: string;
-  cliente_email?: string;
-  cliente_telefono?: string;
-  total?: number;
-  estado?: string;
-  estado_envio?: string;
-  agencia?: string;
-  tracking?: string;
-  tracking_nacex?: string;
-  tracking_seur?: string;
-  collection_ref_seur?: string;
-  transporte?: string;
-  productos?: any[];
-  created_at?: string;
-  subtotal?: number;
-  coste_transporte?: number;
-  comprador_id?: string;
-  anulado?: boolean;
-  factura_url?: string;
-  factura_nombre?: string;
-  albaran_url?: string;
-  etiqueta_envio_url?: string;
-  etiqueta_nacex_url?: string;
-  etiqueta_seur_url?: string;
-};
+const badgeStyle: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 16px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, marginBottom: "24px", letterSpacing: "0.05em" };
+const footerLink: React.CSSProperties = { display: "block", color: "#94a3b8", fontSize: 13, textDecoration: "none", marginBottom: 8 };
 
-type Mensaje = {
-  id: number;
-  pedido_id?: number;
-  conversacion_id?: number;
-  emisor?: string;
-  user_id?: string;
-  mensaje: string;
-  created_at?: string;
-};
-
-const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-
-function getTrackingUrl(agencia: string, tracking: string): string {
-  const ag = (agencia || "").toLowerCase();
-  if (ag.includes("mrw")) return `https://www.mrw.es/seguimiento_envios/MRW_resultados_consultas.asp?Referencia=${tracking}`;
-  if (ag.includes("nacex")) return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${tracking.split("/")[0]}&numero_albaran=${tracking.split("/")[1]}&externo=N`;
-  if (ag.includes("seur")) return `https://www.seur.com/es/particular/herramientas/localizador-de-envios.html?referencia=${tracking}`;
-  if (ag.includes("ctt")) return `https://www.cttexpress.com/localizador-de-envios/?sc=${tracking}`;
-  if (ag.includes("gls")) return `https://mygls.gls-spain.es/es/seguimiento?referencia=${tracking}`;
-  if (ag.includes("correos")) return `https://s.correosexpress.com/c?n=${tracking}`;
-  if (ag.includes("dhl")) return `https://www.dhlparcel.es/es/particular/herramientas/seguimiento-de-envios.html?tracking=${tracking}`;
-  return `https://www.google.com/search?q=tracking+${agencia}+${tracking}`;
-}
-
-function getTrackingInfo(pedido: Pedido): { tracking: string; url: string } | null {
-  const agencia = (pedido.agencia || pedido.transporte || "").toLowerCase();
-  if (agencia.includes("nacex") && pedido.tracking_nacex) {
-    return { tracking: pedido.tracking_nacex, url: getTrackingUrl("nacex", pedido.tracking_nacex) };
-  }
-  if (agencia.includes("seur") && pedido.tracking_seur) {
-    return { tracking: pedido.tracking_seur, url: getTrackingUrl("seur", pedido.tracking_seur) };
-  }
-  if (pedido.tracking) {
-    return { tracking: pedido.tracking, url: getTrackingUrl(agencia, pedido.tracking) };
-  }
-  return null;
-}
-
-function LogoAgencia({ agencia }: { agencia?: string }) {
-  const ag = (agencia || "").toLowerCase();
-  if (ag.includes("mrw")) return <span style={{ background: "#E30613", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>MRW</span>;
-  if (ag.includes("nacex")) return <span style={{ background: "#FFD200", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>NACEX</span>;
-  if (ag.includes("seur")) return <span style={{ background: "#F5A800", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>SEUR</span>;
-  if (ag.includes("gls")) return <span style={{ background: "#00467F", color: "white", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>GLS</span>;
-  if (ag.includes("correos")) return <span style={{ background: "#FFCC00", color: "#333", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 11 }}>CORREOS</span>;
-  if (ag.includes("ctt")) return <span style={{ background: "#E8E8E8", color: "#1a1a1a", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 12 }}>CTT</span>;
-  if (ag.includes("dhl")) return <span style={{ background: "#FFCC00", color: "#D40511", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>DHL</span>;
-  if (ag.includes("medios")) return <span style={{ background: "rgba(139,92,246,0.3)", color: "#a78bfa", padding: "3px 10px", borderRadius: 6, fontWeight: 900, fontSize: 13 }}>PROPIO</span>;
-  return <span style={{ color: "#94a3b8" }}>{agencia || "-"}</span>;
-}
-
-function EstadoEnvio({ estado, anulado }: { estado?: string; anulado?: boolean }) {
-  if (anulado) return <span style={{ color: "#f87171", fontWeight: 700, fontSize: 13 }}>❌ Anulado</span>;
-  const map: Record<string, { color: string; label: string }> = {
-    pendiente:  { color: "#f59e0b", label: "⏳ Pendiente" },
-    preparando: { color: "#60a5fa", label: "🔧 Preparando" },
-    enviado:    { color: "#a78bfa", label: "🚚 En tránsito" },
-    entregado:  { color: "#4ade80", label: "✅ Entregada" },
-  };
-  const s = map[estado || "pendiente"] || map.pendiente;
-  return <span style={{ color: s.color, fontWeight: 700, fontSize: 13 }}>{s.label}</span>;
-}
-
-export default function ProveedorPage() {
-  const router = useRouter();
-  const channelRef = useRef<any>(null);
-  const [busquedaHeader, setBusquedaHeader] = useState("");
-  const [notifs, setNotifs] = useState<any[]>([]);
-  const [showNotifs, setShowNotifs] = useState(false);
-  const [totalCesta, setTotalCesta] = useState(0);
-  const [seccion, setSeccion] = useState<"dashboard" | "almacen" | "publicar" | "pedidos" | "devoluciones" | "importar" | "horarios" | "exclusiones" | "cuenta">("dashboard");
-  const [pestañaPedidos, setPestañaPedidos] = useState<"recibidos" | "realizados">("recibidos");
-  const [pestañaAlmacen, setPestañaAlmacen] = useState<"todos" | "oem" | "iam">("todos");
-  const [pedidosRecibidos, setPedidosRecibidos] = useState<Pedido[]>([]);
-  const [pedidosRealizados, setPedidosRealizados] = useState<Pedido[]>([]);
-  const [piezas, setPiezas] = useState<Pieza[]>([]);
-  const [mensajes, setMensajes] = useState<Mensaje[]>([]);
-  const [nuevoMensaje, setNuevoMensaje] = useState<Record<number, string>>({});
-  const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [nombreEmpresa, setNombreEmpresa] = useState("Proveedor");
-  const [aliasProveedor, setAliasProveedor] = useState("");
-  const [provinciaPerfil, setProvinciaPerfil] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [busquedaPedido, setBusquedaPedido] = useState("");
-  const [subiendoFactura, setSubiendoFactura] = useState<number | null>(null);
-  const [solicitandoFactura, setSolicitandoFactura] = useState<number | null>(null);
-  const [anulandoPedido, setAnulandoPedido] = useState<number | null>(null);
-  const [modalAnular, setModalAnular] = useState<any | null>(null);
-  const [modalContacto, setModalContacto] = useState<any | null>(null);
-  const [datosContacto, setDatosContacto] = useState<any | null>(null);
-  const [motivoSeleccionado, setMotivoSeleccionado] = useState<string>("");
-  const [horarioApertura, setHorarioApertura] = useState("09:00");
-  const [horarioCierre, setHorarioCierre] = useState("18:00");
-  const [diasApertura, setDiasApertura] = useState<string[]>(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]);
-  const [guardandoHorario, setGuardandoHorario] = useState(false);
-  const [horarioGuardado, setHorarioGuardado] = useState(false);
-  const [exclusiones, setExclusiones] = useState<any[]>([]);
-  const [nuevoCp, setNuevoCp] = useState("");
-  const [nuevoCliente, setNuevoCliente] = useState("");
-  const [tabExclusiones, setTabExclusiones] = useState<"cp" | "cliente">("cp");
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [emailPerfil, setEmailPerfil] = useState("");
-  const [emailFacturas, setEmailFacturas] = useState("");
-  const [iban, setIban] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [ciudad, setCiudad] = useState("");
-  const [codigoPostal, setCodigoPostal] = useState("");
-  const [guardandoEmailFacturas, setGuardandoEmailFacturas] = useState(false);
-  const [emailFacturasGuardado, setEmailFacturasGuardado] = useState(false);
-  const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
-  const [passwordActual, setPasswordActual] = useState("");
-  const [passwordNueva, setPasswordNueva] = useState("");
-  const [passwordNueva2, setPasswordNueva2] = useState("");
-  const [cambiandoPass, setCambiandoPass] = useState(false);
-  const [mensajePass, setMensajePass] = useState<{tipo:"ok"|"error";texto:string}|null>(null);
-  const [formReferencia, setFormReferencia] = useState("");
-  const [formDescripcion, setFormDescripcion] = useState("");
-  const [formPrecio, setFormPrecio] = useState("");
-  const [formStock, setFormStock] = useState("");
-  const [formMarca, setFormMarca] = useState("");
-  const [formTipo, setFormTipo] = useState("OEM");
-  const [formFoto, setFormFoto] = useState<File | null>(null);
-  const [formFotoPreview, setFormFotoPreview] = useState<string | null>(null);
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const [guardandoPieza, setGuardandoPieza] = useState(false);
-  const [piezaGuardada, setPiezaGuardada] = useState(false);
-  const [editandoId, setEditandoId] = useState<number | null>(null);
-  const [editPrecio, setEditPrecio] = useState("");
-  const [editStock, setEditStock] = useState("");
-  const [paginaActual, setPaginaActual] = useState(1);
-  const [totalPiezas, setTotalPiezas] = useState(0);
-  const [busquedaAlmacen, setBusquedaAlmacen] = useState("");
-  const [busquedaInput, setBusquedaInput] = useState("");
-  const [totalOEM, setTotalOEM] = useState(0);
-  const [totalIAM, setTotalIAM] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    iniciarPagina();
-    return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
-  }, []);
-
-  async function iniciarPagina() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/"); return; }
-    const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
-    if (!perfil || perfil.tipo !== "proveedor") { router.push("/"); return; }
-    setUserId(user.id);
-    await cargarDatos();
-    await cargarNotificaciones(user.id);
-    cargarCesta(user.id);
-
-    const channelName = `proveedor-realtime-${user.id}-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, () => { cargarDatos(); })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, async (payload) => {
-        const m = payload.new as any;
-        if (m.user_id === user.id) return;
-        if (m.conversacion_id) {
-          const { data: conv } = await supabase.from("conversaciones").select("id").eq("id", m.conversacion_id).or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`).maybeSingle();
-          if (!conv) return;
-        }
-        const texto = (m.mensaje || "").substring(0, 50);
-        setNotifs(prev => {
-          if (prev.some(x => x.id === m.id)) return prev;
-          return [{ id: m.id, tipo: "chat", texto: `💬 ${texto}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id }, ...prev].slice(0, 30);
-        });
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, async (payload) => {
-        const p = payload.new as any;
-        const { data: pedidoCompleto } = await supabase.from("pedidos").select("id, codigo, productos, created_at").eq("id", p.id).single();
-        if (!pedidoCompleto) return;
-        const productos = pedidoCompleto.productos || [];
-        if (productos.some((pr: any) => pr.proveedor_id === user.id)) {
-          setNotifs(prev => {
-            const id = `ped-${p.id}`;
-            if (prev.some(x => x.id === id)) return prev;
-            return [{ id, tipo: "pedido", texto: `📦 Nuevo pedido ${pedidoCompleto.codigo || `#${p.id}`}`, leido: false, created_at: pedidoCompleto.created_at }, ...prev].slice(0, 30);
-          });
-        }
-      })
-      .subscribe();
-    channelRef.current = channel;
-  }
-
-  async function cargarCesta(uid: string) {
-    const { data } = await supabase.from("cesta").select("id").eq("user_id", uid);
-    setTotalCesta(data?.length || 0);
-
-    // Realtime para actualizar contador instantáneamente
-    supabase
-      .channel(`cesta-prov-${uid}-${Date.now()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cesta", filter: `user_id=eq.${uid}` },
-        async () => {
-          const { data: cestaData } = await supabase.from("cesta").select("id").eq("user_id", uid);
-          setTotalCesta(cestaData?.length || 0);
-        }
-      )
-      .subscribe();
-  }
-
-  async function cargarNotificaciones(uid: string) {
-    const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
-    const vistasAntes = new Set<string>(JSON.parse(localStorage.getItem(VISTAS_KEY) || "[]"));
-    const notifsTotales: any[] = [];
-    const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
-    const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
-    const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
-    if (convIds.length > 0) {
-      const { data: msgs } = await supabase.from("mensajes").select("id, mensaje, created_at, conversacion_id").in("conversacion_id", convIds).neq("user_id", uid).or("leido.is.null,leido.eq.false").order("created_at", { ascending: false }).limit(10);
-      (msgs || []).forEach(m => notifsTotales.push({ id: m.id, tipo: "chat", texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`, leido: vistasAntes.has(String(m.id)), created_at: m.created_at, conv_id: m.conversacion_id }));
-    }
-    const hace7dias = new Date();
-    hace7dias.setDate(hace7dias.getDate() - 7);
-    const { data: pedidos } = await supabase.from("pedidos").select("id, codigo, created_at, productos").gte("created_at", hace7dias.toISOString()).order("created_at", { ascending: false }).limit(50);
-    const hace7diasPedidos = new Date();
-    hace7diasPedidos.setDate(hace7diasPedidos.getDate() - 7);
-    const { data: pedidosConDetalles } = await supabase.from("pedidos").select("id, codigo, created_at, productos, anulado, factura_url, motivo_anulacion").gte("created_at", hace7diasPedidos.toISOString()).order("created_at", { ascending: false }).limit(50);
-    (pedidosConDetalles || []).filter(p => (p.productos || []).some((pr: any) => pr.proveedor_id === uid)).slice(0, 10).forEach(p => {
-      if (p.anulado) {
-        notifsTotales.push({ id: `anu-${p.id}`, tipo: "anulacion", pedido_id: p.id, texto: `❌ Pedido ${p.codigo || `#${p.id}`} anulado`, leido: vistasAntes.has(`anu-${p.id}`), created_at: p.created_at });
-      } else if (p.factura_url) {
-        notifsTotales.push({ id: `fac-${p.id}`, tipo: "factura_solicitada", pedido_id: p.id, texto: `🧾 Factura solicitada — ${p.codigo || `#${p.id}`}`, leido: vistasAntes.has(`fac-${p.id}`), created_at: p.created_at });
-      } else {
-        notifsTotales.push({ id: `ped-${p.id}`, tipo: "pedido", pedido_id: p.id, texto: `📦 Pedido ${p.codigo || `#${p.id}`} recibido`, leido: vistasAntes.has(`ped-${p.id}`), created_at: p.created_at });
-      }
-    });
-    notifsTotales.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    setNotifs(notifsTotales);
-    // NO marcar como vistas aquí — solo se marcan cuando el proveedor abre la campanita
-  }
-
-  async function cargarDatos() {
-    setCargando(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const currentUserId = user.id;
-    setUserId(currentUserId);
-    if (user.email) setEmailPerfil(user.email);
-    await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", currentUserId);
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban, direccion, ciudad, codigo_postal, alias").eq("id", currentUserId).single();
-    if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
-    if (perfil?.alias) setAliasProveedor(perfil.alias);
-    if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
-    if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
-    if (perfil?.horario_cierre) setHorarioCierre(perfil.horario_cierre);
-    if (perfil?.dias_apertura?.length) setDiasApertura(perfil.dias_apertura);
-    if (perfil?.email_facturas) setEmailFacturas(perfil.email_facturas);
-    if (perfil?.iban) setIban(perfil.iban);
-    if (perfil?.direccion) setDireccion(perfil.direccion);
-    if (perfil?.ciudad) setCiudad(perfil.ciudad);
-    if (perfil?.codigo_postal) setCodigoPostal(perfil.codigo_postal);
-    const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId);
-    setTotalPiezas(count || 0);
-    const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).eq("tipo", "OEM");
-    setTotalOEM(countOEM || 0);
-    const { count: countIAM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", currentUserId).neq("tipo", "OEM");
-    setTotalIAM(countIAM || 0);
-    await cargarPiezasPaginadas(currentUserId, 1, "");
-    const { data: recibidosData } = await supabase.from("pedidos").select("*").order("id", { ascending: false });
-    const recibidos = (recibidosData || []).filter(p => (p.productos || []).some((prod: any) => prod.proveedor_id === currentUserId));
-    setPedidosRecibidos(recibidos);
-    const { data: realizadosData } = await supabase.from("pedidos").select("*").eq("cliente_id", currentUserId).order("id", { ascending: false });
-    const recibidosIds = new Set(recibidos.map((p: any) => p.id));
-    setPedidosRealizados((realizadosData || []).filter(p => !recibidosIds.has(p.id)));
-    const { data: convsData } = await supabase.from("conversaciones").select("id, pedido_id").not("pedido_id", "is", null);
-    const convIds = (convsData || []).map((c: any) => c.id);
-    let mensajesData: any[] = [];
-    if (convIds.length > 0) {
-      const { data: msgs } = await supabase.from("mensajes").select("*, conversaciones!inner(pedido_id)").in("conversacion_id", convIds).order("created_at", { ascending: true });
-      mensajesData = (msgs || []).map((m: any) => ({ ...m, pedido_id: m.conversaciones?.pedido_id }));
-    }
-    setMensajes(mensajesData);
-    const { data: exclusionesData } = await supabase.from("exclusiones_proveedor").select("*").eq("proveedor_id", user.id).order("created_at", { ascending: false });
-    setExclusiones(exclusionesData || []);
-    const { data: clientesData } = await supabase.from("usuarios").select("id, nombre_empresa, email, codigo_postal, ciudad").eq("tipo", "taller").order("nombre_empresa");
-    setClientes(clientesData || []);
-    setCargando(false);
-  }
-
-  async function cargarPiezasPaginadas(uid: string, pagina: number, busqueda: string, tipo?: string) {
-    const desde = (pagina - 1) * 100;
-    const hasta = desde + 99;
-    let query = supabase.from("piezas_publicadas").select("*", { count: "exact" }).eq("proveedor_id", uid).order("referencia", { ascending: true }).range(desde, hasta);
-    if (busqueda.trim()) query = query.or(`referencia.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
-    if (tipo === "oem") query = query.eq("tipo", "OEM");
-    if (tipo === "iam") query = query.neq("tipo", "OEM");
-    const { data, count } = await query;
-    setPiezas(data || []);
-    if (count !== null) setTotalPiezas(count);
-    setPaginaActual(pagina);
-  }
-
-  async function recargarContadores(uid: string) {
-    const { count } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid);
-    setTotalPiezas(count || 0);
-    const { count: countOEM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid).eq("tipo", "OEM");
-    setTotalOEM(countOEM || 0);
-    const { count: countIAM } = await supabase.from("piezas_publicadas").select("*", { count: "exact", head: true }).eq("proveedor_id", uid).neq("tipo", "OEM");
-    setTotalIAM(countIAM || 0);
-  }
-
-  async function solicitarFacturaProveedor(pedido: Pedido) {
-    setSolicitandoFactura(pedido.id);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, cif, telefono, direccion, ciudad, codigo_postal").eq("id", user.id).single();
-    const productos = pedido.productos || [];
-    const proveedorId = productos[0]?.proveedor_id || null;
-    let emailProveedor = "info@recambio-directo.com";
-    let nombreProveedor = productos[0]?.proveedor_nombre || "Proveedor";
-    if (proveedorId) {
-      const { data: provPerfil } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", proveedorId).single();
-      if (provPerfil?.email) emailProveedor = provPerfil.email;
-      if (provPerfil?.nombre_empresa) nombreProveedor = provPerfil.nombre_empresa;
-    }
-    try {
-      await fetch("/api/send-solicitud-factura", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, clienteEmail: user.email, clienteNombre: perfil?.nombre_empresa || user.email, clienteCif: perfil?.cif || "-", clienteTelefono: perfil?.telefono || "-", clienteDireccion: [perfil?.direccion, perfil?.ciudad, perfil?.codigo_postal].filter(Boolean).join(", "), proveedorNombre: nombreProveedor, emailProveedor }) });
-      alert("✅ Solicitud enviada al proveedor.");
-    } catch (e) { alert("Error al enviar la solicitud"); }
-    setSolicitandoFactura(null);
-  }
-
-  async function subirFactura(pedidoId: number, file: File) {
-    setSubiendoFactura(pedidoId);
-    const path = `facturas/${pedidoId}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("FACTURAS").upload(path, file, { contentType: "application/pdf" });
-    if (uploadError) { alert("Error al subir la factura: " + uploadError.message); setSubiendoFactura(null); return; }
-    const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
-    await supabase.from("pedidos").update({ factura_url: urlData.publicUrl, factura_nombre: file.name }).eq("id", pedidoId);
-
-    // Notificar al taller por email con la factura adjunta
-    try {
-      const { data: pedidoData } = await supabase.from("pedidos").select("codigo, total, created_at, cliente_email, cliente_nombre, cliente_id, productos").eq("id", pedidoId).single();
-      if (pedidoData?.cliente_email) {
-        let emailFacturasTaller = pedidoData.cliente_email;
-        if (pedidoData.cliente_id) {
-          const { data: tallerPerfil } = await supabase.from("usuarios").select("email_facturas").eq("id", pedidoData.cliente_id).single();
-          if (tallerPerfil?.email_facturas) emailFacturasTaller = tallerPerfil.email_facturas;
-        }
-        await fetch("/api/send-factura-subida", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pedidoCodigo: pedidoData.codigo || `#${pedidoId}`,
-            pedidoId,
-            pedidoTotal: pedidoData.total,
-            pedidoFecha: pedidoData.created_at,
-            clienteEmail: emailFacturasTaller,
-            clienteNombre: pedidoData.cliente_nombre || pedidoData.cliente_email,
-            proveedorNombre: nombreEmpresa,
-            facturaUrl: urlData.publicUrl,
-            facturaNombre: file.name,
-            productos: pedidoData.productos || [],
-          }),
-        });
-      }
-    } catch (e) { console.error("Error enviando email factura:", e); }
-
-    setSubiendoFactura(null);
-    cargarDatos();
-  }
-
-  function abrirModalAnular(pedido: Pedido) { setModalAnular(pedido); setMotivoSeleccionado(""); }
-  async function abrirContactoCliente(pedido: Pedido, e: React.MouseEvent) {
-    e.stopPropagation();
-    setModalContacto(pedido);
-    setDatosContacto(null);
-    if (pedido.cliente_id) {
-      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", pedido.cliente_id).single();
-      setDatosContacto(data || null);
-    }
-  }
-
-  async function abrirContactoProveedor(pedido: Pedido, e: React.MouseEvent) {
-    e.stopPropagation();
-    setModalContacto(pedido);
-    setDatosContacto(null);
-    const proveedorId = (pedido.productos || [])[0]?.proveedor_id || null;
-    if (proveedorId) {
-      const { data } = await supabase.from("usuarios").select("nombre_empresa, email, telefono, direccion, ciudad, codigo_postal, cif").eq("id", proveedorId).single();
-      setDatosContacto(data || null);
-    }
-  }
-
-  async function confirmarAnulacion() {
-    if (!modalAnular || !motivoSeleccionado) return;
-    const pedido = modalAnular;
-    setModalAnular(null);
-    setAnulandoPedido(pedido.id);
-    await supabase.from("pedidos").update({ anulado: true, estado_envio: "anulado", motivo_anulacion: motivoSeleccionado }).eq("id", pedido.id);
-
-    // Anular envío en la agencia si existe
-    try {
-      await fetch("/api/anular-envio-agencia", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId: pedido.id }),
-      });
-    } catch (e) { console.error("Error anulando envío en agencia:", e); }
-
-    setAnulandoPedido(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: provPerfil } = await supabase.from("usuarios").select("email, nombre_empresa").eq("id", user?.id || "").single();
-    try {
-      await fetch("/api/send-anulacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoCodigo: pedido.codigo || `#${pedido.id}`, pedidoId: pedido.id, pedidoTotal: pedido.total, pedidoFecha: pedido.created_at, anuladorTipo: "proveedor", anuladorNombre: nombreEmpresa, clienteEmail: pedido.cliente_email || "", clienteNombre: pedido.cliente_nombre || pedido.cliente_email || "", proveedorEmail: provPerfil?.email || "", proveedorNombre: nombreEmpresa, productos: pedido.productos || [], motivoAnulacion: motivoSeleccionado }) });
-    } catch (e) { console.error(e); }
-    cargarDatos();
-  }
-
-  async function cambiarContrasena() {
-    setMensajePass(null);
-    if (!passwordActual || !passwordNueva || !passwordNueva2) { setMensajePass({ tipo: "error", texto: "Rellena todos los campos" }); return; }
-    if (passwordNueva.length < 6) { setMensajePass({ tipo: "error", texto: "Mínimo 6 caracteres" }); return; }
-    if (passwordNueva !== passwordNueva2) { setMensajePass({ tipo: "error", texto: "Las contraseñas no coinciden" }); return; }
-    setCambiandoPass(true);
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email: emailPerfil, password: passwordActual });
-    if (loginError) { setMensajePass({ tipo: "error", texto: "La contraseña actual no es correcta" }); setCambiandoPass(false); return; }
-    const { error: updateError } = await supabase.auth.updateUser({ password: passwordNueva });
-    setCambiandoPass(false);
-    if (updateError) { setMensajePass({ tipo: "error", texto: "Error: " + updateError.message }); return; }
-    setMensajePass({ tipo: "ok", texto: "Contraseña cambiada correctamente" });
-    setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2("");
-    setTimeout(() => { setMostrarCambioPass(false); setMensajePass(null); }, 2500);
-  }
-
-  async function guardarHorarios() {
-    if (!userId) return;
-    setGuardandoHorario(true);
-    await supabase.from("usuarios").update({ horario_apertura: horarioApertura, horario_cierre: horarioCierre, dias_apertura: diasApertura }).eq("id", userId);
-    setGuardandoHorario(false);
-    setHorarioGuardado(true);
-    setTimeout(() => setHorarioGuardado(false), 3000);
-  }
-
-  function toggleDia(dia: string) { setDiasApertura(prev => prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]); }
-
-  async function añadirExclusion(tipo: string, valor: string) {
-    if (!userId || !valor.trim()) return;
-    const { data: existe } = await supabase.from("exclusiones_proveedor").select("id").eq("proveedor_id", userId).eq("tipo", tipo).eq("valor", valor.trim()).maybeSingle();
-    if (existe) { alert("Esta exclusión ya existe"); return; }
-    await supabase.from("exclusiones_proveedor").insert({ proveedor_id: userId, tipo, valor: valor.trim() });
-    if (tipo === "cp") setNuevoCp(""); else setNuevoCliente("");
-    const { data } = await supabase.from("exclusiones_proveedor").select("*").eq("proveedor_id", userId).order("created_at", { ascending: false });
-    setExclusiones(data || []);
-  }
-
-  async function eliminarExclusion(id: number) {
-    await supabase.from("exclusiones_proveedor").delete().eq("id", id);
-    const { data } = await supabase.from("exclusiones_proveedor").select("*").eq("proveedor_id", userId!).order("created_at", { ascending: false });
-    setExclusiones(data || []);
-  }
-
-  async function publicarPieza() {
-    if (!formReferencia || !formDescripcion || !formPrecio || !formStock || !formMarca) { alert("Rellena todos los campos obligatorios"); return; }
-    if (formTipo === "UNIVERSAL" && !formFoto) { alert("Las piezas universales requieren una foto"); return; }
-    setGuardandoPieza(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    let fotoUrl: string | null = null;
-    if (formTipo === "UNIVERSAL" && formFoto) {
-      setSubiendoFoto(true);
-      const path = `piezas/${user.id}/${Date.now()}_${formFoto.name}`;
-      const { error: uploadError } = await supabase.storage.from("piezas-fotos").upload(path, formFoto, { contentType: formFoto.type });
-      if (uploadError) { alert("Error al subir la foto: " + uploadError.message); setGuardandoPieza(false); setSubiendoFoto(false); return; }
-      const { data: urlData } = supabase.storage.from("piezas-fotos").getPublicUrl(path);
-      fotoUrl = urlData.publicUrl;
-      setSubiendoFoto(false);
-    }
-    const { error } = await supabase.from("piezas_publicadas").insert({ proveedor_id: user.id, proveedor_nombre: aliasProveedor || nombreEmpresa, referencia: formReferencia.toUpperCase().trim(), descripcion: formDescripcion.toUpperCase().trim(), precio: parseFloat(formPrecio), stock: parseInt(formStock), marca: formMarca.toUpperCase().trim(), provincia: provinciaPerfil || null, tipo: formTipo, foto_url: fotoUrl, origen: "manual" });
-    setGuardandoPieza(false);
-    if (error) { alert("Error al publicar: " + error.message); return; }
-    setFormReferencia(""); setFormDescripcion(""); setFormPrecio(""); setFormStock(""); setFormMarca(""); setFormTipo("OEM"); setFormFoto(null); setFormFotoPreview(null);
-    setPiezaGuardada(true);
-    setTimeout(() => setPiezaGuardada(false), 3000);
-    cargarDatos();
-    setSeccion("almacen");
-  }
-
-  async function eliminarPieza(id: number) {
-    if (!confirm("¿Eliminar esta pieza?")) return;
-    await supabase.from("piezas_publicadas").delete().eq("id", id);
-    cargarDatos();
-  }
-
-  async function guardarEdicion(id: number) {
-    await supabase.from("piezas_publicadas").update({ precio: parseFloat(editPrecio), stock: parseInt(editStock) }).eq("id", id);
-    setEditandoId(null);
-    cargarDatos();
-  }
-
-  async function enviarMensaje(pedidoId: number) {
-    const texto = nuevoMensaje[pedidoId];
-    if (!texto?.trim() || !userId) return;
-    const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedidoId).maybeSingle();
-    if (conv?.id) {
-      await supabase.from("mensajes").insert({ conversacion_id: conv.id, user_id: userId, mensaje: texto.trim(), emisor: "proveedor", leido: false });
-      await supabase.from("conversaciones").update({ ultimo_mensaje: texto.trim(), updated_at: new Date().toISOString() }).eq("id", conv.id);
-    } else {
-      await supabase.from("mensajes_pedido").insert({ pedido_id: pedidoId, emisor: "proveedor", mensaje: texto });
-    }
-    setNuevoMensaje({ ...nuevoMensaje, [pedidoId]: "" });
-    cargarDatos();
-  }
-
-  const noLeidas = notifs.filter(n => !n.leido).length;
-  const totalFacturado = pedidosRecibidos.filter(p => !p.anulado).reduce((acc, p) => acc + (Number(p.total) || 0), 0);
-  const pedidosFiltrados = (pestañaPedidos === "recibidos" ? pedidosRecibidos : pedidosRealizados).filter(p => {
-    if (!busquedaPedido) return true;
-    const q = busquedaPedido.toLowerCase();
-    return String(p.id).includes(q) || (p.codigo || "").toLowerCase().includes(q) || (p.cliente_nombre || "").toLowerCase().includes(q) || (p.cliente_email || "").toLowerCase().includes(q);
-  });
-  const excCp = exclusiones.filter(e => e.tipo === "cp");
-  const excClientes = exclusiones.filter(e => e.tipo === "cliente");
-  const piezasFiltradas = piezas;
-
+export default function Home() {
   return (
-    <main style={mainStyle}>
-      <header style={{ height: isMobile ? 64 : 70, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 30px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky" as const, top: 0, zIndex: 999, flexShrink: 0, overflow: "visible" as const }}>
-        <div onClick={() => setSeccion("dashboard")} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, cursor: "pointer", flexShrink: 0 }}>
-          <div style={{ width: isMobile ? 36 : 46, height: isMobile ? 36 : 46, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: isMobile ? 14 : 18 }}>RD</div>
-          {!isMobile && <div><p style={{ fontWeight: 900, fontSize: 16, margin: 0 }}>RECAMBIO DIRECTO</p><p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Panel Proveedor</p></div>}
-          {isMobile && <span style={{ fontWeight: 900, fontSize: 15 }}>{nombreEmpresa}</span>}
-        </div>
-        {!isMobile && <div style={{ display: "flex", flex: 1, maxWidth: 500, margin: "0 24px" }}>
-          <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} placeholder="Buscar referencia OEM, IAM o equivalente..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "14px 0 0 14px", padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
-          <button onClick={() => { if (busquedaHeader.trim()) router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); }} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: "0 14px 14px 0", padding: "12px 18px", color: "white", cursor: "pointer", fontSize: 16 }}>🔍</button>
-        </div>}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {!isMobile && <span style={{ color: "#94a3b8", fontSize: 14, fontWeight: 700 }}>{nombreEmpresa}</span>}
-          {!isMobile && <button onClick={() => router.push("/chat")} style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>💬 Chats</button>}
-          {!isMobile && <button onClick={() => router.push("/checkout")} style={{ position: "relative", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
-            🛒 Cesta
-            {totalCesta > 0 && <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 999, background: "#22c55e", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{totalCesta}</span>}
-          </button>}
-          {!isMobile && <div style={{ position: "relative" as const }}>
-            <button onClick={() => {
-              setShowNotifs(!showNotifs);
-              if (!showNotifs) {
-                const uid = userId;
-                if (uid) {
-                  const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`;
-                  localStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id))));
-                  const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
-                  if (convIds.length > 0) { supabase.from("mensajes").update({ leido: true }).in("conversacion_id", [...new Set(convIds)]).neq("user_id", uid); }
-                  localStorage.removeItem(`rd_notif_last_prov_${uid}`);
-                }
-                setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
-              }
-            }} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 18, position: "relative" as const }}>
-              🔔
-              {noLeidas > 0 && <span style={{ position: "absolute" as const, top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
-            </button>
-            {showNotifs && (
-              <div style={{ position: "absolute" as const, right: 0, top: 50, width: 340, background: "#0f172a", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)", zIndex: 9999, overflow: "hidden" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <span style={{ fontWeight: 800, fontSize: 14 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "1px 8px", fontSize: 11, marginLeft: 6 }}>{noLeidas} nuevas</span>}</span>
-                  {notifs.length > 0 && <button onClick={() => setNotifs([])} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Limpiar</button>}
-                </div>
-                {notifs.length === 0 ? (
-                  <div style={{ padding: "32px", textAlign: "center" as const, color: "#94a3b8", fontSize: 14 }}><p style={{ fontSize: 28, marginBottom: 8 }}>🔔</p><p>Sin notificaciones</p></div>
-                ) : (
-                  <div style={{ maxHeight: 380, overflowY: "auto" as const }}>
-                    {notifs.slice(0, 20).map((n, i) => (
-                      <div key={`${n.id}-${i}`} onClick={() => {
-                        setShowNotifs(false);
-                        if (userId) localStorage.removeItem(`rd_notif_last_prov_${userId}`);
-                        if (n.tipo === "chat") {
-                          router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat");
-                        } else if (n.pedido_id) {
-                          setSeccion("pedidos");
-                          setPestañaPedidos("recibidos");
-                          setTimeout(() => setPedidoExpandido(n.pedido_id), 100);
-                        } else {
-                          setSeccion("pedidos");
-                        }
-                      }} style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: n.leido ? "transparent" : "rgba(37,99,235,0.1)", borderLeft: n.leido ? "3px solid transparent" : "3px solid #2563eb" }}>
-                        <span style={{ fontSize: 18, marginRight: 10, flexShrink: 0 }}>
-                          {n.tipo === "chat" ? "💬" : n.tipo === "anulacion" ? "❌" : n.tipo === "factura_solicitada" ? "🧾" : "📦"}
-                        </span>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 13, fontWeight: n.leido ? 500 : 700, margin: 0 }}>{n.texto}</p>
-                          <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 3 }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
-                        </div>
-                        {!n.leido && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", flexShrink: 0, marginTop: 4 }} />}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>}
-          {!isMobile && <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Salir</button>}
-        {isMobile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button onClick={() => router.push("/chat")} style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 20, padding: 8 }}>💬</button>
-            <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) { const uid = userId; if (uid) { const VISTAS_KEY = `rd_notif_vistas_prov_${uid}`; localStorage.setItem(VISTAS_KEY, JSON.stringify(notifs.map(n => String(n.id)))); setNotifs(prev => prev.map(n => ({ ...n, leido: true }))); } } }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 22, position: "relative" as const, padding: 8, borderRadius: 10 }}>
-              🔔
-              {noLeidas > 0 && <span style={{ position: "absolute" as const, top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 999, background: "#ef4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 900, border: "2px solid #020617" }}>{noLeidas > 9 ? "9+" : noLeidas}</span>}
-            </button>
-          </div>
-        )}
-        </div>
-      </header>
+    <main style={{ minHeight: "100vh", background: "#020617", color: "white", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(37,99,235,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.07) 1px, transparent 1px)", backgroundSize: "60px 60px", pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ width: "600px", height: "600px", borderRadius: "999px", background: "rgba(37,99,235,0.22)", filter: "blur(160px)", position: "absolute", top: "-200px", left: "-200px", pointerEvents: "none", zIndex: 1 }} />
+      <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.12)", filter: "blur(140px)", position: "absolute", bottom: "0", right: "-100px", pointerEvents: "none", zIndex: 1 }} />
 
-      {isMobile && (
-        <div style={{ position: "sticky" as const, top: 60, zIndex: 998, background: "rgba(2,6,23,0.97)", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex" }}>
-            <input value={busquedaHeader} onChange={e => setBusquedaHeader(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && busquedaHeader.trim()) { router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); setBusquedaHeader(""); } }} placeholder="🔍  Buscar referencia OEM, IAM..." style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px 0 0 12px", padding: "12px 14px", color: "white", fontSize: 15, outline: "none" }} />
-            <button onClick={() => { if (busquedaHeader.trim()) { router.push(`/dashboard/buscar?q=${encodeURIComponent(busquedaHeader)}`); setBusquedaHeader(""); } }} style={{ padding: "12px 18px", border: "none", borderRadius: "0 12px 12px 0", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", cursor: "pointer", fontSize: 16, fontWeight: 800 }}>Ir</button>
-          </div>
+      {/* ── HERO ── */}
+      <section className="landing-hero">
+        <div className="landing-hero-mobile-header">
+          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1.1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
+            Marketplace B2B de Recambios de Automoción en España
+          </h1>
+          <p style={{ color: "#94a3b8", marginBottom: "24px", fontSize: "15px", lineHeight: 1.6 }}>
+            La plataforma B2B que conecta talleres y proveedores de recambios en toda España.
+          </p>
         </div>
-      )}
-
-      {isMobile && showNotifs && (
-        <div style={{ position: "fixed" as const, top: 60, right: 0, left: 0, background: "#0f172a", borderBottom: "1px solid rgba(255,255,255,0.1)", zIndex: 9998, maxHeight: "55vh", overflowY: "auto" as const }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <span style={{ fontWeight: 700 }}>Notificaciones {noLeidas > 0 && <span style={{ background: "#ef4444", color: "white", borderRadius: 999, padding: "1px 8px", fontSize: 11, marginLeft: 6 }}>{noLeidas}</span>}</span>
-            <button onClick={() => setShowNotifs(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }}>✕</button>
+        <div className="landing-hero-text">
+          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 className="sr-only">Marketplace B2B de Recambios de Automoción en España — Recambio Directo</h1>
+          <div aria-hidden="true" style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
+            RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
           </div>
-          {notifs.length === 0 ? <div style={{ padding: 24, textAlign: "center" as const, color: "#94a3b8" }}>Sin notificaciones</div> : notifs.slice(0, 15).map((n, i) => (
-            <div key={`${n.id}-${i}`} onClick={() => { setShowNotifs(false); if (n.tipo === "chat") router.push(n.conv_id ? `/chat?conv=${n.conv_id}` : "/chat"); else { setSeccion("pedidos"); if (n.pedido_id) setTimeout(() => setPedidoExpandido(n.pedido_id), 100); } }} style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", gap: 10, background: n.leido ? "transparent" : "rgba(37,99,235,0.08)" }}>
-              <span style={{ fontSize: 20 }}>{n.tipo === "chat" ? "💬" : "📦"}</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 14, margin: 0, fontWeight: n.leido ? 400 : 700 }}>{n.texto}</p>
-                <p style={{ fontSize: 11, color: "#94a3b8", margin: 0, marginTop: 2 }}>{n.created_at ? new Date(n.created_at).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}</p>
-              </div>
-              {!n.leido && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", flexShrink: 0 }} />}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: "flex", flex: 1 }}>
-        {!isMobile && <aside style={sidebarStyle}>
-          <div>
-            <h1 style={logoStyle}>RECAMBIO<br />DIRECTO</h1>
-            <p style={logoSub}>Panel Proveedor</p>
-            <div style={empresaBadge}>{nombreEmpresa.charAt(0).toUpperCase()}</div>
-            <p style={empresaNombreStyle}>{nombreEmpresa}</p>
-            {provinciaPerfil && <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>📍 {provinciaPerfil}</p>}
-            {diasApertura.length > 0 && <div style={horarioBadge}>🕐 {horarioApertura} - {horarioCierre}<div style={{ fontSize: 10, marginTop: 3, color: "#94a3b8" }}>{diasApertura.slice(0, 3).join(", ")}{diasApertura.length > 3 ? "..." : ""}</div></div>}
-            {exclusiones.length > 0 && <div style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "6px 12px", fontSize: 12, color: "#f87171", fontWeight: 700 }}>🚫 {exclusiones.length} exclusión{exclusiones.length !== 1 ? "es" : ""} activa{exclusiones.length !== 1 ? "s" : ""}</div>}
-          </div>
-          <nav style={{ marginTop: 30 }}>
+          <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
+            La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
+          </p>
+          <div className="landing-stats">
             {[
-              { key: "dashboard",   label: "📊 Dashboard" },
-              { key: "almacen",     label: "📦 Mi Almacén" },
-              { key: "publicar",    label: "➕ Publicar Pieza" },
-              { key: "importar",    label: "📥 Importar Excel" },
-              { key: "pedidos",     label: "🛒 Pedidos" },
-              { key: "devoluciones", label: "🔄 Devoluciones" },
-              { key: "horarios",    label: "🕐 Horarios" },
-              { key: "exclusiones", label: "🚫 Exclusiones" },
-              { key: "cuenta",      label: "👤 Mi Cuenta" },
-            ].map(({ key, label }) => (
-              <div key={key} onClick={() => setSeccion(key as any)} style={seccion === key ? menuItemActive : menuItem}>{label}</div>
+              { num: "B2B", label: "Solo profesionales" },
+              { num: "24h", label: "Entrega express" },
+              { num: "100%", label: "Digital y seguro" },
+              { num: "25€", label: "Precio fijo al mes" },
+            ].map(({ num, label }) => (
+              <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, textAlign: "center" as const }}>{label}</span>
+              </div>
             ))}
-            <div onClick={() => router.push("/dashboard/catalogos")} style={menuItem}>📚 Catálogos</div>
-          </nav>
-        </aside>}
-
-        <section style={isMobile ? { flex: 1, padding: "16px 12px 80px", overflowY: "auto" as const } : contentStyle}>
-
-          {seccion === "dashboard" && (
-            <div>
-              {!isMobile && <div style={badgeStyle}>PANEL ENTERPRISE</div>}
-              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 8 } : titleStyle}>{isMobile ? nombreEmpresa : "PANEL PROVEEDOR"}</h1>
-              {!isMobile && <p style={descStyle}>Gestiona tu stock, pedidos recibidos y catálogo de piezas.</p>}
-              <div style={isMobile ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 } : kpiGrid}>
-                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>PIEZAS</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44 }}>{totalPiezas.toLocaleString()}</h2></div>
-                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>PEDIDOS</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44 }}>{pedidosRecibidos.filter(p => !p.anulado).length}</h2></div>
-                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>FACTURACIÓN</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44, color: "#22c55e" }}>{totalFacturado.toFixed(0)}€</h2></div>
-                <div style={isMobile ? { ...kpiCard, padding: 16 } : kpiCard}><p style={{ ...kpiLabel, fontSize: 10 }}>EXCLUSIONES</p><h2 style={{ ...kpiNumber, fontSize: isMobile ? 28 : 44, color: "#f87171" }}>{exclusiones.length}</h2></div>
-              </div>
-              <div style={isMobile ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } : quickGrid}>
-                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("publicar")}><div style={{ fontSize: 24, marginBottom: 8 }}>➕</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Publicar</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Nueva referencia</p></div>
-                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("importar")}><div style={{ fontSize: 24, marginBottom: 8 }}>📥</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Importar</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Subir catálogo</p></div>
-                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("exclusiones")}><div style={{ fontSize: 24, marginBottom: 8 }}>🚫</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Exclusiones</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Control de precios</p></div>
-                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => setSeccion("pedidos")}><div style={{ fontSize: 24, marginBottom: 8 }}>🛒</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Pedidos</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Ver pedidos</p></div>
-                <div style={isMobile ? { ...quickCard, padding: 16 } : quickCard} onClick={() => router.push("/dashboard/catalogos")}><div style={{ fontSize: 24, marginBottom: 8 }}>📚</div><h3 style={{ ...quickTitle, fontSize: isMobile ? 14 : 22 }}>Catálogos</h3><p style={{ ...quickDesc, fontSize: isMobile ? 12 : 15 }}>Liqui Moly, Auxol, Carpriss</p></div>
-              </div>
-            </div>
-          )}
-
-          {seccion === "almacen" && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-                <div><div style={badgeStyle}>MI ALMACÉN</div><h1 style={titleStyle}>STOCK PUBLICADO</h1><p style={{ color: "#94a3b8", fontSize: 18 }}>Piezas disponibles en el marketplace.</p></div>
-                <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, padding: "20px 32px", textAlign: "center" as const, flexShrink: 0 }}>
-                  <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>REFERENCIAS SUBIDAS</p>
-                  <h2 style={{ fontSize: 48, fontWeight: 900, color: "#60a5fa", margin: 0 }}>{totalPiezas.toLocaleString()}</h2>
-                </div>
-              </div>
-              {piezaGuardada && <div style={successBanner}>✅ Pieza publicada correctamente</div>}
-              <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
-                {[
-                  { key: "todos", label: `📦 Todas (${totalPiezas.toLocaleString()})`, bg: undefined },
-                  { key: "oem",   label: `🔵 OEM (${totalOEM.toLocaleString()})`, bg: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
-                  { key: "iam",   label: `🟣 IAM (${totalIAM.toLocaleString()})`, bg: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
-                ].map(({ key, label, bg }) => (
-                  <button key={key} onClick={async () => {
-                    setPestañaAlmacen(key as any);
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                      await recargarContadores(user.id);
-                      cargarPiezasPaginadas(user.id, 1, busquedaAlmacen, key === "todos" ? undefined : key);
-                    }
-                  }} style={{ padding: "10px 22px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: pestañaAlmacen === key ? (bg || "rgba(255,255,255,0.1)") : "transparent", color: pestañaAlmacen === key ? "white" : "#94a3b8" }}>{label}</button>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" }}>
-                <button onClick={() => setSeccion("publicar")} style={addButton}>➕ PUBLICAR NUEVA PIEZA</button>
-                <button onClick={() => setSeccion("importar")} style={importButton}>📥 IMPORTAR EXCEL</button>
-                <div style={{ flex: 1, display: "flex", gap: 8, minWidth: 280 }}>
-                  <input placeholder="Buscar por referencia, descripción o marca..." value={busquedaInput} onChange={e => setBusquedaInput(e.target.value)} onKeyDown={async e => { e.stopPropagation(); if (e.key === "Enter") { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); } }} style={{ flex: 1, background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "12px 16px", color: "white", fontSize: 14, outline: "none" }} />
-                  <button onClick={async () => { setBusquedaAlmacen(busquedaInput); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, busquedaInput, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "12px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>🔍</button>
-                  {busquedaAlmacen && <button onClick={async () => { setBusquedaInput(""); setBusquedaAlmacen(""); const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, 1, "", pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>✕ Limpiar</button>}
-                </div>
-              </div>
-              {busquedaAlmacen && <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>{piezasFiltradas.length} resultado{piezasFiltradas.length !== 1 ? "s" : ""} para "<strong style={{ color: "white" }}>{busquedaAlmacen}</strong>"</div>}
-              {piezasFiltradas.length === 0 ? (
-                <div style={emptyState}><p style={{ fontSize: 60 }}>📦</p><p style={{ fontSize: 22, fontWeight: 700, marginTop: 20 }}>{busquedaAlmacen ? `Sin resultados para "${busquedaAlmacen}"` : "No tienes piezas publicadas"}</p></div>
-              ) : (
-                <>
-                  <div style={tableContainer}>
-                    <table style={tableStyle}>
-                      <thead><tr>{["REFERENCIA","TIPO","DESCRIPCIÓN","MARCA","PRECIO","IMP/CASCO","STOCK","PROVINCIA","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
-                      <tbody>
-                        {piezasFiltradas.map(pieza => (
-                          <tr key={pieza.id} style={trStyle}>
-                            <td style={tdStyle}><strong>{pieza.referencia}</strong></td>
-                            <td style={tdStyle}><span style={{ background: (pieza as any).tipo === "OEM" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: (pieza as any).tipo === "OEM" ? "#60a5fa" : "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>{(pieza as any).tipo || "IAM"}</span></td>
-                            <td style={tdStyle}>{pieza.descripcion}</td>
-                            <td style={tdStyle}>{pieza.marca || "-"}</td>
-                            <td style={tdStyle}>{editandoId === pieza.id ? <input value={editPrecio} onChange={e => setEditPrecio(e.target.value)} style={miniInput} type="number" /> : <span style={{ color: "#22c55e", fontWeight: 900 }}>{pieza.precio}€</span>}</td>
-                            <td style={tdStyle}>{(pieza as any).impuesto > 0 ? <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 13 }}>+{Number((pieza as any).impuesto).toFixed(2)}€</span> : <span style={{ color: "#475569" }}>—</span>}</td>
-                            <td style={tdStyle}>{editandoId === pieza.id ? <input value={editStock} onChange={e => setEditStock(e.target.value)} style={miniInput} type="number" /> : <span style={stockBadge}>{pieza.stock} uds</span>}</td>
-                            <td style={tdStyle}>{pieza.provincia || "-"}</td>
-                            <td style={tdStyle}>
-                              {editandoId === pieza.id ? <button onClick={() => guardarEdicion(pieza.id)} style={btnGuardar}>✓ OK</button> : <button onClick={() => { setEditandoId(pieza.id); setEditPrecio(String(pieza.precio)); setEditStock(String(pieza.stock)); }} style={btnEditar}>✏️</button>}
-                              <button onClick={() => eliminarPieza(pieza.id)} style={btnEliminar}>🗑️</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {totalPiezas > 100 && (
-                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 20 }}>
-                      <button disabled={paginaActual === 1} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual - 1, busquedaAlmacen, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual === 1 ? 0.3 : 1 }}>← Anterior</button>
-                      <span style={{ color: "#94a3b8", fontSize: 14, padding: "0 16px" }}>Página <strong style={{ color: "white" }}>{paginaActual}</strong> de <strong style={{ color: "white" }}>{Math.ceil(totalPiezas / 100)}</strong><span style={{ marginLeft: 12, color: "#60a5fa" }}>({totalPiezas.toLocaleString()} refs)</span></span>
-                      <button disabled={paginaActual >= Math.ceil(totalPiezas / 100)} onClick={async () => { const { data: { user } } = await supabase.auth.getUser(); if (user) cargarPiezasPaginadas(user.id, paginaActual + 1, busquedaAlmacen, pestañaAlmacen === "todos" ? undefined : pestañaAlmacen); }} style={{ ...btnPagina, opacity: paginaActual >= Math.ceil(totalPiezas / 100) ? 0.3 : 1 }}>Siguiente →</button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {seccion === "publicar" && (
-            <div>
-              <div style={badgeStyle}>NUEVO ARTÍCULO</div>
-              <h1 style={titleStyle}>PUBLICAR PIEZA</h1>
-              <p style={descStyle}>Añade una referencia a tu catálogo.</p>
-              {provinciaPerfil ? <div style={provinciaInfo}>📍 Provincia asignada: <strong>{provinciaPerfil}</strong></div> : <div style={provinciaAviso}>⚠️ Sin provincia. <a href="/perfil" style={{ color: "#fbbf24" }}>Ve a Mi Cuenta</a></div>}
-              <div style={formCard}>
-                <div style={{ marginBottom: 24 }}>
-                  <p style={formLabel}>Tipo de referencia *</p>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    {["OEM", "IAM", "UNIVERSAL"].map(t => (
-                      <button key={t} onClick={() => { setFormTipo(t); setFormFoto(null); setFormFotoPreview(null); }} style={{ padding: "10px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, background: formTipo === t ? (t === "OEM" ? "rgba(37,99,235,0.3)" : t === "IAM" ? "rgba(139,92,246,0.3)" : "rgba(22,163,74,0.3)") : "rgba(255,255,255,0.05)", border: formTipo === t ? (t === "OEM" ? "1px solid rgba(37,99,235,0.6)" : t === "IAM" ? "1px solid rgba(139,92,246,0.6)" : "1px solid rgba(22,163,74,0.6)") : "1px solid rgba(255,255,255,0.08)", color: formTipo === t ? (t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : "#4ade80") : "#94a3b8" }}>{t}</button>
-                    ))}
-                  </div>
-                  {formTipo === "UNIVERSAL" && <div style={{ marginTop: 12, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)", borderRadius: 10, padding: "10px 14px", color: "#4ade80", fontSize: 13 }}>⚠️ Las piezas universales requieren foto obligatoria</div>}
-                </div>
-                <div style={formGrid}>
-                  <div><p style={formLabel}>Referencia *</p><input placeholder="Ej: W79..." value={formReferencia} onChange={e => setFormReferencia(e.target.value)} style={formInput} /></div>
-                  <div><p style={formLabel}>Marca *</p><input placeholder="Ej: MANN, BOSCH..." value={formMarca} onChange={e => setFormMarca(e.target.value)} style={formInput} /></div>
-                </div>
-                <div style={{ marginTop: 24 }}><p style={formLabel}>Descripción *</p><input placeholder="Ej: FILTRO DE ACEITE MANN W79" value={formDescripcion} onChange={e => setFormDescripcion(e.target.value)} style={formInput} /></div>
-                <div style={{ ...formGrid, marginTop: 24 }}>
-                  <div><p style={formLabel}>Precio (€) *</p><input placeholder="5.42" value={formPrecio} onChange={e => setFormPrecio(e.target.value)} style={formInput} type="number" step="0.01" /></div>
-                  <div><p style={formLabel}>Stock *</p><input placeholder="12" value={formStock} onChange={e => setFormStock(e.target.value)} style={formInput} type="number" /></div>
-                </div>
-                {formTipo === "UNIVERSAL" && (
-                  <div style={{ marginTop: 24 }}>
-                    <p style={formLabel}>Foto de la pieza * <span style={{ color: "#f87171", fontSize: 12 }}>(obligatoria para Universal)</span></p>
-                    {formFotoPreview ? (
-                      <div style={{ position: "relative", display: "inline-block" }}>
-                        <img src={formFotoPreview} alt="Preview" style={{ width: 200, height: 150, objectFit: "cover", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)" }} />
-                        <button onClick={() => { setFormFoto(null); setFormFotoPreview(null); }} style={{ position: "absolute", top: 6, right: 6, background: "rgba(239,68,68,0.8)", border: "none", color: "white", width: 26, height: 26, borderRadius: "50%", cursor: "pointer", fontWeight: 900, fontSize: 14 }}>✕</button>
-                      </div>
-                    ) : (
-                      <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(22,163,74,0.1)", border: "2px dashed rgba(22,163,74,0.4)", borderRadius: 14, padding: "20px 24px", cursor: "pointer", color: "#4ade80", fontWeight: 700 }}>
-                        📸 Subir foto (JPG, PNG)
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const file = e.target.files?.[0]; if (!file) return; setFormFoto(file); setFormFotoPreview(URL.createObjectURL(file)); }} />
-                      </label>
-                    )}
-                  </div>
-                )}
-                <div style={{ marginTop: 34, display: "flex", gap: 16 }}>
-                  <button onClick={publicarPieza} disabled={guardandoPieza || subiendoFoto} style={{ ...publishButton, opacity: (guardandoPieza || subiendoFoto) ? 0.7 : 1 }}>{subiendoFoto ? "SUBIENDO FOTO..." : guardandoPieza ? "PUBLICANDO..." : "✓ PUBLICAR"}</button>
-                  <button onClick={() => setSeccion("almacen")} style={cancelButton}>Cancelar</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {seccion === "importar" && userId && (
-            <div>
-              <div style={badgeStyle}>IMPORTACIÓN MASIVA</div>
-              <h1 style={titleStyle}>SUBIR STOCK</h1>
-              <p style={descStyle}>Importa tu catálogo desde Excel.</p>
-              <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 28, padding: 40, marginBottom: 30 }}>
-                <ImportarStock proveedorId={userId} proveedorNombre={nombreEmpresa} onImportado={async () => {
-                  const { data: { user } } = await supabase.auth.getUser();
-                  if (user) {
-                    await recargarContadores(user.id);
-                    cargarPiezasPaginadas(user.id, 1, "");
-                  }
-                  setTimeout(() => setSeccion("almacen"), 3000);
-                }} />
-              </div>
-            </div>
-          )}
-
-          {seccion === "pedidos" && (
-            <div>
-              {!isMobile && <div style={badgeStyle}>GESTIÓN</div>}
-              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 12 } : titleStyle}>PEDIDOS</h1>
-              <div style={tabsContainer}>
-                <button onClick={() => setPestañaPedidos("recibidos")} style={pestañaPedidos === "recibidos" ? tabActive : tabInactive}>📥 Recibidos ({pedidosRecibidos.length})</button>
-                <button onClick={() => setPestañaPedidos("realizados")} style={pestañaPedidos === "realizados" ? tabActive : tabInactive}>📤 Realizados ({pedidosRealizados.length})</button>
-              </div>
-              <div style={searchRow}><input placeholder="Buscar por código, referencia o comprador..." value={busquedaPedido} onChange={e => setBusquedaPedido(e.target.value)} style={searchInput} /></div>
-              {pedidosFiltrados.length === 0 ? (
-                <div style={emptyState}><p style={{ fontSize: 48 }}>🛒</p><p style={{ fontSize: 20, fontWeight: 700, marginTop: 16 }}>No hay pedidos</p></div>
-              ) : (
-                <div style={{ ...tableContainer, overflowX: "auto" as const }}>
-                  <table style={{ ...tableStyle, minWidth: isMobile ? 900 : "100%" }}>
-                    <thead>
-                      <tr style={{ background: "rgba(0,0,0,0.3)" }}>
-                        {["CÓDIGO PEDIDO","REFERENCIA / DESCRIPCIÓN","TOTAL",pestañaPedidos === "recibidos" ? "COMPRADOR" : "PROVEEDOR","FECHA","TRANSPORTE","TRACKING","ESTADO","ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidosFiltrados.map(pedido => {
-                        const productos = pedido.productos || [];
-                        const mensajesPedido = mensajes.filter(m => m.pedido_id === pedido.id);
-                        const expandido = pedidoExpandido === pedido.id;
-                        const puedeAnular = !pedido.anulado && !["enviado", "entregado"].includes(pedido.estado_envio || "");
-                        const trackingInfo = getTrackingInfo(pedido);
-                        const agencia = pedido.agencia || pedido.transporte || "";
-                        const esSeur = agencia.toLowerCase().includes("seur");
-                        const esNacex = agencia.toLowerCase().includes("nacex");
-                        const esMrw = agencia.toLowerCase().includes("mrw");
-                        return (
-                          <React.Fragment key={pedido.id}>
-                            <tr style={{ ...trStyle, cursor: "pointer", opacity: pedido.anulado ? 0.6 : 1 }} onClick={() => setPedidoExpandido(expandido ? null : pedido.id)}>
-                              <td style={tdStyle}><div style={{ color: pedido.anulado ? "#f87171" : "#60a5fa", fontWeight: 700, fontSize: 13 }}>{pedido.codigo || `RD-${pedido.id}`}</div><div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>#{pedido.id}</div></td>
-                              <td style={tdStyle}>{productos.slice(0, 2).map((p: any, i: number) => (<div key={i} style={{ fontSize: 13, marginBottom: 2 }}><strong>{p.referencia}</strong><span style={{ color: "#94a3b8", marginLeft: 6 }}>{p.descripcion}</span></div>))}{productos.length > 2 && <div style={{ color: "#94a3b8", fontSize: 11 }}>+{productos.length - 2} más</div>}</td>
-                              <td style={tdStyle}><span style={{ color: "#22c55e", fontWeight: 900 }}>{Number(pedido.total).toFixed(2)}€</span></td>
-                              <td style={tdStyle}>
-  {pestañaPedidos === "recibidos" ? (
-    <button onClick={e => abrirContactoCliente(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{pedido.cliente_nombre || pedido.cliente_email || "-"}</div>
-      {pedido.cliente_email && pedido.cliente_nombre && <div style={{ color: "#94a3b8", fontSize: 12 }}>{pedido.cliente_email}</div>}
-      <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
-    </button>
-  ) : (
-    <button onClick={e => abrirContactoProveedor(pedido, e)} style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: "#60a5fa", textDecoration: "underline dotted" }}>{(pedido.productos || [])[0]?.proveedor_nombre || "-"}</div>
-      <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>👁 Ver contacto</div>
-    </button>
-  )}
-</td>
-                              <td style={tdStyle}><div style={{ fontSize: 13 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : "-"}</div><div style={{ color: "#94a3b8", fontSize: 11 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""}</div></td>
-                              <td style={tdStyle}><LogoAgencia agencia={agencia} /></td>
-                              <td style={tdStyle}>
-                                {trackingInfo
-                                  ? <a href={trackingInfo.url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13, textDecoration: "none" }} onClick={e => e.stopPropagation()}>{trackingInfo.tracking}</a>
-                                  : <span style={{ color: "#94a3b8", fontSize: 13 }}>Sin tracking</span>
-                                }
-                              </td>
-                              <td style={tdStyle}><EstadoEnvio estado={pedido.estado_envio} anulado={pedido.anulado} /></td>
-                              <td style={tdStyle}><button onClick={e => { e.stopPropagation(); setPedidoExpandido(expandido ? null : pedido.id); }} style={btnAccion}>{expandido ? "▲ Cerrar" : "▼ Detalle"}</button></td>
-                            </tr>
-                            {expandido && (
-                              <tr key={`exp-${pedido.id}`}><td colSpan={9} style={{ padding: 0 }}>
-                                <div style={expandedRow}>
-                                  <div style={{ marginBottom: 16 }}>
-                                    <h4 style={{ fontWeight: 800, marginBottom: 12, color: "#60a5fa" }}>💬 Chat del pedido #{pedido.id}{mensajesPedido.length > 0 && <span style={{ marginLeft: 10, background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "2px 10px", borderRadius: 999, fontSize: 12 }}>{mensajesPedido.length} mensaje{mensajesPedido.length !== 1 ? "s" : ""}</span>}</h4>
-                                    {mensajesPedido.length > 0 && (
-                                      <div style={{ ...chatBox, maxHeight: 120, marginBottom: 12 }}>
-                                        {mensajesPedido.slice(-2).map(m => {
-                                          const esProveedor = m.user_id === userId || m.emisor === "proveedor";
-                                          return (
-                                            <div key={m.id} style={{ display: "flex", justifyContent: esProveedor ? "flex-end" : "flex-start", marginBottom: 6 }}>
-                                              <div style={{ background: esProveedor ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "#1e293b", padding: "8px 14px", borderRadius: esProveedor ? "14px 14px 4px 14px" : "14px 14px 14px 4px", maxWidth: "70%", fontSize: 13 }}>
-                                                <p style={{ margin: 0 }}>{m.mensaje}</p>
-                                                {m.created_at && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, margin: "4px 0 0", textAlign: esProveedor ? "right" : "left" }}>{new Date(m.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                    <button onClick={async () => {
-                                      const { data: conv } = await supabase.from("conversaciones").select("id").eq("pedido_id", pedido.id).maybeSingle();
-                                      if (conv?.id) router.push(`/chat?conv=${conv.id}`);
-                                      else {
-                                        const { data: nuevaConv } = await supabase.from("conversaciones").insert({ user1_id: userId, user2_id: pedido.cliente_id || pedido.comprador_id || "", pedido_id: pedido.id, referencia: `Pedido #${pedido.id}${pedido.codigo ? ` — ${pedido.codigo}` : ""}`, ultimo_mensaje: "", updated_at: new Date().toISOString() }).select("id").single();
-                                        if (nuevaConv?.id) router.push(`/chat?conv=${nuevaConv.id}`);
-                                      }
-                                    }} style={btnAbrirChat}>💬 {mensajesPedido.length > 0 ? "Ver conversación" : "Abrir chat"}</button>
-                                  </div>
-                                  {!pedido.anulado && (
-                                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" as const }}>
-                                      <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
-                                        {pedido.albaran_url && <a href={pedido.albaran_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📄 Albarán cliente</a>}
-                                        {pestañaPedidos === "recibidos" && esNacex && pedido.etiqueta_nacex_url && <a href={pedido.etiqueta_nacex_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.3)", color: "#fde047", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta NACEX</a>}
-                                        {pestañaPedidos === "recibidos" && esSeur && pedido.etiqueta_seur_url && <a href={pedido.etiqueta_seur_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(245,168,0,0.15)", border: "1px solid rgba(245,168,0,0.3)", color: "#F5A800", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟠 Etiqueta SEUR</a>}
-                                        {pestañaPedidos === "recibidos" && esMrw && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(227,6,19,0.15)", border: "1px solid rgba(227,6,19,0.3)", color: "#E30613", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🔴 Etiqueta MRW</a>}
-                                        {pestañaPedidos === "recibidos" && agencia.toLowerCase().includes("dhl") && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,204,0,0.15)", border: "1px solid rgba(255,204,0,0.3)", color: "#D40511", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>🟡 Etiqueta DHL</a>}
-                                        {pestañaPedidos === "recibidos" && !esNacex && !esSeur && !esMrw && pedido.etiqueta_envio_url && <a href={pedido.etiqueta_envio_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", color: "#f87171", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📦 Etiqueta de envío</a>}
-                                      </div>
-                                      <div style={{ flex: 1 }}>
-                                        <p style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>📄 FACTURA</p>
-                                        {pestañaPedidos === "recibidos" ? (
-                                          pedido.factura_url ? (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                              <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura subida</span>
-                                              <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Ver PDF</a>
-                                              <label style={btnSubirFactura}>🔄 Reemplazar<input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} /></label>
-                                            </div>
-                                          ) : (
-                                            <label style={{ ...btnSubirFactura, opacity: subiendoFactura === pedido.id ? 0.7 : 1 }}>
-                                              {subiendoFactura === pedido.id ? "⏳ Subiendo..." : "📤 Subir factura PDF"}
-                                              <input type="file" accept=".pdf" style={{ display: "none" }} disabled={subiendoFactura === pedido.id} onChange={e => { if (e.target.files?.[0]) subirFactura(pedido.id, e.target.files[0]); }} />
-                                            </label>
-                                          )
-                                        ) : (
-                                          pedido.factura_url ? (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                              <span style={{ color: "#4ade80", fontSize: 13, fontWeight: 700 }}>✅ Factura disponible</span>
-                                              <a href={pedido.factura_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Descargar PDF</a>
-                                            </div>
-                                          ) : (
-                                            <button onClick={() => solicitarFacturaProveedor(pedido)} disabled={solicitandoFactura === pedido.id} style={{ ...btnSubirFactura, opacity: solicitandoFactura === pedido.id ? 0.7 : 1, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", cursor: "pointer" }}>
-                                              {solicitandoFactura === pedido.id ? "Enviando..." : "🧾 Solicitar factura"}
-                                            </button>
-                                          )
-                                        )}
-                                      </div>
-                                      {puedeAnular && <button onClick={() => abrirModalAnular(pedido)} disabled={anulandoPedido === pedido.id} style={{ ...btnAnular, opacity: anulandoPedido === pedido.id ? 0.7 : 1 }}>{anulandoPedido === pedido.id ? "Anulando..." : "❌ Anular pedido"}</button>}
-                                    </div>
-                                  )}
-                                  {pedido.anulado && <div style={{ marginTop: 16, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "12px 16px", color: "#f87171", fontSize: 13, fontWeight: 700 }}>❌ Este pedido fue anulado</div>}
-                                </div>
-                              </td></tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-{seccion === "devoluciones" && (
-            <div>
-              {!isMobile && <div style={badgeStyle}>GESTIÓN</div>}
-              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 8 } : titleStyle}>DEVOLUCIONES</h1>
-              {!isMobile && <p style={descStyle}>Gestiona las solicitudes de devolución de los talleres.</p>}
-              <SeccionDevoluciones isMobile={isMobile} />
-            </div>
-          )}
-
-          {seccion === "horarios" && (
-            <div>
-              <div style={badgeStyle}>CONFIGURACIÓN</div>
-              <h1 style={titleStyle}>HORARIOS DE APERTURA</h1>
-              <p style={descStyle}>Indica cuándo está abierto tu negocio. Visible para los talleres.</p>
-              {horarioGuardado && <div style={successBanner}>✅ Horario guardado correctamente</div>}
-              <div style={formCard}>
-                <p style={formLabel}>Días de apertura</p>
-                <div style={diasGrid}>{DIAS_SEMANA.map(dia => (<button key={dia} onClick={() => toggleDia(dia)} style={{ ...diaBtnBase, background: diasApertura.includes(dia) ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: diasApertura.includes(dia) ? "none" : "1px solid rgba(255,255,255,0.1)", color: diasApertura.includes(dia) ? "white" : "#94a3b8" }}>{dia}</button>))}</div>
-                <div style={{ ...formGrid, marginTop: 30 }}>
-                  <div><p style={formLabel}>Hora apertura</p><input type="time" value={horarioApertura} onChange={e => setHorarioApertura(e.target.value)} style={formInput} /></div>
-                  <div><p style={formLabel}>Hora cierre</p><input type="time" value={horarioCierre} onChange={e => setHorarioCierre(e.target.value)} style={formInput} /></div>
-                </div>
-                <div style={horarioPreview}>
-                  <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>VISTA PREVIA</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ fontSize: 24 }}>🕐</span><div><p style={{ fontWeight: 800, fontSize: 18 }}>{horarioApertura} - {horarioCierre}</p><p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>{diasApertura.length === 0 ? "Sin días" : diasApertura.join(", ")}</p></div></div>
-                </div>
-                <button onClick={guardarHorarios} disabled={guardandoHorario} style={{ ...publishButton, marginTop: 24, opacity: guardandoHorario ? 0.7 : 1 }}>{guardandoHorario ? "GUARDANDO..." : "✓ GUARDAR HORARIOS"}</button>
-              </div>
-            </div>
-          )}
-
-          {seccion === "exclusiones" && (
-            <div>
-              <div style={{ ...badgeStyle, background: "rgba(239,68,68,0.18)", color: "#f87171" }}>PRIVACIDAD</div>
-              <h1 style={titleStyle}>EXCLUSIONES</h1>
-              <p style={descStyle}>Controla quién puede ver tus precios y stock.</p>
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: "16px 20px", marginBottom: 28, color: "#fbbf24" }}><span style={{ fontSize: 20 }}>🔒</span><p style={{ fontSize: 14, lineHeight: 1.6 }}>Los talleres excluidos no verán tus piezas en el buscador.</p></div>
-              <div style={{ ...tabsContainer, marginBottom: 24 }}>
-                <button onClick={() => setTabExclusiones("cp")} style={tabExclusiones === "cp" ? { ...tabActive, background: "linear-gradient(135deg,#dc2626,#991b1b)" } : tabInactive}>📮 Códigos Postales ({excCp.length})</button>
-                <button onClick={() => setTabExclusiones("cliente")} style={tabExclusiones === "cliente" ? { ...tabActive, background: "linear-gradient(135deg,#dc2626,#991b1b)" } : tabInactive}>👤 Clientes concretos ({excClientes.length})</button>
-              </div>
-              {tabExclusiones === "cp" && (
-                <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 24, padding: 32 }}>
-                  <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>Excluir por Código Postal</h3>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Los talleres con estos CPs no verán tus piezas ni precios.</p>
-                  <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-                    <input placeholder="Ej: 41001" value={nuevoCp} onChange={e => setNuevoCp(e.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={e => e.key === "Enter" && añadirExclusion("cp", nuevoCp)} style={{ flex: 1, background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "14px 18px", fontSize: 15, outline: "none" }} maxLength={5} />
-                    <button onClick={() => añadirExclusion("cp", nuevoCp)} disabled={nuevoCp.length < 4} style={{ background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "14px 24px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, opacity: nuevoCp.length < 4 ? 0.5 : 1 }}>+ Excluir CP</button>
-                  </div>
-                  {excCp.length === 0 ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>📮</p><p>No hay códigos postales excluidos</p></div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{excCp.map(exc => (<div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>CP {exc.valor}</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span></div><button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button></div>))}</div>}
-                </div>
-              )}
-              {tabExclusiones === "cliente" && (
-                <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 24, padding: 32 }}>
-                  <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>Excluir clientes concretos</h3>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Busca y excluye talleres específicos por email.</p>
-                  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-                    <input placeholder="Email o nombre del taller..." value={nuevoCliente} onChange={e => setNuevoCliente(e.target.value)} onKeyDown={e => e.key === "Enter" && añadirExclusion("cliente", nuevoCliente)} style={{ flex: 1, background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "14px 18px", fontSize: 15, outline: "none" }} />
-                    <button onClick={() => añadirExclusion("cliente", nuevoCliente)} disabled={!nuevoCliente.trim()} style={{ background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "14px 24px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, opacity: !nuevoCliente.trim() ? 0.5 : 1 }}>+ Excluir</button>
-                  </div>
-                  {clientes.length > 0 && nuevoCliente.length >= 2 && (
-                    <div style={{ background: "#020617", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-                      <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 8, fontWeight: 700 }}>TALLERES REGISTRADOS</p>
-                      {clientes.filter(c => (c.nombre_empresa || "").toLowerCase().includes(nuevoCliente.toLowerCase()) || (c.email || "").toLowerCase().includes(nuevoCliente.toLowerCase())).slice(0, 5).map(c => (
-                        <div key={c.id} onClick={() => setNuevoCliente(c.email)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 10, cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                          <div><p style={{ fontWeight: 700, fontSize: 14 }}>{c.nombre_empresa || "Sin nombre"}</p><p style={{ color: "#94a3b8", fontSize: 12 }}>{c.email}{c.codigo_postal ? ` · CP ${c.codigo_postal}` : ""}</p></div>
-                          <span style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700 }}>Seleccionar →</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {excClientes.length === 0 ? <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}><p style={{ fontSize: 40, marginBottom: 12 }}>👤</p><p>No hay clientes excluidos</p></div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{excClientes.map(exc => (<div key={exc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", borderRadius: 12, padding: "14px 18px", border: "1px solid rgba(255,255,255,0.06)" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 14 }}>👤 {exc.valor}</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Añadido {new Date(exc.created_at).toLocaleDateString("es-ES")}</span></div><button onClick={() => eliminarExclusion(exc.id)} style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🗑️ Eliminar</button></div>))}</div>}
-                </div>
-              )}
-            </div>
-          )}
-
-          {seccion === "cuenta" && (
-            <div>
-              {!isMobile && <div style={badgeStyle}>CONFIGURACIÓN</div>}
-              <h1 style={isMobile ? { fontSize: 28, fontWeight: 900, marginBottom: 16 } : titleStyle}>MI CUENTA</h1>
-              {!isMobile && <p style={descStyle}>Gestiona tu acceso a la plataforma.</p>}
-              {isMobile && (
-                <button onClick={async () => { await import("../../lib/supabase").then(m => m.supabase.auth.signOut()); router.push("/"); }} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Cerrar sesión</button>
-              )}
-              <div style={{ maxWidth: 600 }}>
-                {/* ALIAS COMERCIAL */}
-                <div style={{ ...formCard, border: "1px solid rgba(96,165,250,0.3)", marginBottom: 20, background: "linear-gradient(135deg, rgba(37,99,235,0.08), rgba(15,23,42,0.95))" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏷️</div>
-                    <div>
-                      <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>Alias comercial</h2>
-                      <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>Este nombre aparecerá cuando publiques stock</p>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 16 }}>
-                    <input type="text" placeholder={nombreEmpresa.toUpperCase()} value={aliasProveedor} onChange={e => setAliasProveedor(e.target.value.toUpperCase())} style={{ ...formInput, borderColor: aliasProveedor ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.1)", textTransform: "uppercase" as const, fontSize: 16, fontWeight: 700, letterSpacing: "0.03em" }} />
-                    {aliasProveedor ? (
-                      <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 8 }}>✓ Tu stock aparecerá como <strong>&quot;{aliasProveedor}&quot;</strong></p>
-                    ) : (
-                      <p style={{ color: "#64748b", fontSize: 12, marginTop: 8 }}>Si no pones alias, se usará tu nombre de empresa: {nombreEmpresa}</p>
-                    )}
-                  </div>
-                  <button onClick={async () => { if (!userId) return; await supabase.from("usuarios").update({ alias: aliasProveedor.trim().toUpperCase() || null }).eq("id", userId); alert("✅ Alias guardado correctamente"); }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px" }}>
-                    Guardar alias
-                  </button>
-                </div>
-                <div style={{ ...formCard, border: "1px solid rgba(245,158,11,0.3)", marginBottom: 20 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📍 Dirección de recogida</h2>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>La dirección donde la agencia pasará a recoger los envíos.</p>
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
-                    <div>
-                      <p style={formLabel}>Calle y número</p>
-                      <input type="text" placeholder="Ej: Calle Mayor 12, Local 3" value={direccion} onChange={e => setDireccion(e.target.value)} style={formInput} />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                      <div>
-                        <p style={formLabel}>Ciudad</p>
-                        <input type="text" placeholder="Ej: Madrid" value={ciudad} onChange={e => setCiudad(e.target.value)} style={formInput} />
-                      </div>
-                      <div>
-                        <p style={formLabel}>Código Postal</p>
-                        <input type="text" placeholder="Ej: 28001" value={codigoPostal} onChange={e => setCodigoPostal(e.target.value.replace(/\D/g, "").slice(0, 5))} style={formInput} maxLength={5} />
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={async () => {
-                    if (!userId) return;
-                    await supabase.from("usuarios").update({ direccion: direccion.trim() || null, ciudad: ciudad.trim() || null, codigo_postal: codigoPostal.trim() || null }).eq("id", userId);
-                    alert("✅ Dirección guardada correctamente");
-                  }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", background: "linear-gradient(135deg,#d97706,#b45309)" }}>
-                    Guardar dirección
-                  </button>
-                </div>
-                <div style={{ ...formCard, border: "1px solid rgba(22,163,74,0.3)", marginBottom: 20 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>🏦 Número de cuenta (IBAN)</h2>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Necesario para recibir los pagos de tus pedidos a los 7 días de la entrega.</p>
-                  <input type="text" placeholder="ES12 1234 5678 9012 3456 7890" value={iban} onChange={e => setIban(e.target.value.toUpperCase())} style={{ ...formInput, borderColor: iban ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.1)", fontFamily: "monospace" }} maxLength={34} />
-                  {iban && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ IBAN guardado</p>}
-                  <button onClick={async () => { if (!userId) return; await supabase.from("usuarios").update({ iban: iban.trim().replace(/\s/g, "").toUpperCase() || null }).eq("id", userId); alert("✅ IBAN guardado correctamente"); }} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
-                    Guardar IBAN
-                  </button>
-                </div>
-                <div style={{ ...formCard, border: "1px solid rgba(37,99,235,0.3)", marginBottom: 20 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>📧 Email para facturas</h2>
-                  <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>Si tu email de facturación es distinto al de acceso, indícalo aquí.</p>
-                  <input type="email" placeholder="contabilidad@tuempresa.com" value={emailFacturas} onChange={e => setEmailFacturas(e.target.value)} style={{ ...formInput, borderColor: emailFacturas ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.1)" }} />
-                  {emailFacturas && <p style={{ color: "#60a5fa", fontSize: 12, marginTop: 6 }}>✓ Las solicitudes de factura indicarán este email</p>}
-                  <button onClick={async () => { if (!userId) return; setGuardandoEmailFacturas(true); await supabase.from("usuarios").update({ email_facturas: emailFacturas.trim().toLowerCase() || null }).eq("id", userId); setGuardandoEmailFacturas(false); setEmailFacturasGuardado(true); setTimeout(() => setEmailFacturasGuardado(false), 3000); }} disabled={guardandoEmailFacturas} style={{ ...publishButton, marginTop: 16, fontSize: 14, padding: "12px 24px", opacity: guardandoEmailFacturas ? 0.7 : 1 }}>
-                    {guardandoEmailFacturas ? "Guardando..." : emailFacturasGuardado ? "✓ Guardado" : "Guardar email"}
-                  </button>
-                </div>
-                <div style={{ ...formCard, border: "1px solid rgba(139,92,246,0.3)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: mostrarCambioPass ? 28 : 0 }}>
-                    <div><h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>🔑 Cambiar contraseña</h2>{!mostrarCambioPass && <p style={{ color: "#94a3b8", fontSize: 14 }}>Cambia tu contraseña de acceso a la plataforma</p>}</div>
-                    <button onClick={() => { setMostrarCambioPass(!mostrarCambioPass); setMensajePass(null); setPasswordActual(""); setPasswordNueva(""); setPasswordNueva2(""); }} style={{ background: mostrarCambioPass ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)", border: "none", color: mostrarCambioPass ? "#94a3b8" : "#a78bfa", padding: "10px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" as const }}>{mostrarCambioPass ? "Cancelar" : "Cambiar"}</button>
-                  </div>
-                  {mostrarCambioPass && (
-                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
-                      <div><p style={formLabel}>Contraseña actual</p><input type="password" placeholder="Tu contraseña actual" value={passwordActual} onChange={e => setPasswordActual(e.target.value)} style={formInput} /></div>
-                      <div><p style={formLabel}>Nueva contraseña</p><input type="password" placeholder="Mínimo 6 caracteres" value={passwordNueva} onChange={e => setPasswordNueva(e.target.value)} style={{ ...formInput, borderColor: passwordNueva && passwordNueva.length < 6 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva && passwordNueva.length < 6 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mínimo 6 caracteres</p>}</div>
-                      <div><p style={formLabel}>Repetir nueva contraseña</p><input type="password" placeholder="Repite la nueva contraseña" value={passwordNueva2} onChange={e => setPasswordNueva2(e.target.value)} style={{ ...formInput, borderColor: passwordNueva2 && passwordNueva !== passwordNueva2 ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)" }} />{passwordNueva2 && passwordNueva === passwordNueva2 && passwordNueva.length >= 6 && <p style={{ color: "#4ade80", fontSize: 12, marginTop: 6 }}>✓ Coinciden</p>}{passwordNueva2 && passwordNueva !== passwordNueva2 && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Las contraseñas no coinciden</p>}</div>
-                      {mensajePass && <div style={{ background: mensajePass.tipo === "ok" ? "rgba(22,163,74,0.1)" : "rgba(239,68,68,0.1)", border: "1px solid " + (mensajePass.tipo === "ok" ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"), color: mensajePass.tipo === "ok" ? "#4ade80" : "#f87171", padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>{mensajePass.tipo === "ok" ? "✅ " : "⚠️ "}{mensajePass.texto}</div>}
-                      <button onClick={cambiarContrasena} disabled={cambiandoPass} style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: 15, cursor: cambiandoPass ? "not-allowed" : "pointer", opacity: cambiandoPass ? 0.7 : 1 }}>{cambiandoPass ? "Verificando..." : "Confirmar cambio de contraseña"}</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-        </section>
-      </div>
-
-      {/* BARRA NAVEGACIÓN INFERIOR MÓVIL */}
-      {isMobile && (
-        <div style={{ position: "fixed" as const, bottom: 0, left: 0, right: 0, background: "rgba(10,22,40,0.98)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", zIndex: 998, paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {[
-            { key: "dashboard",    label: "Inicio",   emoji: "📊" },
-            { key: "almacen",      label: "Almacén",  emoji: "📦" },
-            { key: "pedidos",      label: "Pedidos",  emoji: "🛒" },
-            { key: "catalogos",    label: "Catálogos", emoji: "📚" },
-            { key: "cuenta",       label: "Cuenta",   emoji: "👤" },
-          ].map(({ key, label, emoji }) => (
-            <button key={key} onClick={() => key === "catalogos" ? router.push("/dashboard/catalogos") : setSeccion(key as any)} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: seccion === key ? "#60a5fa" : "#475569", borderTop: seccion === key ? "2px solid #2563eb" : "2px solid transparent" }}>
-              <span style={{ fontSize: 20 }}>{emoji}</span>
-              <span style={{ fontSize: 10, fontWeight: seccion === key ? 800 : 600, marginTop: 2 }}>{label}</span>
-            </button>
-          ))}
-          <button onClick={() => router.push("/checkout")} style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "10px 4px", background: "none", border: "none", cursor: "pointer", color: "#475569", borderTop: "2px solid transparent", position: "relative" as const }}>
-            {totalCesta > 0 && <span style={{ position: "absolute" as const, top: 6, right: "18%", minWidth: 16, height: 16, borderRadius: 999, background: "#22c55e", color: "white", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #020617" }}>{totalCesta}</span>}
-            <span style={{ fontSize: 20 }}>🛒</span>
-            <span style={{ fontSize: 10, fontWeight: 600, marginTop: 2 }}>Cesta</span>
-          </button>
-        </div>
-      )}
-
-      {modalContacto && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setModalContacto(null)}>
-          <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>👤 Datos de contacto</h2>
-              <button onClick={() => setModalContacto(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
-            </div>
-            <div style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 12, padding: "6px 14px", marginBottom: 20, display: "inline-block" }}>
-              <span style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700 }}>Pedido {modalContacto.codigo || "#" + modalContacto.id}</span>
-            </div>
-            {!datosContacto ? (
-              <div style={{ textAlign: "center", padding: "30px 0", color: "#94a3b8" }}>Cargando datos...</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {[
-                  { label: "Empresa", value: datosContacto.nombre_empresa },
-                  { label: "CIF", value: datosContacto.cif },
-                  { label: "Email", value: datosContacto.email, href: `mailto:${datosContacto.email}` },
-                  { label: "Teléfono", value: datosContacto.telefono, href: `tel:${datosContacto.telefono}` },
-                  { label: "Dirección", value: datosContacto.direccion },
-                  { label: "Ciudad", value: datosContacto.ciudad },
-                  { label: "CP", value: datosContacto.codigo_postal },
-                ].filter(f => f.value).map(({ label, value, href }: any) => (
-                  <div key={label} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
-                    <span style={{ color: "#94a3b8", fontSize: 13, width: 80, flexShrink: 0 }}>{label}</span>
-                    {href ? (
-                      <a href={href} style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>{value}</a>
-                    ) : (
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{value}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={() => setModalContacto(null)} style={{ width: "100%", marginTop: 24, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cerrar</button>
           </div>
         </div>
-      )}
-      {modalAnular && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }}>
-            <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>❌ Anular pedido</h2>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Pedido <strong style={{ color: "white" }}>{modalAnular.codigo || `#${modalAnular.id}`}</strong> — Selecciona el motivo.</p>
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, marginBottom: 24 }}>
-              {["🚫 Referencia agotada en almacén","💶 Error en el precio publicado","🔧 Artículo dañado o en mal estado"].map(motivo => (
-                <button key={motivo} onClick={() => setMotivoSeleccionado(motivo)} style={{ padding: "14px 18px", borderRadius: 12, textAlign: "left" as const, fontWeight: 700, fontSize: 15, cursor: "pointer", background: motivoSeleccionado === motivo ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.05)", border: motivoSeleccionado === motivo ? "2px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.08)", color: motivoSeleccionado === motivo ? "#f87171" : "white" }}>{motivo}</button>
+        <LoginBox />
+      </section>
+
+      {/* ── PARA TALLERES Y PROVEEDORES ── */}
+      <section className="landing-section">
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>¿QUIÉN SOY?</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Recambios para talleres y proveedores</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Una plataforma diseñada para los dos lados del negocio</p>
+        </div>
+        <div className="landing-grid-2">
+          <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
+            <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Busca por matrícula, bastidor o aplicación y compra en 3 clics</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Introduce la matrícula o el VIN del vehículo y encuentra las piezas compatibles al instante. Compara precios de varios proveedores en la misma pantalla y haz el pedido sin llamadas ni esperas.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Búsqueda por matrícula o bastidor (VIN) del vehículo", "Búsqueda por aplicación: marca, modelo, versión y motor", "Catálogos completos de múltiples proveedores en un solo sitio", "Acceso a referencias OEM, IAM y Universal", "Compara precios de varios proveedores al instante", "Entrega 24h con las principales agencias de transporte", "RD Pago — compra ahora y paga en 15 días"].map(item => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </li>
               ))}
+            </ul>
+            <a href="/registro" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como taller →</a>
+          </div>
+          <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: 36 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
+            <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
+            <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "Precio fijo mensual — sin sorpresas"].map(item => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="/registro?tipo=proveedor" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como proveedor →</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CÓMO FUNCIONA ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PROCESO</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Cómo comprar recambios en 3 pasos</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Sin burocracia, sin esperas, sin complicaciones</p>
+        </div>
+        <div className="landing-grid-3">
+          {[
+            { num: "01", icon: "📝", title: "Crea tu cuenta", desc: "Rellena tus datos profesionales en menos de 3 minutos. Solo necesitas tu CIF y email de empresa.", color: "#2563eb" },
+            { num: "02", icon: "✅", title: "Verificación en 24h", desc: "Nuestro equipo valida tu perfil profesional y activa tu acceso. Recibirás un email de confirmación.", color: "#16a34a" },
+            { num: "03", icon: "🚀", title: "Opera desde el primer día", desc: "Busca piezas, sube tu catálogo o gestiona tus pedidos. Todo desde un panel diseñado para el sector.", color: "#7c3aed" },
+          ].map(({ num, icon, title, desc, color }) => (
+            <div key={num} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, position: "relative" as const }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, background: `${color}30`, border: `1px solid ${color}60`, marginBottom: 16 }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+              </div>
+              <div style={{ position: "absolute" as const, top: 32, right: 32, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.04)" }}>{num}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{title}</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>{desc}</p>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => setModalAnular(null)} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
-              <button onClick={confirmarAnulacion} disabled={!motivoSeleccionado} style={{ flex: 1, background: motivoSeleccionado ? "linear-gradient(135deg,#dc2626,#991b1b)" : "rgba(255,255,255,0.05)", border: "none", color: motivoSeleccionado ? "white" : "#94a3b8", padding: "14px", borderRadius: 12, cursor: motivoSeleccionado ? "pointer" : "not-allowed", fontWeight: 900, fontSize: 15 }}>Confirmar anulación</button>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FEATURES ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PLATAFORMA</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda por matrícula, bastidor y aplicación de vehículo incluida</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Diseñado específicamente para el sector del recambio de automoción en España</p>
+        </div>
+        <div className="landing-grid-2">
+          {[
+            { icon: "🔍", title: "Busca por matrícula, bastidor o aplicación de vehículo", desc: "Introduce la matrícula o el VIN y encuentra las piezas compatibles automáticamente. También puedes buscar por marca, modelo, versión y motor, o por referencia OEM e IAM. Precios en tiempo real de múltiples proveedores.", color: "#2563eb" },
+            { icon: "📦", title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
+            { icon: "🚚", title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { icon: "🔒", title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
+          ].map(({ icon, title, desc, color }) => (
+            <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{title}</h3>
+                <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── ZONAS ── */}
+      <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={badgeStyle}>COBERTURA NACIONAL</div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Proveedores de recambios en toda España</h2>
+          <p style={{ color: "#94a3b8", fontSize: 15, maxWidth: 600, margin: "0 auto" }}>Proveedores y talleres conectados en las principales ciudades y provincias españolas</p>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {[
+            { nombre: "Madrid", href: "/recambios-madrid" },
+            { nombre: "Barcelona", href: "/recambios-barcelona" },
+            { nombre: "Valencia", href: "/recambios-valencia" },
+            { nombre: "Sevilla", href: "/recambios-sevilla" },
+            { nombre: "Bilbao", href: "/recambios-vizcaya" },
+            { nombre: "Zaragoza", href: "/recambios-zaragoza" },
+            { nombre: "Málaga", href: "/recambios-malaga" },
+            { nombre: "Murcia", href: "/recambios-murcia" },
+            { nombre: "Baleares", href: "/recambios-baleares" },
+            { nombre: "Las Palmas", href: "/recambios-las-palmas" },
+            { nombre: "Alicante", href: "/recambios-alicante" },
+            { nombre: "Córdoba", href: "/recambios-cordoba" },
+            { nombre: "Valladolid", href: "/recambios-valladolid" },
+            { nombre: "Granada", href: "/recambios-granada" },
+            { nombre: "A Coruña", href: "/recambios-la-coruna" },
+            { nombre: "S.C. Tenerife", href: "/recambios-santa-cruz-de-tenerife" },
+            { nombre: "Asturias", href: "/recambios-asturias" },
+            { nombre: "Navarra", href: "/recambios-navarra" },
+            { nombre: "Cantabria", href: "/recambios-cantabria" },
+            { nombre: "Almería", href: "/recambios-almeria" },
+            { nombre: "Cádiz", href: "/recambios-cadiz" },
+            { nombre: "Huelva", href: "/recambios-huelva" },
+            { nombre: "Jaén", href: "/recambios-jaen" },
+            { nombre: "Toledo", href: "/recambios-toledo" },
+            { nombre: "Burgos", href: "/recambios-burgos" },
+            { nombre: "León", href: "/recambios-leon" },
+            { nombre: "Salamanca", href: "/recambios-salamanca" },
+            { nombre: "Castellón", href: "/recambios-castellon" },
+            { nombre: "Girona", href: "/recambios-girona" },
+            { nombre: "Lleida", href: "/recambios-lleida" },
+            { nombre: "Tarragona", href: "/recambios-tarragona" },
+            { nombre: "Badajoz", href: "/recambios-badajoz" },
+            { nombre: "Cáceres", href: "/recambios-caceres" },
+            { nombre: "Pontevedra", href: "/recambios-pontevedra" },
+            { nombre: "Lugo", href: "/recambios-lugo" },
+            { nombre: "Ourense", href: "/recambios-ourense" },
+            { nombre: "Guipúzcoa", href: "/recambios-guipuzcoa" },
+            { nombre: "Álava", href: "/recambios-alava" },
+            { nombre: "La Rioja", href: "/recambios-la-rioja" },
+            { nombre: "Huesca", href: "/recambios-huesca" },
+            { nombre: "Teruel", href: "/recambios-teruel" },
+            { nombre: "Cuenca", href: "/recambios-cuenca" },
+            { nombre: "Guadalajara", href: "/recambios-guadalajara" },
+            { nombre: "Ciudad Real", href: "/recambios-ciudad-real" },
+            { nombre: "Albacete", href: "/recambios-albacete" },
+            { nombre: "Segovia", href: "/recambios-segovia" },
+            { nombre: "Soria", href: "/recambios-soria" },
+            { nombre: "Palencia", href: "/recambios-palencia" },
+            { nombre: "Zamora", href: "/recambios-zamora" },
+          ].map(({ nombre, href }) => (
+            <a key={nombre} href={href} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{nombre}</a>
+          ))}
+        </div>
+      </section>
+
+      {/* ── AGENCIAS ── */}
+      <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="landing-agencias" style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, padding: "32px 48px", display: "flex", alignItems: "center", gap: 32 }}>
+          <div style={{ fontSize: 36, flexShrink: 0 }}>🚚</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con las principales agencias de transporte nacionales</h3>
+            <p style={{ color: "#94a3b8", fontSize: 15, margin: 0, lineHeight: 1.6 }}>Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España. Trabajamos con las agencias líderes del mercado para garantizar la mejor cobertura en cada envío.</p>
+          </div>
+          <div style={{ flexShrink: 0, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 12, padding: "12px 20px", textAlign: "center" as const }}>
+            <p style={{ color: "#60a5fa", fontWeight: 900, fontSize: 22, margin: 0 }}>24-48h</p>
+            <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Entrega en España</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>PREGUNTAS FRECUENTES</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Preguntas frecuentes sobre recambios B2B</h2>
+        </div>
+        <div className="landing-grid-2 landing-faq-grid" style={{ gap: 20, maxWidth: 1000, margin: "0 auto" }}>
+          {[
+            { q: "¿Cuánto cuesta Recambio Directo?", a: "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." },
+            { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
+            { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
+            { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
+            { q: "¿Puedo controlar quién ve mis precios?", a: "Sí. Los proveedores pueden excluir talleres concretos o códigos postales específicos para que no vean su catálogo ni sus precios." },
+            { q: "¿Cómo funciona RD Pago?", a: "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." },
+          ].map(({ q, a }) => (
+            <div key={q} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10, color: "#60a5fa" }}>{q}</h3>
+              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA FINAL ── */}
+      <section style={{ padding: "clamp(32px, 6vw, 80px)", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
+          <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
+          <h2 style={{ fontSize: 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>1 mes gratis.<br />Sin compromiso.</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17, marginBottom: 32, lineHeight: 1.7 }}>Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes.</p>
+          <div className="landing-cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
+            <a href="/registro" style={{ display: "inline-flex", alignItems: "center", padding: "18px 48px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: 14, fontSize: 17, fontWeight: 800, cursor: "pointer", textDecoration: "none", boxShadow: "0 10px 30px rgba(37,99,235,0.35)" }}>EMPEZAR GRATIS →</a>
+            <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>Hablar con el equipo</a>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 32, flexWrap: "wrap" as const }}>
+            {["Sin permanencia", "Precio fijo mensual", "Soporte incluido", "Alta en 24h"].map(g => (
+              <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>
+                <span style={{ color: "#94a3b8", fontSize: 13 }}>{g}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer style={{ padding: "clamp(32px, 6vw, 60px) clamp(20px, 6vw, 80px) 30px", position: "relative", zIndex: 10 }}>
+        <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div>
+            <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
+            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores de recambios en toda España.</p>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
+            <a href="/registro" style={footerLink}>Crear cuenta</a>
+            <a href="/quienes-somos" style={footerLink}>Quiénes somos</a>
+            <a href="/blog" style={footerLink}>Blog</a>
+            <a href="mailto:info@recambio-directo.com" style={footerLink}>Contacto</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Recambios por ciudad</h4>
+            <a href="/recambios-madrid" style={footerLink}>Recambios en Madrid</a>
+            <a href="/recambios-barcelona" style={footerLink}>Recambios en Barcelona</a>
+            <a href="/recambios-valencia" style={footerLink}>Recambios en Valencia</a>
+            <a href="/recambios-sevilla" style={footerLink}>Recambios en Sevilla</a>
+            <a href="/recambios-bilbao" style={footerLink}>Recambios en Bilbao</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Legal</h4>
+            <a href="/aviso-legal" style={footerLink}>Aviso legal</a>
+            <a href="/privacidad" style={footerLink}>Política de privacidad</a>
+            <a href="/terminos" style={footerLink}>Términos y condiciones</a>
+            <a href="/cookies" style={footerLink}>Política de cookies</a>
+            <a href="/devoluciones" style={footerLink}>Política de devoluciones</a>
+          </div>
+          <div>
+            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>
+            <p style={{ color: "#94a3b8", fontSize: 13 }}>info@recambio-directo.com</p>
+            <a href="tel:+34650495270" style={{ color: "#94a3b8", fontSize: 13, marginTop: 4, display: "block", textDecoration: "none" }}>650 49 52 70</a>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>España</p>
+            <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+              <a href="https://www.instagram.com/recambiodirect/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>📷</a>
+              <a href="https://www.linkedin.com/company/135907554" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>💼</a>
+              <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>● Online</span>
             </div>
           </div>
         </div>
-      )}
+        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
+          <p>© 2026 Recambio Directo · Marketplace B2B de Recambios de Automoción · España</p>
+        </div>
+      </footer>
     </main>
   );
 }
-
-const mainStyle = { display: "flex", flexDirection: "column" as const, minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" };
-const proveedorHeaderStyle = { height: 70, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 30px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.9)", backdropFilter: "blur(16px)", position: "sticky" as const, top: 0, zIndex: 999, flexShrink: 0 };
-const sidebarStyle = { width: "280px", background: "rgba(15,23,42,0.96)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "40px 30px", display: "flex", flexDirection: "column" as const };
-const logoStyle = { fontSize: "36px", fontWeight: 900, lineHeight: 1 };
-const logoSub = { color: "#94a3b8", marginTop: 8, fontSize: 14 };
-const empresaBadge = { width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, marginTop: 30 };
-const empresaNombreStyle = { fontWeight: 800, marginTop: 12, fontSize: 15 };
-const horarioBadge = { marginTop: 12, background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#60a5fa", fontWeight: 700 };
-const menuItem = { padding: "14px 18px", borderRadius: 14, marginBottom: 10, background: "rgba(255,255,255,0.03)", cursor: "pointer", fontWeight: 600, fontSize: 15 };
-const menuItemActive = { ...menuItem, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", boxShadow: "0 8px 25px rgba(37,99,235,0.3)" };
-const contentStyle = { flex: 1, padding: 50, overflowY: "auto" as const };
-const badgeStyle = { display: "inline-block", background: "rgba(37,99,235,0.18)", color: "#60a5fa", padding: "10px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 18 };
-const titleStyle = { fontSize: "60px", fontWeight: 900, lineHeight: 1, marginBottom: 16 };
-const descStyle = { color: "#94a3b8", fontSize: 18, marginBottom: 40 };
-const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 24, marginBottom: 40 };
-const kpiCard = { background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 26, padding: 28 };
-const kpiLabel = { color: "#94a3b8", marginBottom: 12, fontSize: 13, fontWeight: 700 };
-const kpiNumber = { fontSize: "44px", fontWeight: 900 };
-const quickGrid = { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 };
-const quickCard = { background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 26, padding: 30, cursor: "pointer" };
-const quickIcon = { fontSize: 36, marginBottom: 16 };
-const quickTitle = { fontSize: 22, fontWeight: 900, marginBottom: 8 };
-const quickDesc = { color: "#94a3b8", fontSize: 15 };
-const addButton = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "16px 28px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 15 };
-const importButton = { background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "16px 28px", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontSize: 15 };
-const tableContainer = { background: "rgba(15,23,42,0.95)", borderRadius: 24, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" };
-const tableStyle = { width: "100%", borderCollapse: "collapse" as const };
-const thStyle = { padding: "14px 16px", textAlign: "left" as const, color: "#94a3b8", fontSize: 12, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)", whiteSpace: "nowrap" as const };
-const trStyle = { borderBottom: "1px solid rgba(255,255,255,0.04)" };
-const tdStyle = { padding: "14px 16px", fontSize: 14, verticalAlign: "middle" as const };
-const stockBadge = { background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 13 };
-const miniInput = { background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "6px 10px", width: 80, fontSize: 14, outline: "none" };
-const btnEditar = { background: "rgba(37,99,235,0.2)", color: "#60a5fa", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, marginRight: 8 };
-const btnGuardar = { background: "rgba(22,163,74,0.2)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, marginRight: 8 };
-const btnEliminar = { background: "rgba(239,68,68,0.15)", color: "#f87171", border: "none", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 13 };
-const btnAccion = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "white", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const };
-const emptyState = { textAlign: "center" as const, padding: "80px 0", color: "#94a3b8" };
-const tabsContainer = { display: "flex", gap: 0, marginBottom: 24, background: "rgba(15,23,42,0.95)", borderRadius: 16, padding: 6, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" };
-const tabActive = { padding: "12px 28px", borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", fontWeight: 800, cursor: "pointer", fontSize: 15 };
-const tabInactive = { padding: "12px 28px", borderRadius: 12, background: "transparent", border: "none", color: "#94a3b8", fontWeight: 700, cursor: "pointer", fontSize: 15 };
-const searchRow = { marginBottom: 20 };
-const searchInput = { background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px 18px", color: "white", fontSize: 14, outline: "none", width: "400px", boxSizing: "border-box" as const };
-const expandedRow = { background: "rgba(37,99,235,0.05)", borderLeft: "3px solid #2563eb", padding: "20px 24px" };
-const chatBox = { background: "#020617", borderRadius: 14, padding: 16, maxHeight: 200, overflowY: "auto" as const, marginBottom: 12 };
-const btnSubirFactura = { display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#a78bfa", padding: "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 };
-const btnAnular = { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 13 };
-const formCard = { background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 30, padding: 40, maxWidth: 800 };
-const formGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 };
-const formLabel = { color: "#94a3b8", fontSize: 14, marginBottom: 10 };
-const formInput = { width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "16px 18px", fontSize: 15, outline: "none", boxSizing: "border-box" as const };
-const publishButton = { background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "18px 32px", borderRadius: 16, fontWeight: 900, cursor: "pointer", fontSize: 16 };
-const cancelButton = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "18px 28px", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15 };
-const successBanner = { background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "16px 24px", borderRadius: 16, marginBottom: 24, fontWeight: 700 };
-const provinciaInfo = { background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "14px 20px", borderRadius: 14, marginBottom: 24, fontSize: 14 };
-const provinciaAviso = { background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", padding: "14px 20px", borderRadius: 14, marginBottom: 24, fontSize: 14 };
-const diasGrid = { display: "flex", flexWrap: "wrap" as const, gap: 10, marginBottom: 8 };
-const diaBtnBase = { padding: "10px 18px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 14 };
-const horarioPreview = { background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 16, padding: "20px 24px", marginTop: 24 };
-const btnPagina = { background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60a5fa", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 14 };
-const btnAbrirChat = { background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "10px 20px", borderRadius: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 };
