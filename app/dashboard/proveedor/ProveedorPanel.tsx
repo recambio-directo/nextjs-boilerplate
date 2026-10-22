@@ -543,7 +543,6 @@ export default function ProveedorDashboard() {
                               <p style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>🚛 AGENCIA DE TRANSPORTE</p>
                               <p style={{ color: "white", fontSize: 14, fontWeight: 700, margin: 0 }}>{agencia.toUpperCase()}</p>
                               {p.peso_kg && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>Peso: {p.peso_kg} kg {p.tramo_peso ? `(${p.tramo_peso})` : ""}</p>}
-                              {p.coste_transporte != null && Number(p.coste_transporte) > 0 && <p style={{ color: "#94a3b8", fontSize: 11, margin: "2px 0 0" }}>Coste: {Number(p.coste_transporte).toFixed(2)}€</p>}
                             </div>
                           )}
                         </div>
