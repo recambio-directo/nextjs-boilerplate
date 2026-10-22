@@ -131,6 +131,7 @@ export default function ProveedorPage() {
   const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreEmpresa, setNombreEmpresa] = useState("Proveedor");
+  const [aliasProveedor, setAliasProveedor] = useState("");
   const [provinciaPerfil, setProvinciaPerfil] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [busquedaPedido, setBusquedaPedido] = useState("");
@@ -298,8 +299,9 @@ export default function ProveedorPage() {
     setUserId(currentUserId);
     if (user.email) setEmailPerfil(user.email);
     await supabase.from("usuarios").update({ ultimo_acceso: new Date().toISOString() }).eq("id", currentUserId);
-    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban, direccion, ciudad, codigo_postal").eq("id", currentUserId).single();
+    const { data: perfil } = await supabase.from("usuarios").select("nombre_empresa, provincia, horario_apertura, horario_cierre, dias_apertura, email_facturas, iban, direccion, ciudad, codigo_postal, alias").eq("id", currentUserId).single();
     if (perfil?.nombre_empresa) setNombreEmpresa(perfil.nombre_empresa);
+    if (perfil?.alias) setAliasProveedor(perfil.alias);
     if (perfil?.provincia) setProvinciaPerfil(perfil.provincia);
     if (perfil?.horario_apertura) setHorarioApertura(perfil.horario_apertura);
     if (perfil?.horario_cierre) setHorarioCierre(perfil.horario_cierre);
@@ -526,7 +528,7 @@ export default function ProveedorPage() {
       fotoUrl = urlData.publicUrl;
       setSubiendoFoto(false);
     }
-    const { error } = await supabase.from("piezas_publicadas").insert({ proveedor_id: user.id, proveedor_nombre: nombreEmpresa, referencia: formReferencia.toUpperCase().trim(), descripcion: formDescripcion.toUpperCase().trim(), precio: parseFloat(formPrecio), stock: parseInt(formStock), marca: formMarca.toUpperCase().trim(), provincia: provinciaPerfil || null, tipo: formTipo, foto_url: fotoUrl, origen: "manual" });
+    const { error } = await supabase.from("piezas_publicadas").insert({ proveedor_id: user.id, proveedor_nombre: aliasProveedor || nombreEmpresa, referencia: formReferencia.toUpperCase().trim(), descripcion: formDescripcion.toUpperCase().trim(), precio: parseFloat(formPrecio), stock: parseInt(formStock), marca: formMarca.toUpperCase().trim(), provincia: provinciaPerfil || null, tipo: formTipo, foto_url: fotoUrl, origen: "manual" });
     setGuardandoPieza(false);
     if (error) { alert("Error al publicar: " + error.message); return; }
     setFormReferencia(""); setFormDescripcion(""); setFormPrecio(""); setFormStock(""); setFormMarca(""); setFormTipo("OEM"); setFormFoto(null); setFormFotoPreview(null);

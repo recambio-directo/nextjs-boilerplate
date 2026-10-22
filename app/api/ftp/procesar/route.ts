@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
   try {
     let query = supabase.from("usuarios")
-      .select("id, nombre_empresa, provincia, tipo_referencias_ftp")
+      .select("id, nombre_empresa, provincia, tipo_referencias_ftp, alias")
       .eq("ftp_activo", true)
       .eq("tipo", "proveedor");
 
@@ -152,7 +152,7 @@ export async function GET(request: Request) {
 
           // Para Elektra: obtener almacen_id y nombre de sucursal
           let almacenId: string | null = null;
-          let proveedorNombre = proveedor.nombre_empresa;
+          let proveedorNombre = proveedor.alias || proveedor.nombre_empresa;
 
           if (esElektra) {
             const almacenCodigo = String(fila.almacen_codigo || "").trim();
