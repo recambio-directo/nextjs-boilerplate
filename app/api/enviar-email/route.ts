@@ -89,41 +89,85 @@ export async function POST(request: Request) {
       etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
     }
 
-    async function urlToBase64(url: string): Promise<string | null> {
+    // Descargar PDF desde Supabase Storage por path directo (más fiable que parsear URL)
+    async function downloadFromStorage(storagePath: string): Promise<string | null> {
       try {
-        // Intentar descargar vía Supabase Storage (más fiable que fetch a URL pública)
-        const bucketName = "FACTURAS";
-        const match = url.match(/\/storage\/v1\/object\/public\/FACTURAS\/(.+)$/);
-        if (match) {
-          const filePath = decodeURIComponent(match[1]);
-          const { data, error } = await supabase.storage.from(bucketName).download(filePath);
-          if (data && !error) {
-            const buffer = await data.arrayBuffer();
-            return Buffer.from(buffer).toString("base64");
-          }
-          console.error("Supabase Storage download error:", error?.message, "path:", filePath);
-        }
-        // Fallback: fetch directo a la URL
-        const res = await fetch(url);
-        if (!res.ok) {
-          console.error("urlToBase64 fetch failed:", res.status, res.statusText, "url:", url);
+        console.log("[adjuntos] Descargando desde Storage:", storagePath);
+        const { data, error } = await supabase.storage.from("FACTURAS").download(storagePath);
+        if (error || !data) {
+          console.error("[adjuntos] Storage download error:", error?.message, "path:", storagePath);
           return null;
         }
-        const buffer = await res.arrayBuffer();
+        const buffer = await data.arrayBuffer();
         if (buffer.byteLength === 0) {
-          console.error("urlToBase64: archivo vacío", url);
+          console.error("[adjuntos] Archivo vacío en Storage:", storagePath);
           return null;
         }
+        console.log("[adjuntos] OK - descargado", storagePath, "bytes:", buffer.byteLength);
         return Buffer.from(buffer).toString("base64");
       } catch (err) {
-        console.error("urlToBase64 error:", err, "url:", url);
+        console.error("[adjuntos] Error descargando:", storagePath, err);
         return null;
       }
     }
 
-    const albaranBase64  = albaranUrl  ? await urlToBase64(albaranUrl)  : null;
-    const albaranProvBase64 = albaranProveedorUrl ? await urlToBase64(albaranProveedorUrl) : null;
-    const etiquetaBase64 = etiquetaUrl ? await urlToBase64(etiquetaUrl) : null;
+    // Fallback: intentar parsear URL y descargar
+    async function urlToBase64(url: string): Promise<string | null> {
+      try {
+        const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+?)(?:\?.*)?$/i);
+        if (match) {
+          const filePath = decodeURIComponent(match[1]);
+          console.log("[adjuntos] Extraído path de URL:", filePath);
+          const result = await downloadFromStorage(filePath);
+          if (result) return result;
+        }
+        console.log("[adjuntos] Fallback fetch directo:", url);
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.error("[adjuntos] Fetch failed:", res.status, url);
+          return null;
+        }
+        const buffer = await res.arrayBuffer();
+        if (buffer.byteLength === 0) {
+          console.error("[adjuntos] Fetch vacío:", url);
+          return null;
+        }
+        return Buffer.from(buffer).toString("base64");
+      } catch (err) {
+        console.error("[adjuntos] urlToBase64 error:", err, url);
+        return null;
+      }
+    }
+
+    // Descargar adjuntos - primero por path directo, luego por URL
+    const albaranStoragePath = `documentos/${codigo}/albaran-${codigo}.pdf`;
+    const albaranProvStoragePath = `documentos/${codigo}/albaran-proveedor-${codigo}.pdf`;
+
+    let albaranBase64: string | null = null;
+    let albaranProvBase64: string | null = null;
+    let etiquetaBase64: string | null = null;
+
+    if (albaranUrl) {
+      albaranBase64 = await downloadFromStorage(albaranStoragePath);
+      if (!albaranBase64) albaranBase64 = await urlToBase64(albaranUrl);
+    }
+    if (albaranProveedorUrl) {
+      albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
+      if (!albaranProvBase64) albaranProvBase64 = await urlToBase64(albaranProveedorUrl);
+    }
+    if (etiquetaUrl) {
+      etiquetaBase64 = await urlToBase64(etiquetaUrl);
+    }
+
+    console.log("[adjuntos] Resultado:", {
+      codigo,
+      albaranBase64: albaranBase64 ? `OK (${albaranBase64.length} chars)` : "NULL",
+      albaranProvBase64: albaranProvBase64 ? `OK (${albaranProvBase64.length} chars)` : "NULL",
+      etiquetaBase64: etiquetaBase64 ? `OK (${etiquetaBase64.length} chars)` : "NULL",
+      albaranUrl: albaranUrl || "sin URL",
+      albaranProveedorUrl: albaranProveedorUrl || "sin URL",
+      etiquetaUrl: etiquetaUrl || "sin URL",
+    });
 
     const fechaFormateada = fecha
       ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
