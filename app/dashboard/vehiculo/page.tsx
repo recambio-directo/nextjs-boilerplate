@@ -275,6 +275,13 @@ export default function VehiculoPage() {
   const [errorPiezas, setErrorPiezas] = useState<string | null>(null);
   const [cestaMensaje, setCestaMensaje] = useState<string | null>(null);
   const [abriendo, setAbriendo] = useState(false);
+  const [fotoVisor, setFotoVisor] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setFotoVisor(null); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     const checkAcceso = async () => {
@@ -484,6 +491,16 @@ export default function VehiculoPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#020617", padding: "24px" }}>
+
+      {fotoVisor && (
+        <div onClick={() => setFotoVisor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}>
+            <img src={fotoVisor} alt="Foto pieza" style={{ maxWidth: "90vw", maxHeight: "85vh", objectFit: "contain", borderRadius: 16 }} />
+            <button onClick={() => setFotoVisor(null)} style={{ position: "absolute", top: -16, right: -16, width: 36, height: 36, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "white", fontSize: 18, fontWeight: 900, cursor: "pointer" }}>✕</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
 
         {/* Catálogo de vehículos — incluido en la suscripción */}
@@ -960,6 +977,7 @@ export default function VehiculoPage() {
                                     src={art.imagen}
                                     alt={art.referencia}
                                     style={{ width: "56px", height: "56px", objectFit: "contain", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px", cursor: "pointer", flexShrink: 0 }}
+                                    onClick={() => setFotoVisor(art.imagen)}
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                                   />
                                 )}
