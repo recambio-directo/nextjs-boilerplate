@@ -75,10 +75,17 @@ function ChatPageInner() {
   const [pedidoInfo, setPedidoInfo] = useState<any>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [vistaMovil, setVistaMovil] = useState<"lista" | "chat">("lista");
+  const [fotoVisor, setFotoVisor] = useState<{ url: string; nombre: string } | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userIdRef = useRef<string | null>(null);
   const chatActivoRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setFotoVisor(null); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -263,8 +270,19 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
 
 
   /* ── MÓVIL: vista tipo WhatsApp ── */
+  const modalVisor = fotoVisor && (
+    <div onClick={() => setFotoVisor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, cursor: "zoom-out" }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "80vh" }}>
+        <img src={fotoVisor.url} alt={fotoVisor.nombre} style={{ maxWidth: "90vw", maxHeight: "75vh", objectFit: "contain", borderRadius: 16 }} />
+        <button onClick={() => setFotoVisor(null)} style={{ position: "absolute", top: -16, right: -16, width: 36, height: 36, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "white", fontSize: 18, fontWeight: 900, cursor: "pointer" }}>✕</button>
+      </div>
+      <a href={fotoVisor.url} download={fotoVisor.nombre} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2563eb", color: "white", padding: "10px 24px", borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: "none", cursor: "pointer" }}>⬇ Descargar imagen</a>
+    </div>
+  );
+
   if (isMobile) return (
     <div style={{ height: "100dvh", background: "#020b2d", color: "white", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {modalVisor}
       {vistaMovil === "lista" ? (
         /* Lista conversaciones móvil */
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -335,7 +353,7 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
                 {!esPropio && !mismoEmisor && <p style={{ color: "#60a5fa", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{convActiva?.participante_nombre}</p>}
                 {msg.adjunto_url && (
                   <div style={{ marginBottom: 8 }}>
-                    {esImagen(msg.adjunto_tipo) ? <img src={msg.adjunto_url} alt={msg.adjunto_nombre} style={{ maxWidth: isMobile ? 200 : 280, maxHeight: 180, borderRadius: 8, display: "block" }} /> : <a href={msg.adjunto_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.1)", padding: "8px 12px", borderRadius: 8, textDecoration: "none", color: "white" }}><span style={{ fontSize: 18 }}>📄</span><span style={{ fontSize: 13, fontWeight: 700 }}>{msg.adjunto_nombre}</span></a>}
+                    {esImagen(msg.adjunto_tipo) ? <img src={msg.adjunto_url} alt={msg.adjunto_nombre} onClick={() => setFotoVisor({ url: msg.adjunto_url!, nombre: msg.adjunto_nombre || "imagen" })} style={{ maxWidth: isMobile ? 200 : 280, maxHeight: 180, borderRadius: 8, display: "block", cursor: "pointer" }} /> : <a href={msg.adjunto_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.1)", padding: "8px 12px", borderRadius: 8, textDecoration: "none", color: "white" }}><span style={{ fontSize: 18 }}>📄</span><span style={{ fontSize: 13, fontWeight: 700 }}>{msg.adjunto_nombre}</span></a>}
                   </div>
                 )}
                 {(!msg.adjunto_url || msg.mensaje !== `📎 ${msg.adjunto_nombre}`) && <p style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.5, margin: 0 }}>{msg.mensaje}</p>}
@@ -384,6 +402,7 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
   /* ── DESKTOP ── */
   return (
     <div style={{ height: "100vh", background: "#020b2d", color: "white", overflow: "hidden", display: "flex" }}>
+      {modalVisor}
       {/* SIDEBAR */}
       <aside style={{ width: 360, background: "#0a1628", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -463,7 +482,7 @@ localStorage.removeItem(`rd_notif_last_${uid}`);
                 {!esPropio && !mismoEmisor && <p style={{ color: "#60a5fa", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{convActiva?.participante_nombre}</p>}
                 {msg.adjunto_url && (
                   <div style={{ marginBottom: 8 }}>
-                    {esImagen(msg.adjunto_tipo) ? <img src={msg.adjunto_url} alt={msg.adjunto_nombre} style={{ maxWidth: isMobile ? 200 : 280, maxHeight: 180, borderRadius: 8, display: "block" }} /> : <a href={msg.adjunto_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.1)", padding: "8px 12px", borderRadius: 8, textDecoration: "none", color: "white" }}><span style={{ fontSize: 18 }}>📄</span><span style={{ fontSize: 13, fontWeight: 700 }}>{msg.adjunto_nombre}</span></a>}
+                    {esImagen(msg.adjunto_tipo) ? <img src={msg.adjunto_url} alt={msg.adjunto_nombre} onClick={() => setFotoVisor({ url: msg.adjunto_url!, nombre: msg.adjunto_nombre || "imagen" })} style={{ maxWidth: isMobile ? 200 : 280, maxHeight: 180, borderRadius: 8, display: "block", cursor: "pointer" }} /> : <a href={msg.adjunto_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.1)", padding: "8px 12px", borderRadius: 8, textDecoration: "none", color: "white" }}><span style={{ fontSize: 18 }}>📄</span><span style={{ fontSize: 13, fontWeight: 700 }}>{msg.adjunto_nombre}</span></a>}
                   </div>
                 )}
                 {(!msg.adjunto_url || msg.mensaje !== `📎 ${msg.adjunto_nombre}`) && <p style={{ fontSize: isMobile ? 14 : 15, lineHeight: 1.5, margin: 0 }}>{msg.mensaje}</p>}
