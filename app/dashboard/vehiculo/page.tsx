@@ -955,7 +955,15 @@ export default function VehiculoPage() {
                                 borderBottom: "1px solid rgba(255,255,255,0.06)",
                                 display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
                               }}>
-                                {art.imagen_logo && (
+                                {art.imagen && (
+                                  <img
+                                    src={art.imagen}
+                                    alt={art.referencia}
+                                    style={{ width: "56px", height: "56px", objectFit: "contain", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px", cursor: "pointer", flexShrink: 0 }}
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                  />
+                                )}
+                                {art.imagen_logo && !art.imagen && (
                                   <img
                                     src={art.imagen_logo}
                                     alt={art.marca}
