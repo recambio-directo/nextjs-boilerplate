@@ -202,6 +202,12 @@ function BuscarPageInner() {
     return                        { bg: "rgba(37,99,235,0.2)",   color: "#60a5fa" };
   }
 
+  function getFirstImage(oferta: Oferta): string | null {
+    if (oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0) return oferta.imagenes_tecdoc[0];
+    if (oferta.foto_url) return oferta.foto_url;
+    return null;
+  }
+
   function renderOfertaMobile(oferta: Oferta) {
     const descripcion = oferta.descripcion || oferta.descripcion_iam || oferta.nombre || "-";
     const proveedor = (oferta.proveedor_nombre || oferta.proveedor || "-").toUpperCase();
@@ -210,19 +216,27 @@ function BuscarPageInner() {
     const badge = getTipoBadge(oferta.tipo);
     const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
     const expandida = imagenesExpandidas.has(oferta.id);
+    const primeraImg = getFirstImage(oferta);
     return (
       <div key={oferta.id} style={{ background: "rgba(15,23,42,0.97)", borderRadius: 12, padding: 12, border: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-          <div>
-            <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 3 }}>{oferta.referencia}</p>
-            <span style={{ background: badge.bg, color: badge.color, padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
-            {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 18, fontWeight: 900, color: "#22c55e", lineHeight: 1 }}>{Number(oferta.precio).toFixed(2)}€</p>
-            {oferta.impuesto && Number(oferta.impuesto) > 0 && (
-              <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</p>
-            )}
+        <div style={{ display: "flex", gap: 10, marginBottom: 6 }}>
+          {primeraImg && (
+            <img src={primeraImg} alt={oferta.referencia} onClick={() => setFotoVisor(primeraImg)} style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "zoom-in", padding: 3, flexShrink: 0 }} />
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 3 }}>{oferta.referencia}</p>
+                <span style={{ background: badge.bg, color: badge.color, padding: "2px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
+                {oferta.marca_iam && <span style={{ marginLeft: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{oferta.marca_iam}</span>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ fontSize: 18, fontWeight: 900, color: "#22c55e", lineHeight: 1 }}>{Number(oferta.precio).toFixed(2)}€</p>
+                {oferta.impuesto && Number(oferta.impuesto) > 0 && (
+                  <p style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>+{Number(oferta.impuesto).toFixed(2)}€</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         <p style={{ fontSize: 12, color: "#cbd5e1", marginBottom: 6 }}>{descripcion}{oferta.marca ? ` · ${oferta.marca}` : ""}</p>
@@ -231,9 +245,9 @@ function BuscarPageInner() {
           {(oferta.poblacion || oferta.provincia) && <span style={{ color: "#94a3b8" }}>📍 {[oferta.poblacion, oferta.provincia].filter(Boolean).join(", ").toUpperCase()}</span>}
           <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 6px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
         </div>
-        {tieneImagenes && (
+        {tieneImagenes && oferta.imagenes_tecdoc!.length > 1 && (
           <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 12, padding: "4px 0", textDecoration: "underline", marginBottom: 6 }}>
-            {expandida ? "Ocultar imágenes" : "📷 Mostrar imágenes"}
+            {expandida ? "Ocultar imágenes" : `📷 Ver ${oferta.imagenes_tecdoc!.length} fotos`}
           </button>
         )}
         {expandida && tieneImagenes && (
@@ -267,9 +281,17 @@ function BuscarPageInner() {
     const badge = getTipoBadge(oferta.tipo);
     const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
     const expandida = imagenesExpandidas.has(oferta.id);
+    const primeraImg = getFirstImage(oferta);
     return (
       <div key={oferta.id}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {primeraImg ? (
+              <img src={primeraImg} alt={oferta.referencia} onClick={() => setFotoVisor(primeraImg)} style={{ width: 50, height: 50, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "zoom-in", padding: 2 }} />
+            ) : (
+              <div style={{ width: 50, height: 50, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", color: "#334155", fontSize: 18 }}>📷</div>
+            )}
+          </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{oferta.referencia}</div>
             <span style={{ background: badge.bg, color: badge.color, padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{tipoUp || "OEM"}</span>
@@ -278,9 +300,9 @@ function BuscarPageInner() {
           <div>
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 1, color: "#e2e8f0" }}>{descripcion}</div>
             {oferta.marca && <div style={{ color: "#64748b", fontSize: 11 }}>{oferta.marca}</div>}
-            {tieneImagenes && (
+            {tieneImagenes && oferta.imagenes_tecdoc!.length > 1 && (
               <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 11, padding: "2px 0", textDecoration: "underline" }}>
-                {expandida ? "Ocultar imágenes" : "Mostrar imágenes"}
+                {expandida ? "Ocultar" : `+${oferta.imagenes_tecdoc!.length - 1} fotos`}
               </button>
             )}
           </div>
@@ -369,8 +391,8 @@ function BuscarPageInner() {
           }
           return (
             <div style={{ width: "100%", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(15,23,42,0.95)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#64748b", fontSize: 11 }}>
-                {["REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
+              <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 2fr 2fr 0.7fr 0.8fr 0.9fr 1.2fr", gap: 12, padding: "10px 16px", background: "rgba(255,255,255,0.04)", fontWeight: 800, color: "#64748b", fontSize: 11 }}>
+                {["FOTO","REFERENCIA","DESCRIPCIÓN","PROVEEDOR","STOCK","PROVINCIA","PRECIO","ACCIÓN"].map(h => <div key={h}>{h}</div>)}
               </div>
               {lista.map(renderOfertaDesktopRow)}
             </div>
