@@ -52,10 +52,10 @@ export default function Home() {
               </div>
             ))}
           </div>
+          <div style={{ marginTop: 32 }}>
+            <HomeBuscador />
+          </div>
         </div>
-
-          <HomeBuscador />
-
         <LoginBox />
       </section>
 
