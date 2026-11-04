@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import React from "react";
-import LoginBox from "../../components/LoginBox";
+import LoginBox from "./components/LoginBox";
+import HomeBuscador from "./components/HomeBuscador";
 
 export const metadata: Metadata = {
   title: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
