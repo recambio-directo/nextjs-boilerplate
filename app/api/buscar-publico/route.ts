@@ -27,6 +27,52 @@ export async function GET(request: NextRequest) {
       .limit(200);
 
     if (!piezas || piezas.length === 0) {
+      // Sin resultados exactos → mostrar referencias populares como sugerencia
+      const { data: populares } = await supabase
+        .from("piezas_publicadas")
+        .select("referencia, marca, descripcion, proveedor_id, tipo")
+        .limit(200);
+
+      if (populares && populares.length > 0) {
+        const gruposPop = new Map<string, {
+          referencia: string;
+          marca: string;
+          descripcion: string;
+          tipo: string;
+          proveedores: Set<string>;
+        }>();
+        for (const p of populares) {
+          const key = `${normalizar(p.referencia)}|${(p.marca || "").toUpperCase()}`;
+          if (!gruposPop.has(key)) {
+            gruposPop.set(key, {
+              referencia: p.referencia,
+              marca: p.marca || "",
+              descripcion: p.descripcion || "",
+              tipo: p.tipo || "IAM",
+              proveedores: new Set(),
+            });
+          }
+          gruposPop.get(key)!.proveedores.add(p.proveedor_id);
+        }
+        const sugerencias = Array.from(gruposPop.values())
+          .map((g) => ({
+            referencia: g.referencia,
+            marca: g.marca,
+            descripcion: g.descripcion,
+            tipo: g.tipo,
+            num_proveedores: g.proveedores.size,
+          }))
+          .sort((a, b) => b.num_proveedores - a.num_proveedores)
+          .slice(0, 10);
+
+        return NextResponse.json({
+          resultados: sugerencias,
+          total: sugerencias.length,
+          mensaje: `No encontramos "${q}" exactamente, pero mira estas referencias disponibles. Regístrate para búsqueda avanzada por matrícula y bastidor.`,
+          es_sugerencia: true,
+        });
+      }
+
       return NextResponse.json({
         resultados: [],
         mensaje: "No se encontraron resultados. Regístrate para acceder a búsqueda avanzada por matrícula y bastidor.",
