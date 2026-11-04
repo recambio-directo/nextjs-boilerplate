@@ -35,7 +35,7 @@ export async function validarApiKey(
 
   const { data: keyData } = await supabase
     .from("api_keys_proveedores")
-    .select("id, proveedor_id")
+    .select("id, proveedor_id, total_peticiones")
     .eq("api_key_hash", hash)
     .eq("activa", true)
     .maybeSingle();
@@ -54,9 +54,7 @@ export async function validarApiKey(
     .from("api_keys_proveedores")
     .update({
       ultimo_uso: new Date().toISOString(),
-      total_peticiones: keyData.total_peticiones
-        ? keyData.total_peticiones + 1
-        : 1,
+      total_peticiones: (keyData.total_peticiones || 0) + 1,
     })
     .eq("id", keyData.id)
     .then(() => {});
