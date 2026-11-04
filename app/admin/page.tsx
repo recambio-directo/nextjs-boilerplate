@@ -15,10 +15,11 @@ import SeccionFTP from "./SeccionFTP";
 import SeccionChats from "./SeccionChats";
 import SeccionDevoluciones from "./SeccionDevoluciones";
 import SeccionSistema from "./SeccionSistema";
+import SeccionAPI from "./SeccionAPI";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"chats"|"devoluciones"|"sistema">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"api"|"chats"|"devoluciones"|"sistema">("dashboard");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [pagosProveedores, setPagosProveedores] = useState<PagoProveedor[]>([]);
@@ -168,6 +169,7 @@ export default function AdminPage() {
             { key: "financiero",  label: `🏦 Financiero${proximosACobrar.length > 0 ? " 🔴" : ""}` },
             { key: "pedidos",     label: "📦 Pedidos" },
             { key: "ftp",         label: "🔄 FTP Sync" },
+            { key: "api",         label: "🔑 API Stock" },
             { key: "chats",       label: "💬 Chats" },
             { key: "devoluciones", label: "🔄 Devoluciones" },
             { key: "sistema",      label: "⚙️ Sistema" },
@@ -188,6 +190,7 @@ export default function AdminPage() {
         {seccion === "financiero"  && <SeccionFinanciero usuarios={usuarios} pagosProveedores={pagosProveedores} cambiarSuscripcion={cambiarSuscripcion} setUsuarios={setUsuarios} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} marcarPagado={marcarPagado} generarRemesaPagos={generarRemesaPagos} pedidos={pedidos} />}
         {seccion === "pedidos"     && <SeccionPedidos pedidos={pedidos} cargarDatos={cargarDatos} crearPagoProveedorSiNoExiste={crearPagoProveedorSiNoExiste} />}
         {seccion === "ftp"         && <SeccionFTP usuarios={usuarios} ftpProveedorId={ftpProveedorId} setFtpProveedorId={setFtpProveedorId} ftpPassword={ftpPassword} setFtpPassword={setFtpPassword} ftpTipoReferencias={ftpTipoReferencias} setFtpTipoReferencias={setFtpTipoReferencias} ftpCreando={ftpCreando} ftpResultado={ftpResultado} setFtpResultado={setFtpResultado} crearUsuarioFTP={crearUsuarioFTP} descargarCredencialesFTP={descargarCredencialesFTP} />}
+        {seccion === "api"          && <SeccionAPI usuarios={usuarios} />}
         {seccion === "chats"        && <SeccionChats />}
         {seccion === "devoluciones" && <SeccionDevoluciones />}
         {seccion === "sistema"      && <SeccionSistema />}
