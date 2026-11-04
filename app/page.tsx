@@ -52,8 +52,10 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <HomeBuscador />
         </div>
+
+          <HomeBuscador />
+
         <LoginBox />
       </section>
 
