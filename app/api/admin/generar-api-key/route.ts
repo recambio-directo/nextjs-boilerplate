@@ -71,9 +71,11 @@ export async function POST(request: NextRequest) {
     .insert({
       proveedor_id: proveedorId,
       api_key_hash: hash,
+      api_key_prefix: rawKey.substring(0, 12),
       nombre: nombre || `Key de ${proveedor.nombre_empresa || "proveedor"}`,
       activa: true,
       total_peticiones: 0,
+      ultimo_uso: null,
     });
 
   if (error) {
