@@ -46,7 +46,7 @@ export default function HomeBuscador() {
   const [loading, setLoading] = useState(false);
   const [buscado, setBuscado] = useState(false);
   const [stats, setStats] = useState<Stats>({ referencias: 0, proveedores: 0, talleres: 0, pedidos: 0 });
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Fetch stats on mount
   useEffect(() => {
