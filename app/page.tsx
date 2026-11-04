@@ -112,6 +112,40 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── TESTIMONIOS ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={badgeStyle}>OPINIONES</div>
+          <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Lo que dicen nuestros usuarios</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17 }}>Talleres y proveedores que ya trabajan con Recambio Directo</p>
+        </div>
+        <div className="landing-grid-3">
+          {[
+            { nombre: "Miguel Ángel R.", negocio: "Taller MR Automoción", ciudad: "Valencia", tipo: "taller", texto: "Antes perdía media hora llamando a 3 o 4 proveedores para una pieza. Ahora busco la referencia, comparo precios y pido en 2 minutos. Me ha cambiado el día a día.", color: "#2563eb" },
+            { nombre: "Patricia G.", negocio: "Recambios Sur Express", ciudad: "Sevilla", tipo: "proveedor", texto: "Subimos nuestro catálogo y empezamos a recibir pedidos de talleres de toda Andalucía que ni sabíamos que existían. Es como tener un comercial en cada provincia.", color: "#16a34a" },
+            { nombre: "Javier L.", negocio: "Taller Lacar", ciudad: "Zaragoza", tipo: "taller", texto: "Lo mejor es que puedes buscar por matrícula directamente. Metes la matrícula del coche del cliente y te salen todas las piezas compatibles con precios. Muy cómodo.", color: "#7c3aed" },
+            { nombre: "Carlos M.", negocio: "Distribuciones Martínez Auto", ciudad: "Madrid", tipo: "proveedor", texto: "Llevamos 2 meses y ya tenemos talleres recurrentes que nos piden cada semana. El albarán y la etiqueta se generan solos, no tenemos que hacer nada.", color: "#f59e0b" },
+            { nombre: "Ana B.", negocio: "Talleres Benavente", ciudad: "Murcia", tipo: "taller", texto: "El chat con el proveedor dentro de la plataforma es genial. Si tengo alguna duda sobre una pieza, le escribo directamente y me responde al momento.", color: "#2563eb" },
+            { nombre: "Fernando D.", negocio: "Recambios FD", ciudad: "Barcelona", tipo: "proveedor", texto: "25€ al mes por tener tu catálogo visible en toda España es un regalo. Antes solo llegábamos a talleres de nuestra zona con los comerciales.", color: "#16a34a" },
+          ].map(({ nombre, negocio, ciudad, tipo, texto, color }) => (
+            <div key={nombre} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 28, display: "flex", flexDirection: "column" as const, gap: 16 }}>
+              <div style={{ fontSize: 28, lineHeight: 1, color: `${color}60` }}>&ldquo;</div>
+              <p style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.7, flex: 1, margin: 0 }}>{texto}</p>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color }}>
+                  {nombre.charAt(0)}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14 }}>{nombre}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 12 }}>{negocio} · {ciudad}</div>
+                </div>
+                <div style={{ marginLeft: "auto", background: tipo === "taller" ? "rgba(37,99,235,0.15)" : "rgba(22,163,74,0.15)", color: tipo === "taller" ? "#60a5fa" : "#4ade80", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{tipo === "taller" ? "Taller" : "Proveedor"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── FEATURES ── */}
       <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
