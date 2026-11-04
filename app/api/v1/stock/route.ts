@@ -24,9 +24,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("piezas_publicadas")
-    .select("referencia, marca, descripcion, precio, stock, tipo, precio_casco, updated_at", {
-      count: "exact",
-    })
+    .select("referencia, marca, descripcion, precio, stock, tipo, precio_casco", { count: "exact" })
     .eq("proveedor_id", auth.proveedor_id)
     .order("referencia", { ascending: true })
     .range(from, to);
@@ -55,7 +53,7 @@ export async function GET(request: NextRequest) {
       precio_neto: p.precio,
       tipo: p.tipo,
       precio_casco: p.precio_casco || null,
-      actualizado_en: p.updated_at || null,
+      actualizado_en: null,
     })),
     paginacion: {
       pagina_actual: pagina,

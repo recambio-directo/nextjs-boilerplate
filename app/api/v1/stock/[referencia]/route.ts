@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   const { data: pieza } = await supabase
     .from("piezas_publicadas")
-    .select("*")
+    .select("referencia, marca, descripcion, precio, stock, tipo, precio_casco, referencia_normalizada, id")
     .eq("proveedor_id", auth.proveedor_id)
     .eq("referencia_normalizada", refNorm)
     .maybeSingle();
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     precio_neto: pieza.precio,
     tipo: pieza.tipo,
     precio_casco: pieza.precio_casco || null,
-    actualizado_en: pieza.updated_at || pieza.created_at || null,
+    actualizado_en: null,
   });
 }
 
@@ -111,7 +111,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // Buscar la pieza existente
   const { data: pieza } = await supabase
     .from("piezas_publicadas")
-    .select("*")
+    .select("id, referencia, marca, precio, stock")
     .eq("proveedor_id", auth.proveedor_id)
     .eq("referencia_normalizada", refNorm)
     .maybeSingle();
