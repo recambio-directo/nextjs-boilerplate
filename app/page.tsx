@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import React from "react";
 import LoginBox from "./components/LoginBox";
+import HomeBuscador from "./components/HomeBuscador";
 
 export const metadata: Metadata = {
   title: {
@@ -40,19 +41,7 @@ export default function Home() {
           <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
             La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
           </p>
-          <div className="landing-stats">
-            {[
-              { num: "B2B", label: "Solo profesionales" },
-              { num: "24h", label: "Entrega express" },
-              { num: "100%", label: "Digital y seguro" },
-              { num: "25€", label: "Precio fijo al mes" },
-            ].map(({ num, label }) => (
-              <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
-                <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, textAlign: "center" as const }}>{label}</span>
-              </div>
-            ))}
-          </div>
+          <HomeBuscador />
         </div>
         <LoginBox />
       </section>
