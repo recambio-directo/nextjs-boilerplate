@@ -8,9 +8,12 @@ type Props = {
 };
 
 export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }: Props) {
-  const enGratuito = usuarios.filter(u => u.suscripcion === "gratuito").length;
-  const activos = usuarios.filter(u => u.suscripcion === "activo").length;
-  const morosos = usuarios.filter(u => u.suscripcion === "moroso").length;
+  // Talleres tienen acceso gratuito — solo se cobra a proveedores
+  const proveedores = usuarios.filter(u => u.tipo === "proveedor");
+  const talleres = usuarios.filter(u => u.tipo === "taller");
+  const enGratuito = proveedores.filter(u => u.suscripcion === "gratuito").length;
+  const activos = proveedores.filter(u => u.suscripcion === "activo").length;
+  const morosos = proveedores.filter(u => u.suscripcion === "moroso").length;
   const facturacionMes = activos * 25;
 
   async function exportarIngresos() {
@@ -35,7 +38,7 @@ export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }:
 
   function exportarCobros() {
     const mes = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
-    const data = usuarios.filter(u => u.suscripcion !== "gratuito" && u.suscripcion !== "cancelado").map(u => ({ "Empresa": u.nombre_empresa || "-", "Email": u.email, "Tipo": u.tipo, "CIF": u.cif || "-", "Teléfono": u.telefono || "-", "Ciudad": u.ciudad || "-", "Suscripción": SUSCRIPCION_LABELS[u.suscripcion]?.label || u.suscripcion, "Importe": "25,00 €", "Notas": u.notas_admin || "" }));
+    const data = proveedores.filter(u => u.suscripcion !== "gratuito" && u.suscripcion !== "cancelado").map(u => ({ "Empresa": u.nombre_empresa || "-", "Email": u.email, "Tipo": u.tipo, "CIF": u.cif || "-", "Teléfono": u.telefono || "-", "Ciudad": u.ciudad || "-", "Suscripción": SUSCRIPCION_LABELS[u.suscripcion]?.label || u.suscripcion, "Importe": "25,00 €", "Notas": u.notas_admin || "" }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Cobros");
@@ -45,12 +48,12 @@ export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }:
   return (
     <div>
       <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>COBROS</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Gestión de suscripciones y remesas mensuales.</p>
+      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Gestión de suscripciones y remesas mensuales. Los talleres tienen acceso gratuito ({talleres.length} talleres).</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 32 }}>
         {[
-          { label: "EN PERIODO GRATUITO", value: enGratuito, color: "#fbbf24", desc: "Primer mes" },
-          { label: "SUSCRITOS ACTIVOS", value: activos, color: "#4ade80", desc: "Pagan 25€/mes" },
-          { label: "PENDIENTES DE COBRO", value: usuarios.filter(u => u.suscripcion === "pendiente").length, color: "#60a5fa", desc: "Sin confirmar pago" },
+          { label: "PROVEEDORES EN GRATUITO", value: enGratuito, color: "#fbbf24", desc: "Primer mes" },
+          { label: "PROVEEDORES ACTIVOS", value: activos, color: "#4ade80", desc: "Pagan 25€/mes" },
+          { label: "PENDIENTES DE COBRO", value: proveedores.filter(u => u.suscripcion === "pendiente").length, color: "#60a5fa", desc: "Sin confirmar pago" },
           { label: "MOROSOS", value: morosos, color: "#f87171", desc: "Impago > 30 días" },
         ].map(({ label, value, color, desc }) => (
           <div key={label} style={{ ...kpiCard, borderColor: `${color}30` }}><p style={kpiLabel}>{label}</p><h2 style={{ ...kpiNum, color }}>{value}</h2><p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{desc}</p></div>
@@ -71,7 +74,7 @@ export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }:
         <table style={tableStyle}>
           <thead><tr>{["EMPRESA", "EMAIL", "TIPO", "SUSCRIPCIÓN", "IMPORTE", "CAMBIAR ESTADO"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
-            {usuarios.filter(u => u.tipo !== "admin").map(u => (
+            {usuarios.filter(u => u.tipo === "proveedor").map(u => (
               <tr key={u.id} style={trStyle}>
                 <td style={tdStyle}><strong>{u.nombre_empresa || "-"}</strong></td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>

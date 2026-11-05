@@ -79,7 +79,7 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
         telefono: telefono.trim(), direccion: direccion.trim(),
         ciudad: ciudad.trim(), codigo_postal: codigoPostal.trim(),
         provincia: provincia.trim(),
-        activo: false, suscripcion: "gratuito",
+        activo: false, suscripcion: tipo === "taller" ? "activo" : "gratuito",
       });
       try {
         await fetch("/api/enviar-email/send-registro", {

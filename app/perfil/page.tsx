@@ -120,7 +120,9 @@ export default function PerfilPage() {
     moroso:    { label: "Pago vencido",      color: "#f87171" },
     cancelado: { label: "Cancelado",         color: "#94a3b8" },
   };
-  const subInfo = SUSCRIPCION_LABELS[suscripcion] || SUSCRIPCION_LABELS.gratuito;
+  const subInfo = tipo === "taller"
+    ? { label: "Acceso gratuito", color: "#4ade80" }
+    : (SUSCRIPCION_LABELS[suscripcion] || SUSCRIPCION_LABELS.gratuito);
   const m = isMobile;
 
   const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", borderRadius: m ? 16 : 24, padding: m ? "16px" : "28px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: m ? 12 : 20 };

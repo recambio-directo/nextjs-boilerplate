@@ -37,14 +37,14 @@ export default function Home() {
             RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
           </div>
           <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
-            La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas, con precio fijo mensual.
+            La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas. Gratis para talleres.
           </p>
           <div className="landing-stats">
             {[
               { num: "B2B", label: "Solo profesionales" },
               { num: "24h", label: "Entrega express" },
               { num: "100%", label: "Digital y seguro" },
-              { num: "25€", label: "Precio fijo al mes" },
+              { num: "0€", label: "Gratis para talleres" },
             ].map(({ num, label }) => (
               <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
                 <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
@@ -88,7 +88,7 @@ export default function Home() {
             <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-              {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "Precio fijo mensual — sin sorpresas"].map(item => (
+              {["Importación masiva desde Excel, CSV o FTP automático", "Albarán y etiqueta de envío generados automáticamente", "Control total sobre quién ve tus precios", "Panel de pedidos, facturación y estadísticas", "25€/mes fijos — sin sorpresas ni comisiones"].map(item => (
                 <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
                   <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item}</span>
@@ -257,7 +257,7 @@ export default function Home() {
         </div>
         <div className="landing-grid-2 landing-faq-grid" style={{ gap: 20, maxWidth: 1000, margin: "0 auto" }}>
           {[
-            { q: "¿Cuánto cuesta Recambio Directo?", a: "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." },
+            { q: "¿Cuánto cuesta Recambio Directo?", a: "Para talleres es completamente gratis, sin límites ni costes ocultos. Los proveedores pagan 25€/mes sin permanencia." },
             { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
             { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
             { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
@@ -276,14 +276,14 @@ export default function Home() {
       <section style={{ padding: "clamp(32px, 6vw, 80px)", position: "relative", zIndex: 10, borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" as const }}>
           <div style={{ ...badgeStyle, marginBottom: 20 }}>EMPIEZA HOY</div>
-          <h2 style={{ fontSize: 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>1 mes gratis.<br />Sin compromiso.</h2>
-          <p style={{ color: "#94a3b8", fontSize: 17, marginBottom: 32, lineHeight: 1.7 }}>Prueba Recambio Directo durante un mes completamente gratis. Sin tarjeta de crédito, sin permanencia. A partir del segundo mes, solo 25€/mes.</p>
+          <h2 style={{ fontSize: 48, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>Gratis para talleres.<br />Sin compromiso.</h2>
+          <p style={{ color: "#94a3b8", fontSize: 17, marginBottom: 32, lineHeight: 1.7 }}>Regístrate y accede a todos los proveedores y precios sin coste. Para talleres es gratis, para siempre. Sin tarjeta de crédito, sin permanencia.</p>
           <div className="landing-cta-buttons" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
             <a href="/registro" style={{ display: "inline-flex", alignItems: "center", padding: "18px 48px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: 14, fontSize: 17, fontWeight: 800, cursor: "pointer", textDecoration: "none", boxShadow: "0 10px 30px rgba(37,99,235,0.35)" }}>EMPEZAR GRATIS →</a>
             <a href="mailto:info@recambio-directo.com" style={{ display: "flex", alignItems: "center", padding: "18px 32px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: "white", textDecoration: "none", fontWeight: 700, fontSize: 15 }}>Hablar con el equipo</a>
           </div>
           <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 32, flexWrap: "wrap" as const }}>
-            {["Sin permanencia", "Precio fijo mensual", "Soporte incluido", "Alta en 24h"].map(g => (
+            {["Gratis para talleres", "Sin permanencia", "Soporte incluido", "Alta en 24h"].map(g => (
               <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>{g}</span>
