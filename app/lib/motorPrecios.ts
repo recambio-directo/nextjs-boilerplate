@@ -269,65 +269,145 @@ function recargoInterciudadGLS(): number {
 
 // ─────────────────────────────────────────────────────────────────────────
 // 2b. Tablas de tarifas INSULARES (Baleares / Canarias)
+//     Revisadas contra los PDF firmados (DHL, Correos Express, MRW, CTT).
 // ─────────────────────────────────────────────────────────────────────────
 type TramoFlat = { hasta: number; precio: number };
 
-// Búsqueda genérica en tabla plana: si el peso supera el último tramo, se
-// extrapola con un incremento de seguridad por kg (más alto que en tablas
-// peninsulares, porque no tenemos "kg adicional" confirmado para estas rutas
-// — mejor sobreestimar aquí que perder margen en un envío grande a Canarias).
-function buscarFlatInsular(tabla: TramoFlat[], pesoKg: number, incrementoSeguridadPorKg: number): number {
+// Fuel estimado para agencias cuyo suplemento NO está incluido en tarifa
+// (CTT y Correos Express: 0% de bonificación). Se calcula sobre el porte.
+// Valor prudente; revisar con la primera factura real.
+const FUEL_ESTIMADO = 0.06;
+
+// Búsqueda por tramo. Si el peso supera el último tramo se suma "kg adicional".
+function buscarFlatInsular(tabla: TramoFlat[], pesoKg: number, kgAdicional: number): number {
   const tramo = tabla.find(t => pesoKg <= t.hasta);
   if (tramo) return tramo.precio;
   const ultimo = tabla[tabla.length - 1];
-  const kgExtra = Math.ceil(pesoKg - ultimo.hasta);
-  return ultimo.precio + kgExtra * incrementoSeguridadPorKg;
+  return ultimo.precio + Math.ceil(pesoKg - ultimo.hasta) * kgAdicional;
 }
 
-// --- DHL Baleares (columna "Baleares" de la tarifa nacional, sin aduana) ---
+// Convierte una lista de precios por kg (1kg, 2kg, 3kg…) en tramos.
+function porKg(precios: number[]): TramoFlat[] {
+  return precios.map((precio, i) => ({ hasta: i + 1, precio }));
+}
+
+// ── Zonas dentro de cada archipiélago, según CP ─────────────────────────
+// Baleares: Mallorca 07000-07699. Menorca / Ibiza / Formentera = "Islas menores".
+function esMallorca(cp: string): boolean {
+  const n = parseInt((cp || "").trim().slice(0, 5), 10);
+  return n >= 7000 && n <= 7699;
+}
+// Canarias: Gran Canaria (35000-35499) y Tenerife (38000-38699) = islas principales.
+// Resto (Lanzarote, Fuerteventura, La Palma, La Gomera, El Hierro) = islas menores.
+function esCanariasPrincipal(cp: string): boolean {
+  const n = parseInt((cp || "").trim().slice(0, 5), 10);
+  return (n >= 35000 && n <= 35499) || (n >= 38000 && n <= 38699);
+}
+// DHL: tarifa directa solo en capitales (Sta. Cruz 38001-38010, Las Palmas 35001-35018);
+// el resto lleva "reexpedición".
+function esCapitalCanariasDHL(cp: string): boolean {
+  const n = parseInt((cp || "").trim().slice(0, 5), 10);
+  return (n >= 38001 && n <= 38010) || (n >= 35001 && n <= 35018);
+}
+
+// --- DHL Baleares (columna "Baleares", contrato firmado) ---
 const DHL_BALEARES: TramoFlat[] = [
   { hasta: 3, precio: 6.55 }, { hasta: 5, precio: 6.99 }, { hasta: 10, precio: 10.07 },
   { hasta: 15, precio: 12.28 }, { hasta: 20, precio: 14.48 }, { hasta: 25, precio: 16.64 },
-  { hasta: 30, precio: 18.78 }, { hasta: 40, precio: 22.83 },
+  { hasta: 30, precio: 18.78 }, { hasta: 40, precio: 22.83 }, { hasta: 50, precio: 26.12 },
+  { hasta: 60, precio: 29.44 }, { hasta: 70, precio: 32.76 }, { hasta: 80, precio: 50.15 },
 ];
-// --- DHL Canarias Aéreo (Tenerife/Las Palmas) + gestión aduanera fija ---
+// --- DHL Canarias Aéreo (Tenerife / Las Palmas) ---
 const DHL_CANARIAS_AEREO: TramoFlat[] = [
   { hasta: 3, precio: 32.34 }, { hasta: 5, precio: 43.93 }, { hasta: 10, precio: 63.54 },
-  { hasta: 15, precio: 82.44 }, { hasta: 20, precio: 94.28 }, { hasta: 25, precio: 108.60 },
+  { hasta: 15, precio: 82.44 }, { hasta: 20, precio: 94.28 }, { hasta: 25, precio: 108.65 },
+  { hasta: 30, precio: 123.00 }, { hasta: 40, precio: 158.60 }, { hasta: 50, precio: 199.16 },
+  { hasta: 60, precio: 252.77 }, { hasta: 70, precio: 285.73 }, { hasta: 80, precio: 350.87 },
 ];
-const DHL_GESTION_ADUANERA_CANARIAS = 23.50; // confirmado en tabla de suplementos DHL
+// --- DHL reexpedición a localidades que no son la capital (Canarias) ---
+const DHL_REEXPEDICION_CANARIAS: TramoFlat[] = [
+  { hasta: 3, precio: 23.56 }, { hasta: 5, precio: 24.81 }, { hasta: 10, precio: 26.12 },
+  { hasta: 15, precio: 26.50 }, { hasta: 20, precio: 26.89 }, { hasta: 25, precio: 28.16 },
+  { hasta: 30, precio: 29.43 }, { hasta: 40, precio: 32.31 }, { hasta: 50, precio: 34.81 },
+  { hasta: 60, precio: 37.45 }, { hasta: 70, precio: 39.99 }, { hasta: 80, precio: 42.59 },
+];
+const DHL_COMBUSTIBLE_INSULAR = 0.18;      // mismo % confirmado por DHL para la península
+const DHL_ADUANA_CANARIAS = 23.50;         // gestión aduanera Canarias (valor > 150 €)
+const DHL_ADUANA_CANARIAS_BAJO_VALOR = 5.00; // valor ≤ 150 €
+const DHL_RECOGIDA_OTRA_PROVINCIA = 1.50;  // recogida en origen distinto al habitual
 
-// --- Correos Express: misma tabla para Baleares y Canarias (precios idénticos en contrato) ---
-const CEX_INSULAR: TramoFlat[] = [
-  { hasta: 1, precio: 9.21 }, { hasta: 2, precio: 9.78 }, { hasta: 3, precio: 11.34 },
-  { hasta: 4, precio: 12.90 }, { hasta: 5, precio: 14.70 }, { hasta: 10, precio: 23.40 },
-  { hasta: 15, precio: 32.39 },
+// --- Correos Express "Islas Express" (Península ↔ islas). OJO: NO es la
+//     columna "Interislas" de Paq24, que es solo entre islas. ---
+const CEX_BALEARES_MALLORCA: TramoFlat[] = [
+  { hasta: 1, precio: 10.07 }, { hasta: 2, precio: 11.51 }, { hasta: 3, precio: 13.63 },
+  { hasta: 4, precio: 14.74 }, { hasta: 5, precio: 16.04 }, { hasta: 10, precio: 21.69 },
+  { hasta: 15, precio: 27.38 },
 ];
+const CEX_BALEARES_MENORES: TramoFlat[] = [
+  { hasta: 1, precio: 10.61 }, { hasta: 2, precio: 12.29 }, { hasta: 3, precio: 14.63 },
+  { hasta: 4, precio: 16.03 }, { hasta: 5, precio: 17.58 }, { hasta: 10, precio: 24.57 },
+  { hasta: 15, precio: 32.65 },
+];
+const CEX_CANARIAS_PRINCIPAL: TramoFlat[] = [
+  { hasta: 1, precio: 12.39 }, { hasta: 2, precio: 18.23 }, { hasta: 3, precio: 23.62 },
+  { hasta: 4, precio: 29.14 }, { hasta: 5, precio: 35.08 }, { hasta: 10, precio: 64.22 },
+  { hasta: 15, precio: 94.24 },
+];
+const CEX_CANARIAS_MENORES: TramoFlat[] = [
+  { hasta: 1, precio: 13.61 }, { hasta: 2, precio: 20.07 }, { hasta: 3, precio: 26.00 },
+  { hasta: 4, precio: 32.07 }, { hasta: 5, precio: 38.62 }, { hasta: 10, precio: 70.64 },
+  { hasta: 15, precio: 103.67 },
+];
+const CEX_KG_ADIC_ISLAS = { mallorca: 1.13, menoresBaleares: 1.42, canariasPrincipal: 6.19, canariasMenores: 6.81 };
+const CEX_RECOGIDA_OTRO_PUNTO = 2.00;  // 0,40 €/envío, mínimo 2 € (como en península)
+// Canarias: el contrato NO incluye DUA ni gestión aduanera.
+//   Valor ≤150 €: origen península 20,85 (export.) | origen Canarias 6,85 + import. a península 16
+//   Valor >150 €: 22 (export.) + 16 (import.) en ambos sentidos
+function aduanaCEXCanarias(origenCanarias: boolean, valorMercancia?: number): number {
+  const bajoValor = valorMercancia !== undefined && valorMercancia <= 150;
+  if (bajoValor) return origenCanarias ? 6.85 + 16 : 20.85 + 0;
+  return 22 + 16;
+}
 
-// --- MRW Baleares (Península-Baleares, entrega domicilio) ---
-const MRW_BALEARES: TramoFlat[] = [
-  { hasta: 1, precio: 9.01 }, { hasta: 2, precio: 11.77 }, { hasta: 3, precio: 14.58 },
-  { hasta: 4, precio: 17.38 }, { hasta: 5, precio: 22.30 }, { hasta: 6, precio: 30.23 },
-  { hasta: 7, precio: 32.81 }, { hasta: 8, precio: 35.39 }, { hasta: 9, precio: 37.97 },
-  { hasta: 10, precio: 40.55 },
-];
-// --- MRW Canarias (Gran Canaria y Tenerife) ---
-const MRW_CANARIAS: TramoFlat[] = [
-  { hasta: 1, precio: 12.84 }, { hasta: 2, precio: 16.74 }, { hasta: 3, precio: 23.37 },
-  { hasta: 4, precio: 27.27 }, { hasta: 5, precio: 31.17 }, { hasta: 6, precio: 37.79 },
-  { hasta: 7, precio: 41.69 }, { hasta: 8, precio: 45.59 }, { hasta: 9, precio: 49.49 },
-  { hasta: 10, precio: 53.39 },
-];
+// --- MRW (tablas completas por kg, hasta 40 kg; contrato firmado) ---
+const MRW_BALEARES: TramoFlat[] = porKg([
+  9.01, 11.77, 14.58, 17.38, 22.30, 30.23, 32.81, 35.39, 37.97, 40.55,
+  45.92, 48.50, 51.08, 53.66, 56.24, 61.64, 64.22, 66.80, 69.38, 71.96,
+  79.39, 81.97, 84.55, 87.13, 89.74, 97.63, 100.21, 102.79, 105.37, 107.95,
+  113.60, 116.18, 118.76, 121.34, 123.92, 129.83, 132.41, 134.99, 137.57, 140.15,
+]);
+const MRW_BALEARES_KG_ADIC = 3.60; // pendiente medio de 40 a 60 kg (212,15−140,15)/20
+const MRW_CANARIAS_PRINCIPAL: TramoFlat[] = porKg([
+  12.84, 16.74, 23.37, 27.27, 31.17, 37.79, 41.69, 45.59, 49.49, 53.39,
+  59.97, 63.87, 67.77, 71.67, 75.57, 82.17, 86.07, 89.97, 93.87, 97.77,
+  106.44, 110.34, 114.24, 118.14, 122.04, 131.14, 135.04, 138.94, 142.84, 146.74,
+  153.56, 157.46, 161.36, 165.26, 169.16, 176.30, 180.20, 184.10, 188.00, 191.90,
+]);
+const MRW_CANARIAS_MENORES: TramoFlat[] = porKg([
+  13.51, 18.07, 25.34, 29.90, 34.46, 41.76, 46.32, 50.88, 55.44, 60.00,
+  67.26, 71.82, 76.38, 80.94, 85.50, 92.78, 97.34, 101.90, 106.46, 111.02,
+  120.35, 124.91, 129.47, 134.03, 138.59, 148.34, 152.90, 157.46, 162.02, 166.58,
+  174.10, 178.66, 183.22, 187.78, 192.34, 200.14, 204.70, 209.26, 213.82, 218.38,
+]);
+const MRW_CANARIAS_KG_ADIC = 4.92; // pendiente 40→60 kg (290,30−191,90)/20
+// Nota: MRW confirmó que el combustible va incluido en su tarifa.
 
-// --- CTT: solo Canarias Aéreo 24h (Tnf&Lpa). Ya incluye DUA/GAS según contrato.
-// CTT NO tiene tabla propia de Baleares (su tarifa ahí es "suma de zonas",
-// demasiado ambigua para calcular sin más datos) → excluida de Baleares.
-const CTT_CANARIAS_AEREO: TramoFlat[] = [
+// --- CTT Canarias Aéreo 24h (incluye DUA y GAS) ---
+// Según contrato, los envíos entre zonas distintas se calculan SUMANDO la tarifa de
+// la zona de origen + la de destino → se suma la tarifa peninsular (conservador).
+const CTT_CANARIAS_AEREO_PRINCIPAL: TramoFlat[] = [
   { hasta: 1, precio: 17.32 }, { hasta: 2, precio: 21.95 }, { hasta: 3, precio: 26.55 },
   { hasta: 4, precio: 31.16 }, { hasta: 5, precio: 35.78 }, { hasta: 10, precio: 58.82 },
   { hasta: 15, precio: 81.85 },
 ];
-const CTT_KG_ADIC_CANARIAS = 4.61;
+const CTT_CANARIAS_AEREO_MENORES: TramoFlat[] = [
+  { hasta: 1, precio: 20.58 }, { hasta: 2, precio: 25.76 }, { hasta: 3, precio: 30.94 },
+  { hasta: 4, precio: 36.11 }, { hasta: 5, precio: 41.29 }, { hasta: 10, precio: 67.18 },
+  { hasta: 15, precio: 93.06 },
+];
+const CTT_KG_ADIC_CANARIAS = { principal: 4.61, menores: 5.25 };
+const CTT_MAX_KG_BULTO = 30;
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // 3. Función pública del motor — PENÍNSULA
@@ -382,45 +462,91 @@ export async function calcularPreciosAgencias(
 // ─────────────────────────────────────────────────────────────────────────
 // 4. Función pública del motor — ISLAS (Baleares / Canarias)
 // ─────────────────────────────────────────────────────────────────────────
-// Agencias con tarifa insular confirmada:
+// Agencias con tarifa insular en contrato:
 //   Baleares: DHL, Correos Express, MRW
 //   Canarias: DHL, Correos Express, MRW, CTT
+// (CTT Baleares queda fuera hasta que CTT confirme cómo aplicar la "suma de zonas".)
 const AGENCIAS_INSULARES: Record<Exclude<TipoInsular, null>, string[]> = {
   baleares: ["DHL", "Correos Express", "MRW"],
   canarias: ["DHL", "Correos Express", "MRW", "CTT Express"],
 };
 
+export type OpcionesInsulares = {
+  cpOrigen?: string;
+  cpDestino?: string;
+  /** Valor de la mercancía en €. Si no se indica se asume ALTO valor (>150 €, caso más caro). */
+  valorMercancia?: number;
+};
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 export async function calcularPreciosInsulares(
   pesoKg: number,
   tipoInsular: Exclude<TipoInsular, null>,
   agenciasDisponibles: string[],
-  margen: number = MARGEN_COMERCIAL
+  margen: number = MARGEN_COMERCIAL,
+  opciones: OpcionesInsulares = {}
 ): Promise<PrecioAgencia[]> {
   const resultados: PrecioAgencia[] = [];
   const activas = agenciasDisponibles.filter(a => AGENCIAS_INSULARES[tipoInsular].includes(a));
+
+  const cpO = opciones.cpOrigen || "";
+  const cpD = opciones.cpDestino || "";
+  // CP del lado insular (para distinguir Mallorca/menores y principales/menores)
+  const cpIsla = detectarTipoInsular(cpD) === tipoInsular ? cpD : cpO;
+  const origenCanarias = detectarTipoInsular(cpO) === "canarias";
+  const valor = opciones.valorMercancia;
 
   for (const agencia of activas) {
     let costeReal = 0;
 
     if (agencia === "DHL") {
       if (tipoInsular === "baleares") {
-        costeReal = buscarFlatInsular(DHL_BALEARES, pesoKg, 1.20);
+        const porte = buscarFlatInsular(DHL_BALEARES, pesoKg, 0.33);
+        costeReal = porte * (1 + DHL_COMBUSTIBLE_INSULAR) + DHL_RECOGIDA_OTRA_PROVINCIA;
       } else {
-        costeReal = buscarFlatInsular(DHL_CANARIAS_AEREO, pesoKg, 4.00) + DHL_GESTION_ADUANERA_CANARIAS;
+        let porte = buscarFlatInsular(DHL_CANARIAS_AEREO, pesoKg, 5.00);
+        if (!esCapitalCanariasDHL(cpIsla)) {
+          porte += buscarFlatInsular(DHL_REEXPEDICION_CANARIAS, pesoKg, 0.40);
+        }
+        const aduana = valor !== undefined && valor <= 150 ? DHL_ADUANA_CANARIAS_BAJO_VALOR : DHL_ADUANA_CANARIAS;
+        costeReal = porte * (1 + DHL_COMBUSTIBLE_INSULAR) + aduana + DHL_RECOGIDA_OTRA_PROVINCIA;
       }
     } else if (agencia === "Correos Express") {
-      costeReal = buscarFlatInsular(CEX_INSULAR, pesoKg, 2.30);
+      let porte: number;
+      if (tipoInsular === "baleares") {
+        porte = esMallorca(cpIsla)
+          ? buscarFlatInsular(CEX_BALEARES_MALLORCA, pesoKg, CEX_KG_ADIC_ISLAS.mallorca)
+          : buscarFlatInsular(CEX_BALEARES_MENORES, pesoKg, CEX_KG_ADIC_ISLAS.menoresBaleares);
+      } else {
+        porte = esCanariasPrincipal(cpIsla)
+          ? buscarFlatInsular(CEX_CANARIAS_PRINCIPAL, pesoKg, CEX_KG_ADIC_ISLAS.canariasPrincipal)
+          : buscarFlatInsular(CEX_CANARIAS_MENORES, pesoKg, CEX_KG_ADIC_ISLAS.canariasMenores);
+      }
+      costeReal = porte * (1 + FUEL_ESTIMADO) + CEX_RECOGIDA_OTRO_PUNTO;
+      if (tipoInsular === "canarias") costeReal += aduanaCEXCanarias(origenCanarias, valor);
     } else if (agencia === "MRW") {
-      costeReal = tipoInsular === "baleares"
-        ? buscarFlatInsular(MRW_BALEARES, pesoKg, 3.00)
-        : buscarFlatInsular(MRW_CANARIAS, pesoKg, 4.00);
+      if (tipoInsular === "baleares") {
+        costeReal = buscarFlatInsular(MRW_BALEARES, pesoKg, MRW_BALEARES_KG_ADIC);
+      } else {
+        costeReal = esCanariasPrincipal(cpIsla)
+          ? buscarFlatInsular(MRW_CANARIAS_PRINCIPAL, pesoKg, MRW_CANARIAS_KG_ADIC)
+          : buscarFlatInsular(MRW_CANARIAS_MENORES, pesoKg, MRW_CANARIAS_KG_ADIC);
+      }
     } else if (agencia === "CTT Express" && tipoInsular === "canarias") {
-      costeReal = buscarFlatInsular(CTT_CANARIAS_AEREO, pesoKg, CTT_KG_ADIC_CANARIAS);
+      if (pesoKg > CTT_MAX_KG_BULTO) continue; // máximo 30 kg por bulto
+      const principal = esCanariasPrincipal(cpIsla);
+      const tramoIsla = principal
+        ? buscarFlatInsular(CTT_CANARIAS_AEREO_PRINCIPAL, pesoKg, CTT_KG_ADIC_CANARIAS.principal)
+        : buscarFlatInsular(CTT_CANARIAS_AEREO_MENORES, pesoKg, CTT_KG_ADIC_CANARIAS.menores);
+      // Suma de zonas origen + destino (contrato CTT): se añade la tarifa peninsular
+      const tramoPeninsula = buscarPorZona(TABLA_CTT, CTT_KG_ADIC, pesoKg, "Peninsular");
+      costeReal = (tramoIsla + tramoPeninsula) * (1 + FUEL_ESTIMADO) + recargoIntercityCTT(pesoKg);
     } else {
       continue;
     }
 
-    resultados.push({ key: agencia, precio: Math.round((costeReal + margen) * 100) / 100 });
+    resultados.push({ key: agencia, precio: r2(costeReal + margen) });
   }
 
   if (agenciasDisponibles.includes("Mis Medios")) {
