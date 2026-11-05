@@ -394,9 +394,6 @@ export default function CheckoutPage() {
       setCantidades(initCantidades);
       const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
       let agenciasValidas = ["MRW","SEUR","GLS","Correos Express","CTT Express","DHL","Mis Medios"];
-      // Si el CP del cliente ya es insular, cortamos aquí directamente
-      const clienteEsIsla = (perfil?.codigo_postal || "").match(/^(07|35|38|51|52)/);
-      if (clienteEsIsla) agenciasValidas = ["Mis Medios"];
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
         const cpOrigen = prov?.codigo_postal || "";
