@@ -129,21 +129,39 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
           <p style={{ color: "#94a3b8", fontSize: m ? 14 : 16 }}>Solo para profesionales del sector de la automoción</p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: m ? "column" : "row", justifyContent: "space-between", alignItems: m ? "flex-start" : "center", background: "linear-gradient(135deg,rgba(22,163,74,0.2),rgba(22,163,74,0.1))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: 20, padding: "20px", marginBottom: 20, gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 28 }}>🎁</span>
-            <div>
-              <p style={{ fontWeight: 900, fontSize: m ? 14 : 16, marginBottom: 4 }}>1 mes gratis, sin compromiso</p>
-              <p style={{ color: "#86efac", fontSize: m ? 12 : 14 }}>A partir del 2º mes, <strong>25€/mes</strong>. Cancela cuando quieras.</p>
+        {tipo === "taller" ? (
+          <div style={{ display: "flex", flexDirection: m ? "column" : "row", justifyContent: "space-between", alignItems: m ? "flex-start" : "center", background: "linear-gradient(135deg,rgba(37,99,235,0.2),rgba(37,99,235,0.1))", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 20, padding: "20px", marginBottom: 20, gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 28 }}>🔧</span>
+              <div>
+                <p style={{ fontWeight: 900, fontSize: m ? 14 : 16, marginBottom: 4 }}>Acceso 100% gratuito para talleres</p>
+                <p style={{ color: "#93c5fd", fontSize: m ? 12 : 14 }}>Sin cuotas, sin compromiso. Busca y compra recambios gratis.</p>
+              </div>
             </div>
+            {!m && (
+              <div style={{ textAlign: "center", flexShrink: 0, background: "rgba(37,99,235,0.2)", borderRadius: 14, padding: "12px 20px" }}>
+                <p style={{ fontSize: 12, color: "#93c5fd", marginBottom: 4 }}>SIEMPRE</p>
+                <p style={{ fontSize: 28, fontWeight: 900 }}>0€<span style={{ fontSize: 14, fontWeight: 400 }}>/mes</span></p>
+              </div>
+            )}
           </div>
-          {!m && (
-            <div style={{ textAlign: "center", flexShrink: 0, background: "rgba(22,163,74,0.2)", borderRadius: 14, padding: "12px 20px" }}>
-              <p style={{ fontSize: 12, color: "#86efac", marginBottom: 4 }}>DESPUÉS</p>
-              <p style={{ fontSize: 28, fontWeight: 900 }}>25€<span style={{ fontSize: 14, fontWeight: 400 }}>/mes</span></p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: m ? "column" : "row", justifyContent: "space-between", alignItems: m ? "flex-start" : "center", background: "linear-gradient(135deg,rgba(22,163,74,0.2),rgba(22,163,74,0.1))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: 20, padding: "20px", marginBottom: 20, gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 28 }}>🎁</span>
+              <div>
+                <p style={{ fontWeight: 900, fontSize: m ? 14 : 16, marginBottom: 4 }}>1 mes gratis, sin compromiso</p>
+                <p style={{ color: "#86efac", fontSize: m ? 12 : 14 }}>A partir del 2º mes, <strong>25€/mes</strong>. Cancela cuando quieras.</p>
+              </div>
             </div>
-          )}
-        </div>
+            {!m && (
+              <div style={{ textAlign: "center", flexShrink: 0, background: "rgba(22,163,74,0.2)", borderRadius: 14, padding: "12px 20px" }}>
+                <p style={{ fontSize: 12, color: "#86efac", marginBottom: 4 }}>DESPUÉS</p>
+                <p style={{ fontSize: 28, fontWeight: 900 }}>25€<span style={{ fontSize: 14, fontWeight: 400 }}>/mes</span></p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: m ? "24px 16px" : "40px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
@@ -223,7 +241,7 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
           <div style={{ display: "flex", flexDirection: "column", gap: 12, margin: "20px 0", padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)" }}>
             {[
               { checked: esProfesional, onChange: setEsProfesional, text: "Confirmo que soy empresa o autonomo del sector de la automocion" },
-              { checked: aceptaTerminos, onChange: setAceptaTerminos, text: "Acepto los Terminos y Condiciones (1 mes gratis + 25€/mes)" },
+              { checked: aceptaTerminos, onChange: setAceptaTerminos, text: tipo === "taller" ? "Acepto los Terminos y Condiciones (acceso gratuito)" : "Acepto los Terminos y Condiciones (1 mes gratis + 25€/mes)" },
               { checked: aceptaPrivacidad, onChange: setAceptaPrivacidad, text: "He leido y acepto la Politica de Privacidad" },
             ].map(({ checked, onChange, text }, i) => (
               <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
@@ -236,7 +254,7 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
           {error && <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "12px 16px", borderRadius: 12, marginBottom: 16, fontSize: 14 }}>⚠️ {error}</div>}
 
           <button onClick={registrar} disabled={registrando} style={{ width: "100%", background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "16px", borderRadius: 14, fontWeight: 900, fontSize: m ? 15 : 16, cursor: registrando ? "not-allowed" : "pointer", opacity: registrando ? 0.7 : 1, boxShadow: "0 10px 30px rgba(22,163,74,0.35)" }}>
-            {registrando ? "Creando cuenta..." : "Empezar 1 mes gratis →"}
+            {registrando ? "Creando cuenta..." : (tipo === "taller" ? "Crear cuenta gratuita →" : "Empezar 1 mes gratis →")}
           </button>
 
           <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, marginTop: 16 }}>
