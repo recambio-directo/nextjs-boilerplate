@@ -24,9 +24,10 @@ type Oferta = {
   marca_iam?: string;
   descripcion_iam?: string;
   imagenes_tecdoc?: string[];
+  imagenes?: string[];
 };
 
-type PestañaKey = "OEM" | "IAM" | "EQ";
+type PestañaKey = "OEM" | "IAM" | "CATV";
 
 function BuscarPageInner() {
   const router = useRouter();
@@ -36,7 +37,7 @@ function BuscarPageInner() {
   const qSinEspacios = q.replace(/\s+/g, "");
   const [stockOEM, setStockOEM] = useState<Oferta[]>([]);
   const [stockIAM, setStockIAM] = useState<Oferta[]>([]);
-  const [stockEQ, setStockEQ] = useState<Oferta[]>([]);
+  const [stockCATV, setStockCATV] = useState<Oferta[]>([]);
   const [loadingCruce, setLoadingCruce] = useState(true);
   const [menuAbierto, setMenuAbierto] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -85,7 +86,7 @@ function BuscarPageInner() {
   }, []);
 
   async function cargarStockOEMeIAM() {
-    if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setStockEQ([]); setLoadingCruce(false); return; }
+    if (!qSinEspacios) { setStockOEM([]); setStockIAM([]); setStockCATV([]); setLoadingCruce(false); return; }
     setLoadingCruce(true);
     try {
       const { data: { user: userBuscar } } = await supabase.auth.getUser();
@@ -95,13 +96,14 @@ function BuscarPageInner() {
       const exactParam = exactMode ? "&exact=1" : "";
       const res = await fetch(`/api/buscar-pieza?referencia=${encodeURIComponent(qSinEspacios)}${cpParam}${emailParam}${exactParam}`);
       if (!res.ok) {
-        setStockOEM([]); setStockIAM([]); setStockEQ([]);
+        setStockOEM([]); setStockIAM([]); setStockCATV([]);
         setLoadingCruce(false);
         return;
       }
       const data = await res.json();
       let resultadoOEM: Oferta[] = data?.stock_oem?.proveedores || [];
       let resultadoIAMRaw: Oferta[] = data?.stock_iam?.proveedores || [];
+      let resultadoCATVRaw: Oferta[] = data?.stock_catv?.proveedores || [];
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -118,19 +120,18 @@ function BuscarPageInner() {
             });
           resultadoOEM = aplicarExclusiones(resultadoOEM);
           resultadoIAMRaw = aplicarExclusiones(resultadoIAMRaw);
+          resultadoCATVRaw = aplicarExclusiones(resultadoCATVRaw);
         }
       }
 
-      const refNorm = qSinEspacios.toUpperCase().replace(/[\s\-_./]/g, "");
       const resultadoIAM = resultadoIAMRaw;
-      const resultadoEQ: Oferta[] = [];
 
       setStockOEM(resultadoOEM);
       setStockIAM(resultadoIAM);
-      setStockEQ(resultadoEQ);
+      setStockCATV(resultadoCATVRaw);
     } catch (err) {
       console.error("Error de red llamando a /api/buscar-pieza:", err);
-      setStockOEM([]); setStockIAM([]); setStockEQ([]);
+      setStockOEM([]); setStockIAM([]); setStockCATV([]);
     } finally {
       setLoadingCruce(false);
     }
@@ -138,8 +139,8 @@ function BuscarPageInner() {
 
   async function pedirOferta(oferta: Oferta) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("Inicia sesión para añadir a la cesta"); return; }
-    if (oferta.proveedor_id === user.id) { alert("No puedes añadir tus propias piezas"); return; }
+    if (!user) { alert("Inicia sesion para anadir a la cesta"); return; }
+    if (oferta.proveedor_id === user.id) { alert("No puedes anadir tus propias piezas"); return; }
     const descripcion = oferta.descripcion || oferta.nombre || oferta.referencia;
     const { error } = await supabase.from("cesta").insert({
       user_id: user.id,
@@ -152,7 +153,7 @@ function BuscarPageInner() {
       proveedor_id: oferta.proveedor_id,
       proveedor_nombre: oferta.proveedor_nombre,
     });
-    if (error) { alert("Error al añadir a la cesta"); return; }
+    if (error) { alert("Error al anadir a la cesta"); return; }
     setCestaMensaje(oferta.id);
     setTimeout(() => setCestaMensaje(null), 2000);
   }
@@ -160,7 +161,7 @@ function BuscarPageInner() {
   async function abrirChatConProveedor(ofertaId: number) {
     setMenuAbierto(null);
     setAbriendo(true);
-    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockEQ];
+    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockCATV];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) { setAbriendo(false); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -179,7 +180,7 @@ function BuscarPageInner() {
 
   async function verTelefono(ofertaId: number) {
     setMenuAbierto(null);
-    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockEQ];
+    const todasLasOfertas = [...stockOEM, ...stockIAM, ...stockCATV];
     const oferta = todasLasOfertas.find(o => o.id === ofertaId);
     if (!oferta?.proveedor_id) return;
     const { data } = await supabase.from("usuarios").select("telefono, nombre_empresa, email").eq("id", oferta.proveedor_id).single();
@@ -198,14 +199,22 @@ function BuscarPageInner() {
     const t = (tipo || "").toUpperCase();
     if (t === "OEM")       return { bg: "rgba(37,99,235,0.2)",   color: "#60a5fa" };
     if (t === "IAM")       return { bg: "rgba(139,92,246,0.2)",  color: "#a78bfa" };
+    if (t === "CATV")      return { bg: "rgba(217,119,6,0.2)",   color: "#fbbf24" };
     if (t === "UNIVERSAL") return { bg: "rgba(22,163,74,0.2)",   color: "#4ade80" };
     return                        { bg: "rgba(37,99,235,0.2)",   color: "#60a5fa" };
   }
 
   function getFirstImage(oferta: Oferta): string | null {
+    if (oferta.imagenes && oferta.imagenes.length > 0) return oferta.imagenes[0];
     if (oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0) return oferta.imagenes_tecdoc[0];
     if (oferta.foto_url) return oferta.foto_url;
     return null;
+  }
+
+  function getAllImages(oferta: Oferta): string[] {
+    if (oferta.imagenes && oferta.imagenes.length > 0) return oferta.imagenes;
+    if (oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0) return oferta.imagenes_tecdoc;
+    return [];
   }
 
   function renderOfertaMobile(oferta: Oferta) {
@@ -214,7 +223,8 @@ function BuscarPageInner() {
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
-    const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
+    const todasImagenes = getAllImages(oferta);
+    const tieneImagenes = todasImagenes.length > 0;
     const expandida = imagenesExpandidas.has(oferta.id);
     const primeraImg = getFirstImage(oferta);
     return (
@@ -245,14 +255,14 @@ function BuscarPageInner() {
           {(oferta.poblacion || oferta.provincia) && <span style={{ color: "#94a3b8" }}>📍 {[oferta.poblacion, oferta.provincia].filter(Boolean).join(", ").toUpperCase()}</span>}
           <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "1px 6px", borderRadius: 999, fontWeight: 700 }}>{oferta.stock} uds</span>
         </div>
-        {tieneImagenes && oferta.imagenes_tecdoc!.length > 1 && (
+        {tieneImagenes && todasImagenes.length > 1 && (
           <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 12, padding: "4px 0", textDecoration: "underline", marginBottom: 6 }}>
-            {expandida ? "Ocultar imágenes" : `📷 Ver ${oferta.imagenes_tecdoc!.length} fotos`}
+            {expandida ? "Ocultar imágenes" : `📷 Ver ${todasImagenes.length} fotos`}
           </button>
         )}
         {expandida && tieneImagenes && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            {oferta.imagenes_tecdoc!.map((url, i) => (
+            {todasImagenes.map((url, i) => (
               <img key={i} src={url} alt={`${oferta.referencia} imagen ${i + 1}`} onClick={() => setFotoVisor(url)} style={{ width: 80, height: 80, objectFit: "contain", borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "zoom-in", padding: 3 }} />
             ))}
           </div>
@@ -279,7 +289,8 @@ function BuscarPageInner() {
     const enCesta = cestaMensaje === oferta.id;
     const tipoUp = (oferta.tipo || "").toUpperCase();
     const badge = getTipoBadge(oferta.tipo);
-    const tieneImagenes = oferta.imagenes_tecdoc && oferta.imagenes_tecdoc.length > 0;
+    const todasImagenes = getAllImages(oferta);
+    const tieneImagenes = todasImagenes.length > 0;
     const expandida = imagenesExpandidas.has(oferta.id);
     const primeraImg = getFirstImage(oferta);
     return (
@@ -300,9 +311,9 @@ function BuscarPageInner() {
           <div>
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 1, color: "#e2e8f0" }}>{descripcion}</div>
             {oferta.marca && <div style={{ color: "#64748b", fontSize: 11 }}>{oferta.marca}</div>}
-            {tieneImagenes && oferta.imagenes_tecdoc!.length > 1 && (
+            {tieneImagenes && todasImagenes.length > 1 && (
               <button onClick={() => toggleImagenes(oferta.id)} style={{ background: "none", border: "none", color: expandida ? "#f87171" : "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: 11, padding: "2px 0", textDecoration: "underline" }}>
-                {expandida ? "Ocultar" : `+${oferta.imagenes_tecdoc!.length - 1} fotos`}
+                {expandida ? "Ocultar" : `+${todasImagenes.length - 1} fotos`}
               </button>
             )}
           </div>
@@ -324,7 +335,7 @@ function BuscarPageInner() {
         </div>
         {expandida && tieneImagenes && (
           <div style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.04)", display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {oferta.imagenes_tecdoc!.map((url, i) => (
+            {todasImagenes.map((url, i) => (
               <img
                 key={i}
                 src={url}
@@ -343,7 +354,7 @@ function BuscarPageInner() {
     const tabs: { key: PestañaKey; titulo: string; icono: string; lista: Oferta[]; colorActivo: string }[] = [
       { key: "OEM", titulo: "Stock OEM", icono: "🔧", lista: stockOEM, colorActivo: "linear-gradient(135deg,#2563eb,#1d4ed8)" },
       { key: "IAM", titulo: "Stock IAM", icono: "⚙️", lista: stockIAM, colorActivo: "linear-gradient(135deg,#7c3aed,#6d28d9)" },
-      { key: "EQ",  titulo: "Equivalencias", icono: "🔄", lista: stockEQ, colorActivo: "linear-gradient(135deg,#0891b2,#0e7490)" },
+      { key: "CATV", titulo: "Desguace CATV", icono: "♻️", lista: stockCATV, colorActivo: "linear-gradient(135deg,#d97706,#b45309)" },
     ];
 
     return (
@@ -458,7 +469,7 @@ function BuscarPageInner() {
 
         {renderTabs()}
 
-        {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && stockEQ.length === 0 && (
+        {!loadingCruce && stockOEM.length === 0 && stockIAM.length === 0 && stockCATV.length === 0 && (
           <div style={{ padding: "60px", textAlign: "center", color: "#94a3b8", fontSize: 16 }}>
             No hay resultados para <strong style={{ color: "white" }}>"{q}"</strong>
           </div>

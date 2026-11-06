@@ -18,9 +18,11 @@ type MapeoColumnas = {
   precio: string;
   stock: string;
   impuesto?: string;
+  imagenes?: string;
 };
 
 const CAMPOS_OBLIGATORIOS = ["referencia", "descripcion", "marca", "precio", "stock"];
+const CAMPOS_CATV_OBLIGATORIOS = ["imagenes"];
 const CAMPOS_OPCIONALES = ["impuesto"];
 const CAMPOS_LABELS: Record<string, string> = {
   referencia: "Referencia *",
@@ -29,6 +31,7 @@ const CAMPOS_LABELS: Record<string, string> = {
   precio: "Precio neto *",
   stock: "Stock *",
   impuesto: "Impuesto / Ecotasa / Casco",
+  imagenes: "Imágenes (URLs) *",
 };
 
 export default function ImportarStock({
@@ -42,10 +45,10 @@ export default function ImportarStock({
 }) {
   const [fase, setFase] = useState<"idle" | "mapeo" | "preview" | "importando" | "done">("idle");
   const [modoImport, setModoImport] = useState<"reemplazar" | "actualizar">("reemplazar");
-  const [tipoDefecto, setTipoDefecto] = useState<"OEM" | "IAM" | "UNIVERSAL">("IAM");
+  const [tipoDefecto, setTipoDefecto] = useState<"OEM" | "IAM" | "UNIVERSAL" | "CATV">("IAM");
   const [filas, setFilas] = useState<any[]>([]);
   const [columnas, setColumnas] = useState<string[]>([]);
-  const [mapeo, setMapeo] = useState<MapeoColumnas>({ referencia: "", descripcion: "", marca: "", precio: "", stock: "", impuesto: "" });
+  const [mapeo, setMapeo] = useState<MapeoColumnas>({ referencia: "", descripcion: "", marca: "", precio: "", stock: "", impuesto: "", imagenes: "" });
   const [resultado, setResultado] = useState<ResultadoImport | null>(null);
   const [progreso, setProgreso] = useState(0);
   const [progresoTexto, setProgresoTexto] = useState("");
@@ -75,7 +78,7 @@ export default function ImportarStock({
       setColumnas(cols);
       setFilas(json);
 
-      const autoMapeo: MapeoColumnas = { referencia: "", descripcion: "", marca: "", precio: "", stock: "" };
+      const autoMapeo: MapeoColumnas = { referencia: "", descripcion: "", marca: "", precio: "", stock: "", imagenes: "" };
       const buscar = (terminos: string[]) => cols.find(c => terminos.some(t => c.toLowerCase().includes(t))) || "";
       autoMapeo.referencia = buscar(["ref", "codigo", "code", "part"]);
       autoMapeo.descripcion = buscar(["desc", "nombre", "name", "articulo", "detalle"]);
@@ -83,6 +86,7 @@ export default function ImportarStock({
       autoMapeo.precio = buscar(["precio neto", "neto", "precio_neto", "price", "precio", "pvp", "coste", "importe"]);
       autoMapeo.stock = buscar(["stock", "cantidad", "qty", "units", "unidad", "disponible"]);
       autoMapeo.impuesto = buscar(["impuesto", "ecotasa", "casco", "eco", "tax", "tasa", "recargo"]);
+      autoMapeo.imagenes = buscar(["imagen", "image", "foto", "photo", "url_imagen", "imagenes", "fotos", "pictures"]);
       setMapeo(autoMapeo);
       setFase("mapeo");
     };
@@ -90,7 +94,11 @@ export default function ImportarStock({
   }
 
   function mapeoCompleto() {
-    return CAMPOS_OBLIGATORIOS.every(c => mapeo[c as keyof MapeoColumnas] !== "");
+    const basico = CAMPOS_OBLIGATORIOS.every(c => mapeo[c as keyof MapeoColumnas] !== "");
+    if (tipoDefecto === "CATV") {
+      return basico && CAMPOS_CATV_OBLIGATORIOS.every(c => mapeo[c as keyof MapeoColumnas] !== "");
+    }
+    return basico;
   }
 
   function getVal(fila: any, col: string | undefined): string {
@@ -114,7 +122,7 @@ export default function ImportarStock({
         .delete()
         .eq("proveedor_id", proveedorId)
         .eq("tipo", tipoDefecto)
-        .eq("origen", "ftp"); // ← solo borra las del FTP, respeta las manuales
+        .eq("origen", "ftp"); // solo borra las del FTP, respeta las manuales
       if (deleteError) {
         alert("Error al limpiar el stock anterior: " + deleteError.message);
         setFase("preview");
@@ -122,7 +130,7 @@ export default function ImportarStock({
       }
     }
 
-    // Preparar filas válidas
+    // Preparar filas validas
     const filasValidas: any[] = [];
     const filasInvalidas: string[] = [];
     const mapaImpuestos = new Map<string, number>();
@@ -163,7 +171,20 @@ export default function ImportarStock({
       const impuestoCasco = mapaImpuestos.get(referencia) || 0;
       const impuesto = impuestoColumna > 0 ? impuestoColumna : impuestoCasco;
 
-      filasValidas.push({ referencia, descripcion, marca, precio, stock, impuesto });
+      // Parsear imagenes para CATV
+      let imagenes: string[] = [];
+      if (tipoDefecto === "CATV" && mapeo.imagenes) {
+        const imagenesRaw = getVal(fila, mapeo.imagenes);
+        if (imagenesRaw) {
+          imagenes = imagenesRaw.split(/[,;|]/).map(u => u.trim()).filter(u => u.length > 0);
+        }
+        if (imagenes.length === 0) {
+          filasInvalidas.push(`Fila ${i + 2}: CATV sin imágenes (${referencia}) — obligatorio`);
+          continue;
+        }
+      }
+
+      filasValidas.push({ referencia, descripcion, marca, precio, stock, impuesto, imagenes });
     }
 
     if (mapaImpuestos.size > 0) {
@@ -178,7 +199,7 @@ export default function ImportarStock({
 
     if (modoImport === "reemplazar") {
       for (const fila of filasValidas) {
-        paraInsertar.push({
+        const obj: any = {
           proveedor_id: proveedorId,
           proveedor_nombre: proveedorNombre,
           referencia: fila.referencia,
@@ -189,8 +210,12 @@ export default function ImportarStock({
           impuesto: fila.impuesto || 0,
           tipo: tipoDefecto,
           provincia: provinciaPerfil || null,
-          origen: "ftp", // ← marcamos como ftp
-        });
+          origen: "ftp",
+        };
+        if (fila.imagenes && fila.imagenes.length > 0) {
+          obj.imagenes = fila.imagenes;
+        }
+        paraInsertar.push(obj);
       }
     } else {
       setProgresoTexto("Consultando stock existente...");
@@ -204,23 +229,18 @@ export default function ImportarStock({
 
       for (const fila of filasValidas) {
         const existeId = mapaExistentes.get(fila.referencia);
+        const datos: any = { descripcion: fila.descripcion, marca: fila.marca, precio: fila.precio, stock: fila.stock, impuesto: fila.impuesto || 0, tipo: tipoDefecto, provincia: provinciaPerfil || null, origen: "ftp" };
+        if (fila.imagenes && fila.imagenes.length > 0) {
+          datos.imagenes = fila.imagenes;
+        }
         if (existeId) {
-          paraActualizar.push({
-            id: existeId,
-            datos: { descripcion: fila.descripcion, marca: fila.marca, precio: fila.precio, stock: fila.stock, impuesto: fila.impuesto || 0, tipo: tipoDefecto, provincia: provinciaPerfil || null, origen: "ftp" },
-          });
+          paraActualizar.push({ id: existeId, datos });
         } else {
           paraInsertar.push({
             proveedor_id: proveedorId,
             proveedor_nombre: proveedorNombre,
             referencia: fila.referencia,
-            descripcion: fila.descripcion,
-            marca: fila.marca,
-            precio: fila.precio,
-            stock: fila.stock,
-            impuesto: fila.impuesto || 0,
-            provincia: provinciaPerfil || null,
-            origen: "ftp", // ← marcamos como ftp
+            ...datos,
           });
         }
       }
@@ -266,7 +286,7 @@ export default function ImportarStock({
     setFase("idle");
     setFilas([]);
     setColumnas([]);
-    setMapeo({ referencia: "", descripcion: "", marca: "", precio: "", stock: "", impuesto: "" });
+    setMapeo({ referencia: "", descripcion: "", marca: "", precio: "", stock: "", impuesto: "", imagenes: "" });
     setResultado(null);
     setProgreso(0);
     setProgresoTexto("");
@@ -284,9 +304,14 @@ export default function ImportarStock({
 
   function descargarPlantilla() {
     const wb = XLSX.utils.book_new();
-    const datos = [["REFERENCIA", "DESCRIPCION", "MARCA", "PRECIO", "STOCK"]];
+    const cabeceras = tipoDefecto === "CATV"
+      ? ["REFERENCIA", "DESCRIPCION", "MARCA", "PRECIO", "STOCK", "IMAGENES"]
+      : ["REFERENCIA", "DESCRIPCION", "MARCA", "PRECIO", "STOCK"];
+    const datos = [cabeceras];
     const ws = XLSX.utils.aoa_to_sheet(datos);
-    ws["!cols"] = [{ wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 14 }, { wch: 10 }];
+    ws["!cols"] = tipoDefecto === "CATV"
+      ? [{ wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 60 }]
+      : [{ wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 14 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
     XLSX.writeFile(wb, "plantilla_importar_stock_recambiodirecto.xlsx");
   }
@@ -305,17 +330,25 @@ export default function ImportarStock({
               {CAMPOS_OBLIGATORIOS.map(campo => (
                 <div key={campo} style={campoBadge}><span style={{ color: "#f87171", marginRight: 6 }}>*</span><strong>{CAMPOS_LABELS[campo]}</strong></div>
               ))}
+              {tipoDefecto === "CATV" && CAMPOS_CATV_OBLIGATORIOS.map(campo => (
+                <div key={campo} style={{ ...campoBadge, borderColor: "rgba(217,119,6,0.3)" }}><span style={{ color: "#fbbf24", marginRight: 6 }}>*</span><strong>{CAMPOS_LABELS[campo]}</strong></div>
+              ))}
             </div>
             <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 10 }}>* Campos obligatorios — las filas sin estos datos serán omitidas</p>
+            {tipoDefecto === "CATV" && (
+              <p style={{ color: "#fbbf24", fontSize: 12, marginTop: 6 }}>📷 CATV requiere URLs de imágenes separadas por comas en la columna IMAGENES</p>
+            )}
           </div>
 
           <div style={{ marginBottom: 20 }}>
             <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIAS A IMPORTAR</p>
-            <div style={{ display: "flex", gap: 12 }}>
-              {(["IAM", "OEM"] as const).map(t => (
-                <button key={t} onClick={() => setTipoDefecto(t)} style={{ flex: 1, padding: "16px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.25)" : "rgba(139,92,246,0.25)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : "#a78bfa") : "#94a3b8", outline: tipoDefecto === t ? ("2px solid " + (t === "OEM" ? "#2563eb" : "#7c3aed")) : "none" }}>
-                  {t === "OEM" ? "🔵 OEM" : "🟣 IAM"}
-                  <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>{t === "OEM" ? "Servicio oficial — referencias originales de fabricante" : "Distribuidor — aftermarket / equivalentes"}</p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {(["IAM", "OEM", "CATV"] as const).map(t => (
+                <button key={t} onClick={() => setTipoDefecto(t)} style={{ flex: 1, minWidth: 140, padding: "16px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.25)" : t === "IAM" ? "rgba(139,92,246,0.25)" : "rgba(217,119,6,0.25)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : "#fbbf24") : "#94a3b8", outline: tipoDefecto === t ? ("2px solid " + (t === "OEM" ? "#2563eb" : t === "IAM" ? "#7c3aed" : "#d97706")) : "none" }}>
+                  {t === "OEM" ? "🔵 OEM" : t === "IAM" ? "🟣 IAM" : "♻️ CATV"}
+                  <p style={{ fontSize: 12, fontWeight: 400, marginTop: 4, opacity: 0.8 }}>
+                    {t === "OEM" ? "Servicio oficial — referencias originales de fabricante" : t === "IAM" ? "Distribuidor — aftermarket / equivalentes" : "Desguace — piezas recuperadas (requiere imágenes)"}
+                  </p>
                 </button>
               ))}
             </div>
@@ -363,6 +396,17 @@ export default function ImportarStock({
               {mapeo.impuesto && <div style={mapeoPreviewVal}>Vista previa: <strong>{getVal(filas[0], mapeo.impuesto || "") || "—"}€</strong></div>}
               <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>Ecotasa, casco, recargo especial...</p>
             </div>
+            {tipoDefecto === "CATV" && (
+              <div style={{ ...mapeoCard, border: "1px solid rgba(217,119,6,0.4)", background: "rgba(217,119,6,0.05)" }}>
+                <p style={mapeoLabel}><span style={{ color: "#fbbf24" }}>* </span>{CAMPOS_LABELS["imagenes"]}</p>
+                <select value={mapeo.imagenes} onChange={e => setMapeo(prev => ({ ...prev, imagenes: e.target.value }))} style={{ ...mapeoSelect, borderColor: "rgba(217,119,6,0.4)" }}>
+                  <option value="">— Seleccionar columna —</option>
+                  {columnas.map(col => <option key={col} value={col}>{col}</option>)}
+                </select>
+                {mapeo.imagenes && <div style={mapeoPreviewVal}>Vista previa: <strong>{getVal(filas[0], mapeo.imagenes || "") || "—"}</strong></div>}
+                <p style={{ color: "#fbbf24", fontSize: 11, marginTop: 8 }}>📷 URLs separadas por comas. Las filas sin imágenes serán rechazadas.</p>
+              </div>
+            )}
           </div>
 
           {mapeoCompleto() && (
@@ -410,9 +454,9 @@ export default function ImportarStock({
 
           <div style={{ marginBottom: 16 }}>
             <p style={{ color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>TIPO DE REFERENCIA POR DEFECTO</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              {(["OEM", "IAM", "UNIVERSAL"] as const).map(t => (
-                <button key={t} onClick={() => setTipoDefecto(t)} style={{ padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.3)" : t === "IAM" ? "rgba(139,92,246,0.3)" : "rgba(22,163,74,0.3)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : "#4ade80") : "#94a3b8", outline: tipoDefecto === t ? "2px solid currentColor" : "none" }}>{t}</button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {(["OEM", "IAM", "UNIVERSAL", "CATV"] as const).map(t => (
+                <button key={t} onClick={() => setTipoDefecto(t)} style={{ padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 14, border: "none", background: tipoDefecto === t ? (t === "OEM" ? "rgba(37,99,235,0.3)" : t === "IAM" ? "rgba(139,92,246,0.3)" : t === "CATV" ? "rgba(217,119,6,0.3)" : "rgba(22,163,74,0.3)") : "rgba(255,255,255,0.05)", color: tipoDefecto === t ? (t === "OEM" ? "#60a5fa" : t === "IAM" ? "#a78bfa" : t === "CATV" ? "#fbbf24" : "#4ade80") : "#94a3b8", outline: tipoDefecto === t ? "2px solid currentColor" : "none" }}>{t === "CATV" ? "♻️ CATV" : t}</button>
               ))}
             </div>
             <p style={{ color: "#94a3b8", fontSize: 11, marginTop: 8 }}>Todas las referencias del fichero se importaran como {tipoDefecto}</p>
