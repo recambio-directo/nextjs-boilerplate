@@ -201,24 +201,69 @@ export async function POST(req: NextRequest) {
       );
 
       if (labelRes.ok) {
-        const labelRaw = await labelRes.text();
-        console.log("CTT etiqueta response primeros 500:", labelRaw.substring(0, 500));
-        const labelData = JSON.parse(labelRaw);
-        console.log("CTT etiqueta keys:", JSON.stringify(Object.keys(labelData)));
-        if (Array.isArray(labelData)) console.log("CTT etiqueta array[0] keys:", JSON.stringify(Object.keys(labelData[0] || {})));
-        const base64 = labelData.data?.[0]?.label || labelData.labels?.[0]?.label_data || labelData.label_data || null;
-        console.log("CTT base64 longitud:", base64?.length || 0);
-        if (base64) {
-          const pdfBuffer = Buffer.from(base64, "base64");
+        const contentType = labelRes.headers.get("content-type") || "";
+        console.log("CTT etiqueta content-type:", contentType, "status:", labelRes.status);
+
+        let pdfBuffer: Buffer | null = null;
+
+        if (contentType.includes("application/pdf") || contentType.includes("octet-stream")) {
+          // Respuesta binaria directa (PDF)
+          const arrayBuf = await labelRes.arrayBuffer();
+          pdfBuffer = Buffer.from(arrayBuf);
+          console.log("CTT etiqueta: PDF binario recibido, bytes:", pdfBuffer.length);
+        } else {
+          // Intentar parsear como JSON con base64
+          const labelRaw = await labelRes.text();
+          console.log("CTT etiqueta response primeros 500:", labelRaw.substring(0, 500));
+
+          // Si empieza con %PDF, es un PDF en texto
+          if (labelRaw.startsWith("%PDF")) {
+            pdfBuffer = Buffer.from(labelRaw, "binary");
+            console.log("CTT etiqueta: PDF como texto, bytes:", pdfBuffer.length);
+          } else {
+            try {
+              const labelData = JSON.parse(labelRaw);
+              console.log("CTT etiqueta keys:", JSON.stringify(Object.keys(labelData)));
+              if (Array.isArray(labelData)) console.log("CTT etiqueta array[0] keys:", JSON.stringify(Object.keys(labelData[0] || {})));
+              const base64 = labelData.data?.[0]?.label
+                || labelData.labels?.[0]?.label_data
+                || labelData.label_data
+                || labelData.label
+                || (Array.isArray(labelData) && labelData[0]?.label)
+                || (Array.isArray(labelData) && labelData[0]?.label_data)
+                || null;
+              console.log("CTT base64 longitud:", base64?.length || 0);
+              if (base64) {
+                pdfBuffer = Buffer.from(base64, "base64");
+              }
+            } catch (jsonErr) {
+              console.error("CTT etiqueta: no es JSON válido, intentando como base64 directo");
+              // Quizá es base64 directamente sin wrapper JSON
+              if (labelRaw.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(labelRaw.trim())) {
+                pdfBuffer = Buffer.from(labelRaw.trim(), "base64");
+                console.log("CTT etiqueta: base64 directo, bytes:", pdfBuffer.length);
+              }
+            }
+          }
+        }
+
+        if (pdfBuffer && pdfBuffer.length > 100) {
           const path = `etiquetas-ctt/${pedidoId}/${Date.now()}_etiqueta.pdf`;
           const { error: uploadErr } = await supabase.storage
             .from("FACTURAS")
-            .upload(path, pdfBuffer, { contentType: "application/pdf" });
+            .upload(path, pdfBuffer, { contentType: "application/pdf", upsert: true });
           if (!uploadErr) {
             const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
             etiquetaUrl = urlData.publicUrl;
+            console.log("CTT etiqueta guardada:", etiquetaUrl);
+          } else {
+            console.error("CTT etiqueta upload error:", uploadErr.message);
           }
+        } else {
+          console.warn("CTT etiqueta: no se obtuvo PDF válido (buffer null o muy pequeño)");
         }
+      } else {
+        console.error("CTT etiqueta HTTP error:", labelRes.status, await labelRes.text().catch(() => ""));
       }
     } catch (e) {
       console.error("Error obteniendo etiqueta CTT:", e);
@@ -227,11 +272,11 @@ export async function POST(req: NextRequest) {
     // Tracking URL para el taller
     const trackingUrl = `https://www.cttexpress.com/localizador-de-envios/?sc=${shippingCode}`;
 
-    // Actualizar pedido
+    // Actualizar pedido — solo guardar etiqueta_envio_url si realmente tenemos una
     await supabase.from("pedidos").update({
       tracking:              shippingCode,
       tracking_ctt:          shippingCode,
-      etiqueta_envio_url:    etiquetaUrl,
+      ...(etiquetaUrl ? { etiqueta_envio_url: etiquetaUrl } : {}),
       estado_envio:          "preparando",
       agencia:               "CTT Express",
     }).eq("id", pedidoId);

@@ -72,6 +72,7 @@ export async function POST(request: Request) {
     const esMrw   = agenciaPedido.includes("mrw");
     const esSeur  = agenciaPedido.includes("seur");
     const esCex   = agenciaPedido.includes("correos");
+    const esCtt   = agenciaPedido.includes("ctt");
 
     let etiquetaUrl: string | null = null;
     if (esMisMedios) {
@@ -84,6 +85,9 @@ export async function POST(request: Request) {
       etiquetaUrl = pedidoData.etiqueta_seur_url;
     } else if (esCex && pedidoData?.etiqueta_envio_url) {
       // Correos Express guarda la etiqueta en etiqueta_envio_url
+      etiquetaUrl = pedidoData.etiqueta_envio_url;
+    } else if (esCtt && pedidoData?.etiqueta_envio_url) {
+      // CTT Express guarda la etiqueta en etiqueta_envio_url
       etiquetaUrl = pedidoData.etiqueta_envio_url;
     } else {
       etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
