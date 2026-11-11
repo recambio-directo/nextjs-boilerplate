@@ -164,7 +164,7 @@ export async function POST(request: Request) {
     if (!albaranBase64 && !albaranProvBase64) {
       console.log("[adjuntos] No se encontraron albaranes, intentando generar al vuelo...");
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://www.recambio-directo.com";
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://www.recambio-directo.com");
         const genRes = await fetch(`${baseUrl}/api/generar-albaran`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
