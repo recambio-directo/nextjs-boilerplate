@@ -143,7 +143,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Descargar adjuntos - primero por path directo, luego por URL
+    // Descargar adjuntos - SIEMPRE intentar por path directo primero (más fiable),
+    // luego por URL de BD, y como último recurso generar al vuelo
     const albaranStoragePath = `documentos/${codigo}/albaran-${codigo}.pdf`;
     const albaranProvStoragePath = `documentos/${codigo}/albaran-proveedor-${codigo}.pdf`;
 
@@ -151,16 +152,55 @@ export async function POST(request: Request) {
     let albaranProvBase64: string | null = null;
     let etiquetaBase64: string | null = null;
 
-    if (albaranUrl) {
-      albaranBase64 = await downloadFromStorage(albaranStoragePath);
-      if (!albaranBase64) albaranBase64 = await urlToBase64(albaranUrl);
+    // Albarán taller: intentar storage path directo, luego URL
+    albaranBase64 = await downloadFromStorage(albaranStoragePath);
+    if (!albaranBase64 && albaranUrl) albaranBase64 = await urlToBase64(albaranUrl);
+
+    // Albarán proveedor: intentar storage path directo, luego URL
+    albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
+    if (!albaranProvBase64 && albaranProveedorUrl) albaranProvBase64 = await urlToBase64(albaranProveedorUrl);
+
+    // Si no hay albaranes, intentar generarlos al vuelo con generar-albaran
+    if (!albaranBase64 && !albaranProvBase64) {
+      console.log("[adjuntos] No se encontraron albaranes, intentando generar al vuelo...");
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://www.recambio-directo.com";
+        const genRes = await fetch(`${baseUrl}/api/generar-albaran`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pedidoId }),
+        });
+        if (genRes.ok) {
+          const genData = await genRes.json();
+          console.log("[adjuntos] Albaranes generados al vuelo:", genData.ok);
+          // Reintentar descarga tras generación
+          albaranBase64 = await downloadFromStorage(albaranStoragePath);
+          albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
+        } else {
+          console.error("[adjuntos] Error generando albaranes al vuelo:", genRes.status);
+        }
+      } catch (genErr) {
+        console.error("[adjuntos] Error llamando generar-albaran:", genErr);
+      }
     }
-    if (albaranProveedorUrl) {
-      albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
-      if (!albaranProvBase64) albaranProvBase64 = await urlToBase64(albaranProveedorUrl);
-    }
+
+    // Etiqueta: intentar por URL
     if (etiquetaUrl) {
       etiquetaBase64 = await urlToBase64(etiquetaUrl);
+    }
+    // Fallback: si es CTT y no hay etiqueta, intentar path conocido de CTT en storage
+    if (!etiquetaBase64 && esCtt) {
+      console.log("[adjuntos] CTT sin etiqueta, buscando en storage etiquetas-ctt/...");
+      try {
+        const { data: files } = await supabase.storage.from("FACTURAS").list(`etiquetas-ctt/${pedidoId}`, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
+        if (files && files.length > 0) {
+          const cttPath = `etiquetas-ctt/${pedidoId}/${files[0].name}`;
+          etiquetaBase64 = await downloadFromStorage(cttPath);
+          console.log("[adjuntos] CTT etiqueta encontrada en storage:", cttPath, etiquetaBase64 ? "OK" : "FAIL");
+        }
+      } catch (e) {
+        console.error("[adjuntos] Error buscando etiqueta CTT en storage:", e);
+      }
     }
 
     console.log("[adjuntos] Resultado:", {

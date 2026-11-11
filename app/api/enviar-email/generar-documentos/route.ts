@@ -85,10 +85,13 @@ export async function POST(request: Request) {
     const { data: albaranUrl } = supabase.storage.from("FACTURAS").getPublicUrl(albaranPath);
     const { data: etiquetaUrl } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
 
-    // Guardar URLs en el pedido
+    // Guardar URLs en el pedido — NO sobreescribir etiqueta_envio_url si ya tiene
+    // la etiqueta de la agencia (CTT, Nacex, MRW, etc.)
+    const agenciaLower = (pedido.agencia || pedido.transporte || "").toLowerCase();
+    const tieneEtiquetaAgencia = agenciaLower.includes("ctt") || agenciaLower.includes("nacex") || agenciaLower.includes("mrw") || agenciaLower.includes("seur") || agenciaLower.includes("correos") || agenciaLower.includes("dhl") || agenciaLower.includes("gls");
     await supabase.from("pedidos").update({
       albaran_url: albaranUrl.publicUrl,
-      etiqueta_envio_url: etiquetaUrl.publicUrl,
+      ...(tieneEtiquetaAgencia && pedido.etiqueta_envio_url ? {} : { etiqueta_envio_url: etiquetaUrl.publicUrl }),
     }).eq("id", pedidoId);
 
     console.log(`Documentos generados para pedido ${pedidoId}: ${albaranUrl.publicUrl}`);
