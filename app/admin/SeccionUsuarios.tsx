@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { adminPost, datosQueFaltan } from "./adminApi";
 import { Usuario, SUSCRIPCION_LABELS, tipoBadge, subBadge, selectSub, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnAccion, btnFiltro, searchInput, filtrosBox } from "./types";
 
 type Props = {
@@ -8,7 +9,7 @@ type Props = {
   setFtpProveedorId: (id: string) => void;
   toggleActivo: (u: Usuario) => void;
   cambiarSuscripcion: (id: string, sub: string) => void;
-  eliminarUsuario: (id: string) => void;
+  eliminarUsuario: (id: string) => Promise<{ ok: boolean; error?: string; avisos?: string[]; pedidosConservados?: number }>;
   setUsuarioEditando: (u: Usuario) => void;
   setNotasTemp: (n: string) => void;
   setUsuarios: (fn: (prev: Usuario[]) => Usuario[]) => void;
@@ -19,11 +20,87 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroSub, setFiltroSub] = useState("todos");
   const [cambiandoTipo, setCambiandoTipo] = useState<string | null>(null);
-const [modalDireccion, setModalDireccion] = useState<Usuario | null>(null);
-const [editDireccion, setEditDireccion] = useState("");
-const [editCiudad, setEditCiudad] = useState("");
-const [editCp, setEditCp] = useState("");
-const [guardandoDireccion, setGuardandoDireccion] = useState(false);
+  const [soloIncompletos, setSoloIncompletos] = useState(false);
+  const [ficha, setFicha] = useState<Usuario | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [guardandoFicha, setGuardandoFicha] = useState(false);
+  const [msgFicha, setMsgFicha] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [enlacePassword, setEnlacePassword] = useState("");
+  const [eliminando, setEliminando] = useState<string | null>(null);
+
+  const CAMPOS_FICHA: [string, string, string][] = [
+    ["nombre_empresa", "Empresa / razón social", "1/-1"],
+    ["email", "Email de acceso", "auto"],
+    ["telefono", "Teléfono", "auto"],
+    ["cif", "CIF / NIF", "auto"],
+    ["email_facturas", "Email para facturas", "auto"],
+    ["direccion", "Dirección (calle y número)", "1/-1"],
+    ["ciudad", "Ciudad", "auto"],
+    ["codigo_postal", "Código postal", "auto"],
+    ["provincia", "Provincia", "auto"],
+    ["iban", "IBAN", "auto"],
+    ["credito_rd", "Crédito RD actual (€)", "auto"],
+    ["credito_rd_maximo", "Crédito RD máximo (€)", "auto"],
+  ];
+
+  function abrirFicha(u: Usuario) {
+    const f: Record<string, string> = {};
+    for (const [k] of CAMPOS_FICHA) f[k] = (u as any)[k] === null || (u as any)[k] === undefined ? "" : String((u as any)[k]);
+    f.notas_admin = u.notas_admin || "";
+    setForm(f); setFicha(u); setMsgFicha(null); setEnlacePassword("");
+  }
+
+  async function guardarFicha() {
+    if (!ficha) return;
+    setGuardandoFicha(true); setMsgFicha(null);
+    // Solo se envían los campos que han cambiado
+    const campos: Record<string, string> = {};
+    for (const [k, v] of Object.entries(form)) {
+      const original = (ficha as any)[k] === null || (ficha as any)[k] === undefined ? "" : String((ficha as any)[k]);
+      if (v.trim() !== original.trim()) campos[k] = v.trim();
+    }
+    if (Object.keys(campos).length === 0) { setMsgFicha({ ok: true, texto: "No hay cambios que guardar" }); setGuardandoFicha(false); return; }
+    const r = await adminPost("/api/admin/usuario", { accion: "actualizar", userId: ficha.id, campos });
+    if (r.ok) {
+      if (r.usuario) setUsuarios(prev => prev.map(u => u.id === ficha.id ? { ...u, ...r.usuario } : u));
+      setMsgFicha({ ok: true, texto: r.descartados?.length ? `Guardado. Estos campos no existen en la base de datos y no se han guardado: ${r.descartados.join(", ")}` : "Cambios guardados" });
+      if (r.usuario) setFicha({ ...ficha, ...r.usuario });
+    } else {
+      setMsgFicha({ ok: false, texto: r.error || "No se pudo guardar" });
+    }
+    setGuardandoFicha(false);
+  }
+
+  async function generarEnlacePassword() {
+    if (!ficha) return;
+    setMsgFicha(null);
+    const r = await adminPost("/api/admin/usuario", { accion: "enlace_password", userId: ficha.id });
+    if (r.ok) { setEnlacePassword(r.enlace); setMsgFicha({ ok: true, texto: "Enlace generado. Envíaselo al usuario: al abrirlo podrá poner una contraseña nueva. Es de un solo uso." }); }
+    else setMsgFicha({ ok: false, texto: r.error || "No se pudo generar el enlace" });
+  }
+
+  async function confirmarEmail() {
+    if (!ficha) return;
+    const r = await adminPost("/api/admin/usuario", { accion: "confirmar_email", userId: ficha.id });
+    setMsgFicha({ ok: !!r.ok, texto: r.ok ? "Email marcado como verificado: ya puede iniciar sesión" : (r.error || "No se pudo confirmar") });
+  }
+
+  async function eliminarConConfirmacion(u: Usuario) {
+    const nombre = u.nombre_empresa || u.email;
+    const escrito = prompt(`ELIMINAR DEFINITIVAMENTE a "${nombre}" (${u.tipo}).\n\nSe borra su acceso, su perfil, su cesta${u.tipo === "proveedor" ? ", TODO su stock publicado y sus claves de API" : ""}. Sus pedidos se conservan como histórico.\nNo se puede deshacer. Si solo quieres bloquearlo, usa el botón Activo/Inactivo.\n\nEscribe ELIMINAR para confirmar:`);
+    if (escrito !== "ELIMINAR") return;
+    setEliminando(u.id);
+    const r = await eliminarUsuario(u.id);
+    setEliminando(null);
+    if (r.ok) {
+      setFicha(null);
+      alert(`Usuario eliminado.${r.pedidosConservados ? ` Se conservan ${r.pedidosConservados} pedidos suyos en el histórico.` : ""}${r.avisos?.length ? "\n\nAvisos:\n" + r.avisos.join("\n") : ""}`);
+    } else {
+      alert(`No se pudo eliminar: ${r.error || "error desconocido"}${r.avisos?.length ? "\n" + r.avisos.join("\n") : ""}`);
+    }
+  }
+
+  const numIncompletos = usuarios.filter(u => datosQueFaltan(u).length > 0).length;
 
   async function cambiarTipo(id: string, nuevoTipo: string) {
     if (!confirm(`¿Cambiar este usuario a ${nuevoTipo}? Esto afectará a su acceso en la plataforma.`)) return;
@@ -34,9 +111,10 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
   }
 
   const usuariosFiltrados = usuarios.filter(u => {
+    if (soloIncompletos && datosQueFaltan(u).length === 0) return false;
     if (filtroTipo !== "todos" && u.tipo !== filtroTipo) return false;
     if (filtroSub !== "todos" && u.suscripcion !== filtroSub) return false;
-    if (busqueda) { const q = busqueda.toLowerCase(); return (u.nombre_empresa || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.cif || "").toLowerCase().includes(q); }
+    if (busqueda) { const q = busqueda.toLowerCase(); return (u.nombre_empresa || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q) || (u.cif || "").toLowerCase().includes(q) || (u.telefono || "").toLowerCase().includes(q) || (u.ciudad || "").toLowerCase().includes(q); }
     return true;
   });
 
@@ -57,11 +135,12 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
             <button key={s} onClick={() => setFiltroSub(s)} style={{ ...btnFiltro, background: filtroSub === s ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.05)", color: filtroSub === s ? "#a78bfa" : "#94a3b8", border: filtroSub === s ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{SUSCRIPCION_LABELS[s]?.label || "Todos"}</button>
           ))}
         </div>
+        <button onClick={() => setSoloIncompletos(!soloIncompletos)} style={{ ...btnFiltro, background: soloIncompletos ? "linear-gradient(135deg,#d97706,#b45309)" : numIncompletos > 0 ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)", color: soloIncompletos ? "white" : numIncompletos > 0 ? "#fbbf24" : "#94a3b8", border: soloIncompletos ? "none" : "1px solid rgba(245,158,11,0.25)" }}>⚠️ Datos incompletos ({numIncompletos})</button>
         <span style={{ color: "#94a3b8", fontSize: 13 }}>{usuariosFiltrados.length} usuarios</span>
       </div>
       <div style={tableContainer}>
         <table style={tableStyle}>
-          <thead><tr>{["EMPRESA", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "VEHÍCULO", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr>{["EMPRESA", "TELÉFONO", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "VEHÍCULO", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {usuariosFiltrados.map(u => (
               <tr key={u.id} style={{ ...trStyle, opacity: u.activo ? 1 : 0.5 }}>
@@ -69,6 +148,7 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
                   <div style={{ fontWeight: 700 }}>{u.nombre_empresa || "-"}</div>
                   {u.ciudad && <div style={{ color: "#94a3b8", fontSize: 12 }}>📍 {u.ciudad}</div>}
                   {u.notas_admin && <div style={{ color: "#fbbf24", fontSize: 11, marginTop: 2 }}>📝 {u.notas_admin.substring(0, 40)}...</div>}
+                  {datosQueFaltan(u).length > 0 && <div style={{ color: "#f87171", fontSize: 11, marginTop: 2, fontWeight: 700 }}>⚠️ Falta: {datosQueFaltan(u).join(", ")}</div>}
                 </td>
                 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.telefono || "-"}</td>
 <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
@@ -133,8 +213,8 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
                 <td style={tdStyle}>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => { setUsuarioEditando(u); setNotasTemp(u.notas_admin || ""); }} style={btnAccion}>📝</button>
-<button onClick={() => { setModalDireccion(u); setEditDireccion(u.direccion || ""); setEditCiudad(u.ciudad || ""); setEditCp((u as any).codigo_postal || ""); }} style={{ ...btnAccion, background: "rgba(245,158,11,0.15)", color: "#fbbf24" }}>📍</button>
-                    <button onClick={() => eliminarUsuario(u.id)} style={{ ...btnAccion, background: "rgba(239,68,68,0.15)", color: "#f87171" }}>🗑️</button>
+<button title="Ficha completa: editar todos los datos" onClick={() => abrirFicha(u)} style={{ ...btnAccion, background: "rgba(245,158,11,0.15)", color: "#fbbf24" }}>✏️</button>
+                    <button title="Eliminar usuario" disabled={eliminando === u.id} onClick={() => eliminarConConfirmacion(u)} style={{ ...btnAccion, background: "rgba(239,68,68,0.15)", color: "#f87171" }}>{eliminando === u.id ? "..." : "🗑️"}</button>
                   </div>
                 </td>
               </tr>
@@ -144,48 +224,52 @@ const [guardandoDireccion, setGuardandoDireccion] = useState(false);
       </div>
     </div>
 
-    {modalDireccion && (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setModalDireccion(null)}>
-        <div style={{ background: "#0f172a", borderRadius: 24, padding: 36, width: 480, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>📍 Dirección de recogida</h2>
-            <button onClick={() => setModalDireccion(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
+    {ficha && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setFicha(null)}>
+        <div style={{ background: "#0f172a", borderRadius: 24, padding: 32, width: 720, maxWidth: "100%", maxHeight: "92vh", overflowY: "auto" as const, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 30px 80px rgba(0,0,0,0.8)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>✏️ Ficha de usuario</h2>
+            <button onClick={() => setFicha(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>✕</button>
           </div>
-          <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "8px 14px", marginBottom: 20 }}>
-            <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700 }}>{modalDireccion.nombre_empresa || modalDireccion.email}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Calle y número</p>
-              <input type="text" placeholder="Ej: Calle Mayor 12, Local 3" value={editDireccion} onChange={e => setEditDireccion(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
+          <p style={{ color: "#94a3b8", fontSize: 13, margin: "0 0 16px" }}><span style={tipoBadge(ficha.tipo)}>{ficha.tipo}</span> <span style={{ marginLeft: 8 }}>Alta: {ficha.fecha_registro ? new Date(ficha.fecha_registro).toLocaleDateString("es-ES") : "-"} · ID {ficha.id.substring(0, 8)}…</span></p>
+          {datosQueFaltan({ ...ficha, ...form }).length > 0 && (
+            <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 10, padding: "8px 14px", marginBottom: 16 }}>
+              <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700 }}>⚠️ Falta: {datosQueFaltan({ ...ficha, ...form }).join(", ")}. Sin dirección, ciudad y código postal las agencias no pueden crear sus envíos.</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Ciudad</p>
-                <input type="text" placeholder="Ej: Madrid" value={editCiudad} onChange={e => setEditCiudad(e.target.value)} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
-              </div>
-              <div>
-                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>Código Postal</p>
-                <input type="text" placeholder="Ej: 28001" value={editCp} onChange={e => setEditCp(e.target.value.replace(/\D/g, "").slice(0, 5))} maxLength={5} style={{ width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "14px 16px", fontSize: 14, outline: "none", boxSizing: "border-box" as const }} />
-              </div>
-            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {CAMPOS_FICHA.map(([k, label, col]) => (
+              <label key={k} style={{ gridColumn: col === "auto" ? undefined : col, display: "flex", flexDirection: "column" as const, gap: 4, fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{label}
+                <input
+                  value={form[k] ?? ""}
+                  onChange={e => setForm(prev => ({ ...prev, [k]: k === "codigo_postal" ? e.target.value.replace(/\D/g, "").slice(0, 5) : e.target.value }))}
+                  style={{ background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none" }}
+                />
+              </label>
+            ))}
+            <label style={{ gridColumn: "1/-1", display: "flex", flexDirection: "column" as const, gap: 4, fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>Notas internas (solo admin)
+              <textarea value={form.notas_admin ?? ""} onChange={e => setForm(prev => ({ ...prev, notas_admin: e.target.value }))} style={{ background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 13, outline: "none", minHeight: 70, resize: "vertical" as const }} />
+            </label>
           </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-            <button onClick={() => setModalDireccion(null)} style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
-            <button disabled={guardandoDireccion} onClick={async () => {
-              if (!modalDireccion) return;
-              setGuardandoDireccion(true);
-              await supabase.from("usuarios").update({ direccion: editDireccion.trim() || null, ciudad: editCiudad.trim() || null, codigo_postal: editCp.trim() || null }).eq("id", modalDireccion.id);
-              setUsuarios(prev => prev.map(u => u.id === modalDireccion!.id ? { ...u, direccion: editDireccion.trim(), ciudad: editCiudad.trim() } : u));
-              setGuardandoDireccion(false);
-              setModalDireccion(null);
-            }} style={{ flex: 1, background: "linear-gradient(135deg,#d97706,#b45309)", border: "none", color: "white", padding: "14px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 15, opacity: guardandoDireccion ? 0.7 : 1 }}>
-              {guardandoDireccion ? "Guardando..." : "Guardar dirección"}
-            </button>
+          <p style={{ color: "#64748b", fontSize: 12, margin: "10px 0 0" }}>Cambiar el email cambia también el email con el que inicia sesión.</p>
+
+          {msgFicha && <div style={{ background: msgFicha.ok ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${msgFicha.ok ? "rgba(22,163,74,0.3)" : "rgba(239,68,68,0.3)"}`, color: msgFicha.ok ? "#4ade80" : "#f87171", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginTop: 14 }}>{msgFicha.texto}</div>}
+          {enlacePassword && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input readOnly value={enlacePassword} onFocus={e => e.target.select()} style={{ flex: 1, background: "#020617", color: "#60a5fa", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 10, padding: "8px 12px", fontSize: 12, outline: "none" }} />
+              <button onClick={() => { navigator.clipboard?.writeText(enlacePassword); setMsgFicha({ ok: true, texto: "Enlace copiado al portapapeles" }); }} style={{ ...btnAccion, padding: "8px 14px" }}>Copiar</button>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" as const }}>
+            <button onClick={guardarFicha} disabled={guardandoFicha} style={{ flex: 1, minWidth: 180, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", padding: "13px", borderRadius: 12, cursor: "pointer", fontWeight: 900, fontSize: 15, opacity: guardandoFicha ? 0.7 : 1 }}>{guardandoFicha ? "Guardando..." : "Guardar cambios"}</button>
+            <button onClick={generarEnlacePassword} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#cbd5e1", padding: "13px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>🔑 Enlace nueva contraseña</button>
+            <button onClick={confirmarEmail} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#cbd5e1", padding: "13px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>✉️ Verificar email</button>
+            <button onClick={() => eliminarConConfirmacion(ficha)} disabled={eliminando === ficha.id} style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", padding: "13px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{eliminando === ficha.id ? "Eliminando..." : "🗑️ Eliminar usuario"}</button>
           </div>
         </div>
       </div>
     )}
     </>
   );
-}
+}

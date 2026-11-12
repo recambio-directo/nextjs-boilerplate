@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 import { Usuario, Pedido, PagoProveedor } from "./types";
+import { adminPost, importesProveedor, r2 } from "./adminApi";
 import SeccionDashboard from "./SeccionDashboard";
 import SeccionUsuarios from "./SeccionUsuarios";
 import SeccionCobros from "./SeccionCobros";
@@ -35,7 +36,7 @@ export default function AdminPage() {
   const [verificando, setVerificando] = useState(true);
 
   const proximosACobrar = usuarios.filter(u => {
-    if (u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
+    if (u.tipo !== "proveedor" || u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
     const dias = Math.floor((new Date().getTime() - new Date(u.fecha_registro).getTime()) / (1000 * 60 * 60 * 24));
     return dias >= 20 && dias <= 35;
   });
@@ -62,10 +63,56 @@ export default function AdminPage() {
   async function cargarDatos() {
     const { data: usuariosData } = await supabase.from("usuarios").select("*").neq("tipo", "admin").order("fecha_registro", { ascending: false });
     setUsuarios(usuariosData || []);
-    const { data: pedidosData } = await supabase.from("pedidos").select("*").order("id", { ascending: false }).limit(500);
+    const { data: pedidosData } = await supabase.from("pedidos").select("*").order("id", { ascending: false }).limit(2000);
     setPedidos(pedidosData || []);
     const { data: pagosData } = await supabase.from("pagos_proveedores").select("*").order("created_at", { ascending: false });
-    setPagosProveedores(pagosData || []);
+    const cambios = await sincronizarPagos(pedidosData || [], pagosData || []);
+    if (cambios) {
+      const { data: pagosNuevos } = await supabase.from("pagos_proveedores").select("*").order("created_at", { ascending: false });
+      setPagosProveedores(pagosNuevos || []);
+    } else {
+      setPagosProveedores(pagosData || []);
+    }
+  }
+
+  // Mantiene al día los pagos a proveedores:
+  //  · pedidos entregados sin pago registrado → se crea (también los que marcó "entregado" el seguimiento automático)
+  //  · pagos cuyo plazo de 7 días ya venció → pasan a "listo para pagar"
+  //  · pagos no realizados con importe distinto al correcto (piezas × cantidad + IVA) → se corrigen
+  async function sincronizarPagos(listaPedidos: Pedido[], listaPagos: PagoProveedor[]): Promise<boolean> {
+    let cambios = false;
+    try {
+      const ahora = Date.now();
+      const porPedido = new Map<number, PagoProveedor[]>();
+      for (const pg of listaPagos) { if (!porPedido.has(pg.pedido_id)) porPedido.set(pg.pedido_id, []); porPedido.get(pg.pedido_id)!.push(pg); }
+
+      for (const pedido of listaPedidos) {
+        if (pedido.anulado || pedido.estado_envio !== "entregado") continue;
+        const importes = importesProveedor(pedido);
+        const existentes = porPedido.get(pedido.id) || [];
+        for (const [provId, importe] of importes.entries()) {
+          if (importe <= 0) continue;
+          const pago = existentes.find(x => x.proveedor_id === provId);
+          if (!pago) {
+            const entrega = pedido.fecha_entrega_confirmada ? new Date(pedido.fecha_entrega_confirmada) : new Date();
+            const programado = new Date(entrega.getTime() + 7 * 24 * 60 * 60 * 1000);
+            const { error } = await supabase.from("pagos_proveedores").insert({ pedido_id: pedido.id, proveedor_id: provId, importe, estado: programado.getTime() <= ahora ? "listo_para_pagar" : "esperando_7dias", fecha_entrega: entrega.toISOString(), fecha_pago_programado: programado.toISOString() });
+            if (!error) cambios = true;
+          } else if (pago.estado !== "pagado" && Math.abs(r2(Number(pago.importe)) - importe) > 0.009) {
+            const { error } = await supabase.from("pagos_proveedores").update({ importe }).eq("id", pago.id);
+            if (!error) cambios = true;
+          }
+        }
+      }
+
+      for (const pg of listaPagos) {
+        if (pg.estado === "esperando_7dias" && pg.fecha_pago_programado && new Date(pg.fecha_pago_programado).getTime() <= ahora) {
+          const { error } = await supabase.from("pagos_proveedores").update({ estado: "listo_para_pagar" }).eq("id", pg.id);
+          if (!error) cambios = true;
+        }
+      }
+    } catch (e) { console.error("Error sincronizando pagos a proveedores:", e); }
+    return cambios;
   }
 
   async function toggleActivo(usuario: Usuario) {
@@ -78,15 +125,11 @@ export default function AdminPage() {
     setUsuarios(prev => prev.map(u => u.id === id ? { ...u, suscripcion } : u));
   }
 
-  async function eliminarUsuario(id: string) {
-    if (!confirm("¿Eliminar este usuario? Esta acción no se puede deshacer.")) return;
-    await supabase.from("usuarios").delete().eq("id", id);
-    await fetch("/api/admin/eliminar-usuario", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: id }),
-    });
-    setUsuarios(prev => prev.filter(u => u.id !== id));
+  // La confirmación la pide la pantalla de Usuarios; aquí solo se ejecuta
+  async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?: string; avisos?: string[]; pedidosConservados?: number }> {
+    const r = await adminPost("/api/admin/usuario", { accion: "eliminar", userId: id });
+    if (r.ok) setUsuarios(prev => prev.filter(u => u.id !== id));
+    return r;
   }
 
   async function guardarNotas() {
@@ -106,18 +149,18 @@ export default function AdminPage() {
   async function generarRemesaPagos() {
     const pendientes = pagosProveedores.filter(p => p.estado === "listo_para_pagar");
     if (pendientes.length === 0) { alert("No hay pagos listos para remesar"); return; }
-    const rows = pendientes.map(p => { const proveedor = usuarios.find(u => u.id === p.proveedor_id); return { "IBAN": proveedor?.iban||"SIN IBAN", "Empresa": proveedor?.nombre_empresa||"-", "Email": proveedor?.email||"-", "Pedido": `#${p.pedido_id}`, "Importe": p.importe.toFixed(2), "Fecha entrega": p.fecha_entrega ? new Date(p.fecha_entrega).toLocaleDateString("es-ES") : "-", "Fecha pago programado": p.fecha_pago_programado ? new Date(p.fecha_pago_programado).toLocaleDateString("es-ES") : "-" }; });
+    const rows = pendientes.map(p => { const proveedor = usuarios.find(u => u.id === p.proveedor_id); return { "IBAN": proveedor?.iban||"SIN IBAN", "Empresa": proveedor?.nombre_empresa||"-", "Email": proveedor?.email||"-", "Pedido": `#${p.pedido_id}`, "Importe": r2(Number(p.importe)), "Fecha entrega": p.fecha_entrega ? new Date(p.fecha_entrega).toLocaleDateString("es-ES") : "-", "Fecha pago programado": p.fecha_pago_programado ? new Date(p.fecha_pago_programado).toLocaleDateString("es-ES") : "-" }; });
     const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(rows); XLSX.utils.book_append_sheet(wb, ws, "Remesa");
     XLSX.writeFile(wb, `remesa_proveedores_${new Date().toLocaleDateString("es-ES").replace(/\//g,"-")}.xlsx`);
   }
 
+  // Importe = piezas × cantidad + IVA. Se paga 7 días después de la entrega.
   async function crearPagoProveedorSiNoExiste(pedido: Pedido) {
     if (!pedido.id || !pedido.productos) return;
-    const proveedoresUnicos = new Map<string, number>();
-    for (const prod of pedido.productos) { if (prod.proveedor_id) { const actual = proveedoresUnicos.get(prod.proveedor_id) || 0; proveedoresUnicos.set(prod.proveedor_id, actual + Number(prod.precio || 0)); } }
     const fechaEntrega = new Date().toISOString();
     const fechaPago = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    for (const [provId, importe] of proveedoresUnicos.entries()) {
+    for (const [provId, importe] of importesProveedor(pedido).entries()) {
+      if (importe <= 0) continue;
       const { data: existe } = await supabase.from("pagos_proveedores").select("id").eq("pedido_id", pedido.id).eq("proveedor_id", provId).maybeSingle();
       if (!existe) { await supabase.from("pagos_proveedores").insert({ pedido_id: pedido.id, proveedor_id: provId, importe, estado: "esperando_7dias", fecha_entrega: fechaEntrega, fecha_pago_programado: fechaPago }); }
     }
@@ -183,12 +226,12 @@ export default function AdminPage() {
       </aside>
 
       <section style={contentStyle}>
-        {seccion === "dashboard"   && <SeccionDashboard usuarios={usuarios} pedidos={pedidos} setSeccion={setSeccion} />}
+        {seccion === "dashboard"   && <SeccionDashboard usuarios={usuarios} pedidos={pedidos} pagosProveedores={pagosProveedores} setSeccion={setSeccion} />}
         {seccion === "usuarios"    && <SeccionUsuarios usuarios={usuarios} setSeccion={setSeccion} setFtpProveedorId={setFtpProveedorId} toggleActivo={toggleActivo} cambiarSuscripcion={cambiarSuscripcion} eliminarUsuario={eliminarUsuario} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} setUsuarios={setUsuarios} />}
         {seccion === "cobros"      && <SeccionCobros usuarios={usuarios} pedidos={pedidos} cambiarSuscripcion={cambiarSuscripcion} />}
         {seccion === "facturacion" && <SeccionFacturacion usuarios={usuarios} pedidos={pedidos} />}
         {seccion === "financiero"  && <SeccionFinanciero usuarios={usuarios} pagosProveedores={pagosProveedores} cambiarSuscripcion={cambiarSuscripcion} setUsuarios={setUsuarios} setUsuarioEditando={setUsuarioEditando} setNotasTemp={setNotasTemp} marcarPagado={marcarPagado} generarRemesaPagos={generarRemesaPagos} pedidos={pedidos} />}
-        {seccion === "pedidos"     && <SeccionPedidos pedidos={pedidos} cargarDatos={cargarDatos} crearPagoProveedorSiNoExiste={crearPagoProveedorSiNoExiste} />}
+        {seccion === "pedidos"     && <SeccionPedidos pedidos={pedidos} usuarios={usuarios} cargarDatos={cargarDatos} crearPagoProveedorSiNoExiste={crearPagoProveedorSiNoExiste} />}
         {seccion === "ftp"         && <SeccionFTP usuarios={usuarios} ftpProveedorId={ftpProveedorId} setFtpProveedorId={setFtpProveedorId} ftpPassword={ftpPassword} setFtpPassword={setFtpPassword} ftpTipoReferencias={ftpTipoReferencias} setFtpTipoReferencias={setFtpTipoReferencias} ftpCreando={ftpCreando} ftpResultado={ftpResultado} setFtpResultado={setFtpResultado} crearUsuarioFTP={crearUsuarioFTP} descargarCredencialesFTP={descargarCredencialesFTP} />}
         {seccion === "api"          && <SeccionAPI usuarios={usuarios} />}
         {seccion === "chats"        && <SeccionChats />}
@@ -212,4 +255,4 @@ export default function AdminPage() {
       )}
     </main>
   );
-}
+}

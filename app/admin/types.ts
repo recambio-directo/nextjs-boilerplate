@@ -52,7 +52,18 @@ export type Pedido = {
   tracking_gls?: string;
   tracking_ctt?: string;
   tracking_seur?: string;
+  tracking_mrw?: string;
   cliente_telefono?: string;
+  gastos_gestion?: number;
+  peso_kg?: number;
+  estado_pago?: string;
+  notas_internas?: string;
+  motivo_anulacion?: string;
+  albaran_proveedor_url?: string;
+  etiqueta_nacex_url?: string;
+  etiqueta_seur_url?: string;
+  etiqueta_mrw_url?: string;
+  etiqueta_dhl_url?: string;
 };
 
 export type PagoProveedor = {
@@ -110,4 +121,4 @@ export const btnVer = { background: "rgba(37,99,235,0.15)", border: "1px solid r
 export const searchInput = { background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 16px", color: "white", fontSize: 14, outline: "none", minWidth: 280 };
 export const titleStyle = { fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 };
 export const descStyle = { color: "#94a3b8", fontSize: 18, marginBottom: 36 };
-export const filtrosBox = { display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" };
+export const filtrosBox = { display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" };

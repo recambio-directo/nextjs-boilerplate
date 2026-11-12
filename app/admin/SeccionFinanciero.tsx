@@ -18,7 +18,7 @@ type Props = {
 function usuariosProximosACobrar(usuarios: Usuario[]) {
   const ahora = new Date();
   return usuarios.filter(u => {
-    if (u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
+    if (u.tipo !== "proveedor" || u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
     const dias = Math.floor((ahora.getTime() - new Date(u.fecha_registro).getTime()) / (1000 * 60 * 60 * 24));
     return dias >= 20 && dias <= 35;
   });
@@ -258,6 +258,7 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 900 }}>🏦 Pagos a proveedores (7 días post-entrega)</h2>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>Importe = piezas × cantidad + IVA. Se crean solos al entregarse el pedido y pasan a "Listo" a los 7 días.</p>
             <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>Pendientes: <strong style={{ color: "#fbbf24" }}>{pagosProveedores.filter(p => p.estado === "listo_para_pagar").length}</strong> · Pagados: <strong style={{ color: "#4ade80" }}>{pagosProveedores.filter(p => p.estado === "pagado").length}</strong></p>
           </div>
           <button onClick={generarRemesaPagos} style={btnExportar}>⬇️ Remesa SEPA Excel</button>
@@ -291,4 +292,4 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
       </div>
     </div>
   );
-}
+}

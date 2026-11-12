@@ -1,19 +1,23 @@
-import { Usuario, Pedido, SUSCRIPCION_LABELS, tipoBadge, subBadge, kpiCard, kpiLabel, kpiNum, seccionCard, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnVer } from "./types";
+import { incidenciasPedido, datosQueFaltan, eur } from "./adminApi";
+import { Usuario, Pedido, PagoProveedor, SUSCRIPCION_LABELS, tipoBadge, subBadge, kpiCard, kpiLabel, kpiNum, seccionCard, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnVer } from "./types";
 
 type Props = {
   usuarios: Usuario[];
   pedidos: Pedido[];
+  pagosProveedores?: PagoProveedor[];
   setSeccion: (s: any) => void;
 };
 
-export default function SeccionDashboard({ usuarios, pedidos, setSeccion }: Props) {
+export default function SeccionDashboard({ usuarios, pedidos, pagosProveedores = [], setSeccion }: Props) {
   const totalUsuarios = usuarios.length;
   const totalProveedores = usuarios.filter(u => u.tipo === "proveedor").length;
   const totalTalleres = usuarios.filter(u => u.tipo === "taller").length;
-  const enGratuito = usuarios.filter(u => u.suscripcion === "gratuito").length;
-  const activos = usuarios.filter(u => u.suscripcion === "activo").length;
+  // Las suscripciones solo aplican a proveedores: los talleres tienen acceso gratuito
+  const provs = usuarios.filter(u => u.tipo === "proveedor");
+  const enGratuito = provs.filter(u => u.suscripcion === "gratuito").length;
+  const activos = provs.filter(u => u.suscripcion === "activo").length;
   const morosos = usuarios.filter(u => u.suscripcion === "moroso").length;
-  const pendientes = usuarios.filter(u => u.suscripcion === "pendiente").length;
+  const pendientes = provs.filter(u => u.suscripcion === "pendiente").length;
   const facturacionMes = activos * 25;
   const now = new Date();
   const pedidosMes = pedidos.filter(p => { if (!p.created_at) return false; const f = new Date(p.created_at); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); }).length;
@@ -23,7 +27,7 @@ export default function SeccionDashboard({ usuarios, pedidos, setSeccion }: Prop
   const pedidosSemana = pedidos.filter(p => p.created_at && new Date(p.created_at) >= hace7dias).length;
 
   // Alertas
-  const proximosACobrar = usuarios.filter(u => {
+  const proximosACobrar = provs.filter(u => {
     if (u.suscripcion !== "gratuito" || !u.fecha_registro) return false;
     const dias = Math.floor((now.getTime() - new Date(u.fecha_registro).getTime()) / (1000 * 60 * 60 * 24));
     return dias >= 20 && dias <= 35;
@@ -55,7 +59,19 @@ export default function SeccionDashboard({ usuarios, pedidos, setSeccion }: Prop
     return dias > 30;
   }).length;
 
+  // Cosas que necesitan al administrador hoy
+  const conIncidencia = pedidos.filter(p => incidenciasPedido(p).some(m => !m.startsWith("Sin entregar"))).length;
+  const retrasados = pedidos.filter(p => incidenciasPedido(p).some(m => m.startsWith("Sin entregar"))).length;
+  const pagosListos = pagosProveedores.filter(p => p.estado === "listo_para_pagar");
+  const importePagosListos = pagosListos.reduce((a, p) => a + Number(p.importe || 0), 0);
+  const pagosSinIban = pagosListos.filter(p => !usuarios.find(u => u.id === p.proveedor_id)?.iban).length;
+  const incompletos = usuarios.filter(u => u.activo && datosQueFaltan(u).length > 0).length;
+
   const alertas: { tipo: "error" | "warning" | "info"; mensaje: string; accion?: string; seccion?: string }[] = [];
+  if (conIncidencia > 0) alertas.push({ tipo: "error", mensaje: `${conIncidencia} pedido${conIncidencia > 1 ? "s" : ""} con incidencia (sin envío, sin etiqueta, sin albarán o aviso de agencia)`, accion: "Ver pedidos →", seccion: "pedidos" });
+  if (retrasados > 0) alertas.push({ tipo: "warning", mensaje: `${retrasados} pedido${retrasados > 1 ? "s" : ""} sin entregar tras más de 5 días`, accion: "Ver pedidos →", seccion: "pedidos" });
+  if (pagosListos.length > 0) alertas.push({ tipo: "warning", mensaje: `${pagosListos.length} pago${pagosListos.length > 1 ? "s" : ""} a proveedores listo${pagosListos.length > 1 ? "s" : ""} para pagar (${eur(importePagosListos)})${pagosSinIban > 0 ? ` — ${pagosSinIban} sin IBAN` : ""}`, accion: "Ver financiero →", seccion: "financiero" });
+  if (incompletos > 0) alertas.push({ tipo: "info", mensaje: `${incompletos} usuario${incompletos > 1 ? "s" : ""} activo${incompletos > 1 ? "s" : ""} con datos incompletos (sus pedidos pueden fallar en la agencia)`, accion: "Ver usuarios →", seccion: "usuarios" });
   if (morosos > 0) alertas.push({ tipo: "error", mensaje: `${morosos} usuario${morosos > 1 ? "s" : ""} moroso${morosos > 1 ? "s" : ""}`, accion: "Ver financiero →", seccion: "financiero" });
   if (proximosACobrar.length > 0) alertas.push({ tipo: "warning", mensaje: `${proximosACobrar.length} usuario${proximosACobrar.length > 1 ? "s" : ""} próximo${proximosACobrar.length > 1 ? "s" : ""} a fin de periodo gratuito`, accion: "Ver cobros →", seccion: "cobros" });
   if (sinIBAN.length > 0) alertas.push({ tipo: "warning", mensaje: `${sinIBAN.length} usuario${sinIBAN.length > 1 ? "s" : ""} con RD Pago activo sin IBAN`, accion: "Ver financiero →", seccion: "financiero" });
