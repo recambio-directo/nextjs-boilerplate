@@ -1,11 +1,11 @@
 // app/api/correos-express/crear-envio/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, txt, hoyMadrid,
+} from "@/app/lib/envios";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
 
 const CEX_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionEnviok8s/json/grabacionEnvio";
 const CEX_USER = process.env.CEX_USUARIO!;
@@ -15,119 +15,77 @@ const CEX_CODIGO_CLIENTE = process.env.CEX_CODIGO_CLIENTE!;
 const CEX_PRODUCTO = "63"; // Paq 24
 
 export async function POST(req: NextRequest) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
-    const { pedidoId } = await req.json();
-    if (!pedidoId) return NextResponse.json({ error: "pedidoId requerido" }, { status: 400 });
+    const reqBody = await req.json();
+    pedidoId = reqBody?.pedidoId;
+    if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
 
-    const { data: pedido, error } = await supabase
-      .from("pedidos")
-      .select("*")
-      .eq("id", pedidoId)
-      .single();
+    const r = await cargarDatosEnvio(supabase, pedidoId, reqBody);
+    if (!r.ok) {
+      if (r.status !== 404) await incidencia(supabase, pedidoId, "", "Correos Express", r.error);
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+    }
+    const { pedido, remitente, destinatario, pesoKg, avisos } = r.datos;
+    codigo = r.datos.codigo;
 
-    if (error || !pedido) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
+    // ── El pedido ya tiene envío de Correos Express: no se duplica
+    if (tieneEnvio(pedido, "correos")) {
+      return NextResponse.json({
+        ok: true, yaExistia: true,
+        numEnvio: txt(pedido.tracking),
+        codUnico: "",
+        numRecogida: txt(pedido.collection_ref_correos_express) || null,
+        etiquetaUrl: txt(pedido.etiqueta_envio_url) || null,
+      });
+    }
 
     const productos = pedido.productos || [];
     const refs = productos.map((p: any) => p.referencia).join(", ").substring(0, 78);
-    const kilosEstimados = Math.max(1, Math.ceil((productos.length * 0.5) * 10) / 10).toFixed(3);
-
-    // ── Datos del PROVEEDOR (remitente) ──────────────────────────────────────
-    let nomRte   = "RECAMBIO DIRECTO";
-    let dirRte   = "C/ Sola, 16";
-    let pobRte   = "CEHEGIN";
-    let cpRte    = "30430";
-    let tlfRte   = "";
-    let emailRte = "info@recambio-directo.com";
-
-    const proveedorId = productos[0]?.proveedor_id || null;
-    if (proveedorId) {
-      const { data: prov } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email")
-        .eq("id", proveedorId)
-        .single();
-      if (prov) {
-        nomRte   = (prov.nombre_empresa || nomRte).substring(0, 40);
-        dirRte   = prov.direccion || dirRte;
-        pobRte   = (prov.ciudad || pobRte).toUpperCase();
-        cpRte    = prov.codigo_postal || cpRte;
-        tlfRte   = (prov.telefono || "").replace(/\D/g, "").substring(0, 15);
-        emailRte = prov.email || emailRte;
-      }
-    }
-
-    // ── Datos del TALLER (destinatario) ──────────────────────────────────────
-    let nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
-    let dirDest   = "VER PEDIDO";
-    let pobDest   = "ESPAÑA";
-    let cpDest    = "28001";
-    let tlfDest   = "600000000";
-    const emailDest = (pedido.cliente_email || "").substring(0, 75);
-
-    if (pedido.cliente_id) {
-      const { data: taller } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
-        .eq("id", pedido.cliente_id)
-        .single();
-      if (taller) {
-        nomDest = (taller.nombre_empresa || nomDest).substring(0, 40);
-        dirDest = taller.direccion || dirDest;
-        pobDest = (taller.ciudad || pobDest).toUpperCase();
-        cpDest  = taller.codigo_postal || cpDest;
-        tlfDest = (taller.telefono || tlfDest).replace(/\D/g, "").substring(0, 15);
-      }
-    } else {
-      // Fallback: parsear el campo direccion del pedido "calle, ciudad"
-      const partes = (pedido.direccion || "").split(",");
-      dirDest = partes[0]?.trim() || dirDest;
-      pobDest = (partes[1]?.trim() || pobDest).toUpperCase();
-    }
-
-    cpDest = cpDest.replace(/\D/g, "").substring(0, 5) || "28001";
+    const kilos = Math.max(1, Math.ceil(pesoKg)).toFixed(3);
+    const nomRte = remitente.nombre.substring(0, 40);
+    const nomDest = destinatario.nombre.substring(0, 40);
 
     // ── Fecha ────────────────────────────────────────────────────────────────
-    const fechaHoy = new Date();
-    const dd   = String(fechaHoy.getDate()).padStart(2, "0");
-    const mm   = String(fechaHoy.getMonth() + 1).padStart(2, "0");
-    const yyyy = fechaHoy.getFullYear();
-    const fechaStr = `${dd}${mm}${yyyy}`;
+    const hoy = hoyMadrid();
+    const fechaStr = `${hoy.dd}${hoy.mm}${hoy.yyyy}`;
 
     const body = {
       solicitante:      CEX_SOLICITANTE,
       canalEntrada:     "",
       numEnvio:         "",
-      ref:              pedido.codigo || `RD-${pedidoId}`,
+      ref:              codigo,
       refCliente:       String(pedidoId),
       fecha:            fechaStr,
       codRte:           CEX_CODIGO_CLIENTE,
       nomRte,
       nifRte:           "",
-      dirRte,
-      pobRte,
-      codPosNacRte:     cpRte,
+      dirRte:           remitente.direccion,
+      pobRte:           remitente.poblacion.toUpperCase(),
+      codPosNacRte:     remitente.cp,
       paisISORte:       "ES",
       codPosIntRte:     "",
       contacRte:        nomRte,
-      telefRte:         tlfRte,
-      emailRte,
+      telefRte:         remitente.telefono,
+      emailRte:         remitente.email || "info@recambio-directo.com",
       codDest:          "",
       nomDest,
       nifDest:          "",
-      dirDest,
-      pobDest,
-      codPosNacDest:    cpDest,
+      dirDest:          destinatario.direccion,
+      pobDest:          destinatario.poblacion.toUpperCase(),
+      codPosNacDest:    destinatario.cp,
       paisISODest:      "",
       codPosIntDest:    "",
       contacDest:       nomDest,
-      telefDest:        tlfDest,
-      emailDest,
+      telefDest:        destinatario.telefono,
+      emailDest:        destinatario.email.substring(0, 75),
       contacOtrs:       "",
       telefOtrs:        "",
       emailOtrs:        "",
-      observac:         `Pedido ${pedido.codigo || pedidoId}`,
+      observac:         `Pedido ${codigo}`,
       numBultos:        "1",
-      kilos:            kilosEstimados,
+      kilos,
       volumen:          "",
       alto:             "",
       largo:            "",
@@ -141,9 +99,9 @@ export async function POST(req: NextRequest) {
       listaBultos: [
         {
           alto: "", ancho: "", codBultoCli: "", codUnico: "",
-          descripcion: refs, kilos: kilosEstimados,
+          descripcion: refs, kilos,
           largo: "", observaciones: "", orden: "1",
-          referencia: pedido.codigo || `RD-${pedidoId}`, volumen: ""
+          referencia: codigo, volumen: ""
         }
       ],
       codDirecDestino: "",
@@ -156,7 +114,7 @@ export async function POST(req: NextRequest) {
           fechaRecogida:        "",
           horaDesdeRecogida:    "09:00",
           horaHastaRecogida:    "18:00",
-          referenciaRecogida:   pedido.codigo || `RD-${pedidoId}`,
+          referenciaRecogida:   codigo,
           codificacionUnicaB64: "1",
         }
       ]
@@ -164,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     const authHeader = "Basic " + Buffer.from(`${CEX_USER}:${CEX_PASS}`).toString("base64");
 
-    const resp = await fetch(CEX_URL, {
+    const resp = await fetchT(CEX_URL, {
       method: "POST",
       headers: {
         "Content-Type":  "application/json",
@@ -177,64 +135,64 @@ export async function POST(req: NextRequest) {
     const rawText = await resp.text();
 
     if (rawText.trim().startsWith("<")) {
-      console.error("CEX devolvió HTML:", rawText.substring(0, 300));
+      await incidencia(supabase, pedidoId, codigo, "Correos Express", "CEX devolvió HTML (autenticación o endpoint)", rawText.substring(0, 300));
       return NextResponse.json({
+        ok: false,
         error: "CEX devolvió HTML. Error de autenticación o endpoint.",
         raw: rawText.substring(0, 300)
       }, { status: 400 });
     }
 
-    const data = JSON.parse(rawText);
+    let data: any = null;
+    try { data = JSON.parse(rawText); } catch { data = null; }
 
-    if (data.codigoRetorno !== 0) {
-      console.error("CEX error:", data);
-      return NextResponse.json({
-        error: data.mensajeRetorno || "Error CEX",
-        code: data.codigoRetorno
-      }, { status: 400 });
+    if (!data || data.codigoRetorno !== 0) {
+      const motivo = data?.mensajeRetorno || "Error CEX";
+      await incidencia(supabase, pedidoId, codigo, "Correos Express", `CEX rechazó el envío: ${motivo}`, rawText.substring(0, 600));
+      return NextResponse.json({ ok: false, error: motivo, code: data?.codigoRetorno }, { status: 400 });
     }
 
-    const numEnvio    = data.datosResultado;
+    const numEnvio    = txt(data.datosResultado);
     const codUnico    = data.listaBultos?.[0]?.codUnico || "";
     const numRecogida = data.numRecogida ? String(data.numRecogida) : null;
+
+    if (!numEnvio) {
+      await incidencia(supabase, pedidoId, codigo, "Correos Express", "CEX no devolvió número de envío", rawText.substring(0, 600));
+      return NextResponse.json({ ok: false, error: "CEX no devolvió número de envío" }, { status: 400 });
+    }
 
     // Decodificar etiqueta PDF
     let etiquetaUrl: string | null = null;
     const etiquetaRaw = data.etiqueta?.[0]?.etiqueta1 || data.etiqueta?.[0]?.etiqueta2 || null;
-    if (etiquetaRaw && !etiquetaRaw.includes("no se ha generado")) {
+    if (etiquetaRaw && !String(etiquetaRaw).includes("no se ha generado")) {
       try {
-        const decoded = Buffer.from(etiquetaRaw, "base64");
-        const path = `etiquetas-cex/${pedidoId}/${Date.now()}_etiqueta.pdf`;
-        const { error: uploadErr } = await supabase.storage
-          .from("FACTURAS")
-          .upload(path, decoded, { contentType: "application/pdf" });
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
-          etiquetaUrl = urlData.publicUrl;
-        }
+        etiquetaUrl = await subirEtiqueta(
+          supabase,
+          `etiquetas-cex/${pedidoId}/${Date.now()}_etiqueta.pdf`,
+          Buffer.from(String(etiquetaRaw), "base64")
+        );
       } catch (e) {
         console.error("Error decodificando etiqueta CEX:", e);
       }
     }
 
-    await supabase.from("pedidos").update({
+    // Solo se escribe etiqueta_envio_url si hay etiqueta (nunca se borra la existente)
+    const g = await guardarPedido(supabase, pedidoId, {
       tracking:                       numEnvio,
       collection_ref_correos_express: numRecogida,
-      etiqueta_envio_url:             etiquetaUrl,
+      ...(etiquetaUrl ? { etiqueta_envio_url: etiquetaUrl } : {}),
       estado_envio:                   "preparando",
       agencia:                        "Correos Express",
-    }).eq("id", pedidoId);
-
-    return NextResponse.json({
-      ok: true,
-      numEnvio,
-      codUnico,
-      numRecogida,
-      etiquetaUrl,
     });
+    await anotar(supabase, pedidoId, `CEX OK — Envío ${numEnvio} — Recogida ${numRecogida || "-"} — ${kilos} kg${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+    if (g.error) await incidencia(supabase, pedidoId, codigo, "Correos Express", `Envío ${numEnvio} creado en CEX pero NO se pudo guardar en el pedido`, g.error);
+    if (!etiquetaUrl) await incidencia(supabase, pedidoId, codigo, "Correos Express", `Envío ${numEnvio} creado pero CEX no devolvió la etiqueta`, txt(etiquetaRaw).substring(0, 200));
+
+    return NextResponse.json({ ok: true, numEnvio, codUnico, numRecogida, etiquetaUrl });
 
   } catch (e: any) {
     console.error("Error crear envío CEX:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    await incidencia(supabase, pedidoId, codigo, "Correos Express", "Error inesperado al crear el envío", String(e?.message || e));
+    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }
 }

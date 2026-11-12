@@ -1,5 +1,13 @@
 // app/api/seur/crear-envio/route.ts
-import { createClient } from "@supabase/supabase-js";
+// Dos usos:
+//  · Pedido normal (pedidoId): los datos se leen del pedido en Supabase.
+//  · Devoluciones (pedidoId 0): se usan los datos que llegan en la petición.
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, esperar, txt, telefono9, cp5,
+} from "@/app/lib/envios";
+
+const supabase = sbAdmin();
 
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
@@ -14,7 +22,7 @@ async function getSeurToken(): Promise<string> {
     username: process.env.SEUR_USERNAME || "",
     password: process.env.SEUR_PASSWORD || "",
   });
-  const res = await fetch("https://servicios.api.seur.io/pic_token", {
+  const res = await fetchT("https://servicios.api.seur.io/pic_token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -40,33 +48,101 @@ function calcularFechaRecogida(): string {
   return fecha.toISOString().split("T")[0];
 }
 
+// Pide la etiqueta PDF de la recogida, con reintentos (SEUR puede tardar unos
+// segundos en tenerla disponible). Devuelve el PDF en base64 o null.
+async function pedirEtiquetaSEUR(token: string, collectionRef: string): Promise<string | null> {
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const labelRes = await fetchT(
+        `https://servicios.api.seur.io/pic/v1/labels?code=${encodeURIComponent(collectionRef)}&type=PDF&entity=COLLECTIONS&templateType=NORMAL`,
+        { headers: { "Authorization": `Bearer ${token}` } },
+        8000
+      );
+      if (labelRes.ok) {
+        const labelJson = await labelRes.json();
+        const primerBulto = Array.isArray(labelJson) ? labelJson[0] : (labelJson?.data?.[0] || labelJson);
+        const pdf = primerBulto?.pdf || null;
+        if (pdf) return String(pdf);
+        console.error(`SEUR etiqueta sin PDF (intento ${intento})`);
+      } else {
+        console.error(`SEUR etiqueta error (intento ${intento}):`, labelRes.status, await labelRes.text().catch(() => ""));
+      }
+    } catch (labelErr) {
+      console.error(`Error etiqueta SEUR (intento ${intento}):`, labelErr);
+    }
+    if (intento < 3) await esperar(1500);
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
     const body = await request.json();
-    const {
-      pedidoId,
-      pedidoCodigo,
-      remitenteNombre,
-      remitenteCif,
-      remitenteDireccion,
-      remitenteCodigoPostal,
-      remitentePoblacion,
-      remitenteTelefono,
-      remitenteEmail,
-      destinatarioNombre,
-      destinatarioDireccion,
-      destinatarioCodigoPostal,
-      destinatarioPoblacion,
-      destinatarioTelefono,
-      destinatarioEmail,
-      pesoKg = 1,
-      numBultos = 1,
-      observaciones = "",
-    } = body;
+    pedidoId = body?.pedidoId || null;
+    const numBultos = Number(body?.numBultos) > 0 ? Math.floor(Number(body.numBultos)) : 1;
+    const observaciones = txt(body?.observaciones);
 
-    if (!remitenteNombre || !remitenteDireccion || !remitenteCodigoPostal ||
-        !destinatarioNombre || !destinatarioDireccion || !destinatarioCodigoPostal) {
+    let pedidoCodigo = txt(body?.pedidoCodigo);
+    let pesoKg = Number(body?.pesoKg) > 0 ? Number(body.pesoKg) : 1;
+    let avisos: string[] = [];
+    let rem = {
+      nombre: txt(body?.remitenteNombre), cif: txt(body?.remitenteCif), direccion: txt(body?.remitenteDireccion),
+      cp: cp5(body?.remitenteCodigoPostal), poblacion: txt(body?.remitentePoblacion),
+      telefono: telefono9(body?.remitenteTelefono), email: txt(body?.remitenteEmail),
+    };
+    let dest = {
+      nombre: txt(body?.destinatarioNombre), direccion: txt(body?.destinatarioDireccion),
+      cp: cp5(body?.destinatarioCodigoPostal), poblacion: txt(body?.destinatarioPoblacion),
+      telefono: telefono9(body?.destinatarioTelefono), email: txt(body?.destinatarioEmail),
+    };
+
+    if (pedidoId) {
+      // ── Pedido normal: datos desde Supabase
+      const r = await cargarDatosEnvio(supabase, pedidoId, body);
+      if (!r.ok) {
+        if (r.status !== 404) await incidencia(supabase, pedidoId, "", "SEUR", r.error);
+        return Response.json({ ok: false, error: r.error }, { status: r.status });
+      }
+      const d = r.datos;
+      codigo = d.codigo;
+      pedidoCodigo = d.codigo;
+      pesoKg = d.pesoKg;
+      avisos = d.avisos;
+      rem = { nombre: d.remitente.nombre, cif: d.remitente.cif, direccion: d.remitente.direccion, cp: d.remitente.cp, poblacion: d.remitente.poblacion, telefono: d.remitente.telefono, email: d.remitente.email };
+      dest = { nombre: d.destinatario.nombre, direccion: d.destinatario.direccion, cp: d.destinatario.cp, poblacion: d.destinatario.poblacion, telefono: d.destinatario.telefono, email: d.destinatario.email };
+
+      // El pedido ya tiene envío SEUR: no se duplica. Si falta la etiqueta, se reintenta.
+      if (tieneEnvio(d.pedido, "seur", d.pedido.tracking_seur)) {
+        const collectionRef = txt(d.pedido.collection_ref_seur);
+        const tracking = txt(d.pedido.tracking_seur) || txt(d.pedido.tracking);
+        let etiquetaSeurUrl: string | null = txt(d.pedido.etiqueta_seur_url) || null;
+        if (!etiquetaSeurUrl && collectionRef) {
+          const pdf = await pedirEtiquetaSEUR(await getSeurToken(), collectionRef);
+          if (pdf) {
+            etiquetaSeurUrl = await subirEtiqueta(supabase, `documentos/${pedidoCodigo}/etiqueta-seur-${pedidoCodigo}.pdf`, Buffer.from(pdf, "base64"));
+            if (etiquetaSeurUrl) await guardarPedido(supabase, pedidoId, { etiqueta_seur_url: etiquetaSeurUrl });
+          }
+        }
+        return Response.json({
+          ok: true, yaExistia: true, collectionRef: collectionRef || tracking, tracking,
+          etiquetaSeurUrl, etiquetaUrl: etiquetaSeurUrl, etiquetaPdfBase64: null,
+        });
+      }
+    } else if (!rem.nombre || !rem.direccion || !rem.cp || !dest.nombre || !dest.direccion || !dest.cp) {
       return Response.json({ ok: false, error: "Faltan datos obligatorios" }, { status: 400 });
+    }
+
+    const cuenta = {
+      accountNumber: process.env.SEUR_ACCOUNT_NUMBER || "",
+      name: process.env.SEUR_CUSTOMER_NAME || "",
+      idNumber: process.env.SEUR_CUSTOMER_ID || "",
+      email: process.env.SEUR_CUSTOMER_EMAIL || "",
+    };
+    if (!cuenta.accountNumber || !cuenta.name || !cuenta.idNumber) {
+      await incidencia(supabase, pedidoId, codigo, "SEUR", "Faltan variables de entorno de la cuenta SEUR en Vercel (SEUR_ACCOUNT_NUMBER / SEUR_CUSTOMER_NAME / SEUR_CUSTOMER_ID)");
+      return Response.json({ ok: false, error: "SEUR no está configurado (datos de cuenta)" }, { status: 500 });
     }
 
     const token = await getSeurToken();
@@ -83,39 +159,34 @@ export async function POST(request: Request) {
     const seurBody = {
       serviceCode: 1,
       productCode: 2,
-      ref: pedidoCodigo || pedidoId || `RD-${Date.now()}`,
+      ref: pedidoCodigo || `RD-${Date.now()}`,
       label: true,
       collectionDate,
       payer: "ORD",
-      customer: {
-        accountNumber: process.env.SEUR_ACCOUNT_NUMBER || "13087-30",
-        name: process.env.SEUR_CUSTOMER_NAME || "VICENTE DE PACO CABEZA",
-        idNumber: process.env.SEUR_CUSTOMER_ID || "77856096S",
-        email: process.env.SEUR_CUSTOMER_EMAIL || "vicente@rgranvia.es",
-      },
+      customer: cuenta,
       sender: {
-        name: remitenteNombre.toUpperCase(),
-        idNumber: remitenteCif || "",
-        phone: (remitenteTelefono || "").replace(/\s/g, ""),
-        email: remitenteEmail || "",
-        contactName: remitenteNombre.toUpperCase(),
+        name: rem.nombre.toUpperCase(),
+        idNumber: rem.cif || "",
+        phone: rem.telefono,
+        email: rem.email || "",
+        contactName: rem.nombre.toUpperCase(),
         address: {
-          streetName: remitenteDireccion.toUpperCase(),
-          cityName: (remitentePoblacion || "").toUpperCase(),
-          postalCode: remitenteCodigoPostal,
+          streetName: rem.direccion.toUpperCase(),
+          cityName: rem.poblacion.toUpperCase(),
+          postalCode: rem.cp,
           country: "ES",
         },
       },
       receiver: {
-        name: destinatarioNombre.toUpperCase(),
+        name: dest.nombre.toUpperCase(),
         idNumber: "",
-        phone: (destinatarioTelefono || "").replace(/\s/g, ""),
-        contactName: destinatarioNombre.toUpperCase(),
-        email: destinatarioEmail || "",
+        phone: dest.telefono,
+        contactName: dest.nombre.toUpperCase(),
+        email: dest.email || "",
         address: {
-          streetName: destinatarioDireccion.toUpperCase(),
-          cityName: (destinatarioPoblacion || "").toUpperCase(),
-          postalCode: destinatarioCodigoPostal,
+          streetName: dest.direccion.toUpperCase(),
+          cityName: dest.poblacion.toUpperCase(),
+          postalCode: dest.cp,
           country: "ES",
         },
       },
@@ -129,7 +200,7 @@ export async function POST(request: Request) {
       observations: observaciones || pedidoCodigo || "",
     };
 
-    const res = await fetch("https://servicios.api.seur.io/pic/v1/collections", {
+    const res = await fetchT("https://servicios.api.seur.io/pic/v1/collections", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -142,70 +213,53 @@ export async function POST(request: Request) {
     console.log("SEUR crear recogida:", rawText.substring(0, 500));
 
     if (!res.ok) {
-      return Response.json({ ok: false, error: `SEUR error ${res.status}`, rawResponse: rawText }, { status: 400 });
+      await incidencia(supabase, pedidoId, codigo, "SEUR", `SEUR rechazó la recogida (HTTP ${res.status})`, rawText.substring(0, 600));
+      return Response.json({ ok: false, error: `SEUR error ${res.status}`, rawResponse: rawText.substring(0, 2000) }, { status: 400 });
     }
 
-    const responseJson = JSON.parse(rawText);
+    let responseJson: any = null;
+    try { responseJson = JSON.parse(rawText); } catch { responseJson = null; }
     // SEUR devuelve { data: { collectionRef, fRec, reference, ecbs, parcelNumbers } }
-    const seurData = responseJson.data || responseJson;
-    const collectionRef: string = seurData.collectionRef || seurData.code || "";
+    const seurData = responseJson?.data || responseJson || {};
+    const collectionRef: string = txt(seurData.collectionRef || seurData.code);
     const parcelNumbers: string[] = seurData.parcelNumbers || seurData.ecbs || [];
-    const tracking = parcelNumbers[0] || collectionRef;
+    const tracking = txt(parcelNumbers[0]) || collectionRef;
 
     if (!collectionRef) {
-      return Response.json({ ok: false, error: "SEUR no devolvió localizador", rawResponse: rawText }, { status: 400 });
+      await incidencia(supabase, pedidoId, codigo, "SEUR", "SEUR no devolvió localizador", rawText.substring(0, 600));
+      return Response.json({ ok: false, error: "SEUR no devolvió localizador", rawResponse: rawText.substring(0, 2000) }, { status: 400 });
     }
 
     // Guardar tracking, collection_ref, estado y agencia en pedido
     if (pedidoId) {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      await supabase.from("pedidos").update({
+      const g1 = await guardarPedido(supabase, pedidoId, {
         tracking: tracking,
         tracking_seur: tracking,
         collection_ref_seur: collectionRef,
         estado_envio: "preparando",
         agencia: "SEUR",
-      }).eq("id", pedidoId);
+      });
+      await anotar(supabase, pedidoId, `SEUR OK — Recogida ${collectionRef} — Envío ${tracking} — Fecha ${collectionDate}${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+      if (g1.error) await incidencia(supabase, pedidoId, codigo, "SEUR", `Recogida ${collectionRef} creada en SEUR pero NO se pudo guardar en el pedido`, g1.error);
     }
 
     // Pedir etiqueta PDF
     let etiquetaSeurUrl: string | null = null;
-    let etiquetaPdfBase64: string | null = null;
+    const etiquetaPdfBase64 = await pedirEtiquetaSEUR(token, collectionRef);
 
-    try {
-      const labelRes = await fetch(
-        `https://servicios.api.seur.io/pic/v1/labels?code=${collectionRef}&type=PDF&entity=COLLECTIONS&templateType=NORMAL`,
-        { headers: { "Authorization": `Bearer ${token}` } }
+    if (etiquetaPdfBase64 && pedidoCodigo) {
+      etiquetaSeurUrl = await subirEtiqueta(
+        supabase,
+        `documentos/${pedidoCodigo}/etiqueta-seur-${pedidoCodigo}.pdf`,
+        Buffer.from(etiquetaPdfBase64, "base64")
       );
-      if (labelRes.ok) {
-        const labelJson = await labelRes.json();
-        const primerBulto = Array.isArray(labelJson) ? labelJson[0] : (labelJson?.data?.[0] || labelJson);
-        etiquetaPdfBase64 = primerBulto?.pdf || null;
-
-        if (etiquetaPdfBase64 && pedidoCodigo) {
-          const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-          );
-          const pdfBuffer = Buffer.from(etiquetaPdfBase64, "base64");
-          const etiquetaPath = `documentos/${pedidoCodigo}/etiqueta-seur-${pedidoCodigo}.pdf`;
-          await supabase.storage.from("FACTURAS").upload(etiquetaPath, pdfBuffer, {
-            contentType: "application/pdf", upsert: true,
-          });
-          const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
-          etiquetaSeurUrl = urlData.publicUrl;
-          if (pedidoId) {
-            await supabase.from("pedidos").update({ etiqueta_seur_url: etiquetaSeurUrl }).eq("id", pedidoId);
-          }
-        }
-      } else {
-        console.error("SEUR etiqueta error:", await labelRes.text());
+      if (etiquetaSeurUrl && pedidoId) {
+        const g2 = await guardarPedido(supabase, pedidoId, { etiqueta_seur_url: etiquetaSeurUrl });
+        if (g2.error) await incidencia(supabase, pedidoId, codigo, "SEUR", `Etiqueta de la recogida ${collectionRef} generada pero no guardada en el pedido`, `${g2.error} — ${etiquetaSeurUrl}`);
       }
-    } catch (labelErr) {
-      console.error("Error etiqueta SEUR:", labelErr);
+    }
+    if (!etiquetaSeurUrl && pedidoId) {
+      await incidencia(supabase, pedidoId, codigo, "SEUR", `Recogida ${collectionRef} creada pero SEUR no devolvió la etiqueta tras 3 intentos`);
     }
 
     return Response.json({
@@ -214,12 +268,13 @@ export async function POST(request: Request) {
       tracking,
       collectionDate,
       etiquetaSeurUrl,
+      etiquetaUrl: etiquetaSeurUrl, // lo lee el módulo de devoluciones
       etiquetaPdfBase64,
-      rawResponse: rawText,
     });
 
   } catch (error) {
     console.error("Error SEUR crear-envio:", error);
+    await incidencia(supabase, pedidoId, codigo, "SEUR", "Error inesperado al crear la recogida", String(error));
     return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }

@@ -1,116 +1,56 @@
 // app/api/nacex/crear-envio/route.ts
-import { createClient } from "@supabase/supabase-js";
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, txt,
+} from "@/app/lib/envios";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
+
+// Los campos de NACEX van separados por "|": no puede aparecer dentro de un valor
+function campo(v: unknown): string {
+  return txt(v).replace(/\|/g, " ");
+}
+
+function urlSeguimiento(localizador: string): string {
+  return `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${localizador.split("/")[0]}&numero_albaran=${localizador.split("/")[1]}&externo=N`;
+}
 
 export async function POST(request: Request) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
     const body = await request.json();
-    const {
-      pedidoId,
-      // Campos opcionales — si vienen del frontend se usan, si no se buscan en Supabase
-      pedidoCodigo: pedidoCodigoParam,
-      remitenteNombre: remitenteNombreParam,
-      remitenteDireccion: remitenteDireccionParam,
-      remitenteCodigoPostal: remitenteCPParam,
-      remitentePoblacion: remitentePoblacionParam,
-      remitenteTelefono: remitenteTelefonoParam,
-      destinatarioNombre: destinatarioNombreParam,
-      destinatarioDireccion: destinatarioDireccionParam,
-      destinatarioCodigoPostal: destinatarioCPParam,
-      destinatarioPoblacion: destinatarioPoblacionParam,
-      destinatarioTelefono: destinatarioTelefonoParam,
-      destinatarioEmail: destinatarioEmailParam,
-      pesoKg: pesoKgParam,
-      numBultos: numBultosParam,
-      observaciones: observacionesParam,
-    } = body;
+    pedidoId = body?.pedidoId;
 
     if (!pedidoId) {
       return Response.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
     }
 
-    // ── Obtener pedido de Supabase ──
-    const { data: pedido, error: pedidoError } = await supabase
-      .from("pedidos")
-      .select("*")
-      .eq("id", pedidoId)
-      .single();
+    const r = await cargarDatosEnvio(supabase, pedidoId, body);
+    if (!r.ok) {
+      if (r.status !== 404) await incidencia(supabase, pedidoId, "", "NACEX", r.error);
+      return Response.json({ ok: false, error: r.error }, { status: r.status });
+    }
+    const { pedido, remitente, destinatario, pesoKg, avisos } = r.datos;
+    codigo = r.datos.codigo;
+    const pedidoCodigo = codigo;
 
-    if (pedidoError || !pedido) {
-      return Response.json({ ok: false, error: "Pedido no encontrado" }, { status: 404 });
+    // ── El pedido ya tiene envío NACEX: no se duplica
+    if (tieneEnvio(pedido, "nacex", pedido.tracking_nacex)) {
+      const localizador = txt(pedido.tracking_nacex) || txt(pedido.tracking);
+      const etiquetaNacexUrl = txt(pedido.etiqueta_nacex_url) || txt(pedido.etiqueta_envio_url);
+      return Response.json({
+        ok: true, yaExistia: true, localizador,
+        fechaPrevista: "",
+        linkSeguimiento: localizador.includes("/") ? urlSeguimiento(localizador) : "",
+        etiquetaNacexUrl,
+        etiquetaPdfBase64: "",
+      });
     }
 
-    const productos = pedido.productos || [];
-    const proveedorId = productos[0]?.proveedor_id || null;
-
-    // ── Datos del remitente (proveedor) ──
-    let nomRte = remitenteNombreParam || "RECAMBIO DIRECTO";
-    let dirRte = remitenteDireccionParam || "C/ Sola, 16";
-    let pobRte = remitentePoblacionParam || "Cehegín";
-    let cpRte = remitenteCPParam || "30430";
-    let tlfRte = remitenteTelefonoParam || "744487895";
-
-    if (!remitenteNombreParam && proveedorId) {
-      const { data: prov } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email")
-        .eq("id", proveedorId)
-        .single();
-      if (prov) {
-        nomRte = prov.nombre_empresa || nomRte;
-        dirRte = prov.direccion || dirRte;
-        pobRte = prov.ciudad || pobRte;
-        cpRte = prov.codigo_postal || cpRte;
-        tlfRte = prov.telefono || tlfRte;
-      }
-    }
-
-    // ── Datos del destinatario (taller/cliente) ──
-    let nomDest = destinatarioNombreParam || (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
-    let dirDest = destinatarioDireccionParam || "VER PEDIDO";
-    let pobDest = destinatarioPoblacionParam || "ESPAÑA";
-    let cpDest = destinatarioCPParam || "28001";
-    let tlfDest = destinatarioTelefonoParam || "";
-    const emailDest = destinatarioEmailParam || pedido.cliente_email || "";
-
-    if (!destinatarioNombreParam && pedido.cliente_id) {
-      const { data: taller } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
-        .eq("id", pedido.cliente_id)
-        .single();
-      if (taller) {
-        nomDest = (taller.nombre_empresa || nomDest).substring(0, 40);
-        dirDest = taller.direccion || dirDest;
-        pobDest = taller.ciudad || pobDest;
-        cpDest = taller.codigo_postal || cpDest;
-        tlfDest = taller.telefono || tlfDest;
-      }
-    } else if (!destinatarioNombreParam && !pedido.cliente_id) {
-      // Fallback: parsear dirección del pedido "calle, ciudad"
-      const partes = (pedido.direccion || "").split(",");
-      dirDest = partes[0]?.trim() || dirDest;
-      pobDest = partes[1]?.trim() || pobDest;
-    }
-
-    dirDest = dirDest.substring(0, 100);
-    pobDest = pobDest.substring(0, 40);
-    cpDest = cpDest.replace(/\D/g, "").substring(0, 10) || "28001";
-
-    // Validar datos obligatorios
-    if (!nomDest || nomDest === "CLIENTE" || !dirDest || dirDest === "VER PEDIDO" || !cpDest || !pobDest || pobDest === "ESPAÑA") {
-      console.error("NACEX faltan datos de entrega:", { nomDest, dirDest, cpDest, pobDest });
-      return Response.json({ ok: false, error: `Faltan datos obligatorios de entrega (nombre: ${nomDest}, dir: ${dirDest}, cp: ${cpDest}, pob: ${pobDest})` }, { status: 400 });
-    }
-
-    const pedidoCodigo = pedidoCodigoParam || pedido.codigo || `RD-${pedidoId}`;
-    const pesoKg = pesoKgParam || Math.max(1, productos.length * 2);
-    const numBultos = numBultosParam || 1;
-    const observaciones = observacionesParam || "";
+    const kilos = Math.max(1, Math.ceil(pesoKg));
+    const numBultos = Number(body?.numBultos) > 0 ? Math.floor(Number(body.numBultos)) : 1;
+    const observaciones = campo(body?.observaciones);
 
     // ── NACEX API ──
     const baseUrl = "https://pda.nacex.com/nacex_ws/ws";
@@ -122,35 +62,29 @@ export async function POST(request: Request) {
     const tipCob = process.env.NACEX_TIP_COB || "T";
     const tipEnv = process.env.NACEX_TIP_ENV || "2";
 
-    function limpiarTelefono(tel: string): string {
-      if (!tel) return "";
-      return tel.replace(/[\s\-\+]/g, "").replace(/^(0034|34)/, "").slice(0, 20);
-    }
-
     const dataParams: string[] = [
       `del_cli=${delCli}`,
       `num_cli=${numCli}`,
       `tip_ser=${tipSer}`,
       `tip_cob=${tipCob}`,
-      `ref_cli=${pedidoCodigo}`,
+      `ref_cli=${campo(pedidoCodigo)}`,
       `tip_env=${tipEnv}`,
       `bul=${String(numBultos).padStart(3, "0")}`,
-      `kil=${pesoKg}`,
-      `nom_ent=${nomDest}`,
-      `dir_ent=${dirDest}`,
+      `kil=${kilos}`,
+      `nom_ent=${campo(destinatario.nombre).substring(0, 40)}`,
+      `dir_ent=${campo(destinatario.direccion).substring(0, 100)}`,
       `pais_ent=ES`,
-      `cp_ent=${cpDest}`,
-      `pob_ent=${pobDest}`,
+      `cp_ent=${destinatario.cp}`,
+      `pob_ent=${campo(destinatario.poblacion).substring(0, 40)}`,
+      `tel_ent=${destinatario.telefono}`,
     ];
 
-    const telDestLimpio = limpiarTelefono(tlfDest);
-    if (telDestLimpio) dataParams.push(`tel_ent=${telDestLimpio}`);
     if (observaciones) dataParams.push(`obs1=${observaciones}`);
-    if (nomRte) dataParams.push(`nom_rec=${nomRte}`);
-    if (dirRte) dataParams.push(`dir_rec=${dirRte}`);
-    if (cpRte) dataParams.push(`cp_rec=${cpRte}`);
-    if (pobRte) dataParams.push(`pob_rec=${pobRte}`);
-    if (tlfRte) dataParams.push(`tel_rec=${limpiarTelefono(tlfRte)}`);
+    dataParams.push(`nom_rec=${campo(remitente.nombre)}`);
+    dataParams.push(`dir_rec=${campo(remitente.direccion)}`);
+    dataParams.push(`cp_rec=${remitente.cp}`);
+    dataParams.push(`pob_rec=${campo(remitente.poblacion)}`);
+    dataParams.push(`tel_rec=${remitente.telefono}`);
 
     dataParams.push(`etiqueta=S`);
     dataParams.push(`modelo=PDF_B`);
@@ -161,7 +95,7 @@ export async function POST(request: Request) {
 
     console.log("NACEX putExpedicion data:", dataString.substring(0, 200));
 
-    const response = await fetch(url, { method: "GET" });
+    const response = await fetchT(url, { method: "GET" });
     const rawText = await response.text();
 
     console.log("NACEX putExpedicion (primeros 300 chars):", rawText.slice(0, 300));
@@ -173,11 +107,11 @@ export async function POST(request: Request) {
     const etiquetaPdfBase64 = partesResp[13] || "";
 
     if (!localizador || !localizador.includes("/")) {
-      console.error("NACEX error en putExpedicion:", rawText);
+      await incidencia(supabase, pedidoId, codigo, "NACEX", "NACEX no devolvió un localizador válido", rawText.substring(0, 600));
       return Response.json({
         ok: false,
         error: "NACEX no devolvió un localizador válido",
-        rawResponse: rawText,
+        rawResponse: rawText.substring(0, 2000),
       }, { status: 400 });
     }
 
@@ -185,33 +119,30 @@ export async function POST(request: Request) {
     let etiquetaNacexUrl = "";
     if (etiquetaPdfBase64) {
       try {
-        const pdfBuffer = Buffer.from(etiquetaPdfBase64, "base64");
-        const etiquetaPath = `documentos/${pedidoCodigo}/etiqueta-nacex-${pedidoCodigo}.pdf`;
-
-        await supabase.storage.from("FACTURAS").upload(etiquetaPath, pdfBuffer, {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-
-        const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(etiquetaPath);
-        etiquetaNacexUrl = urlData.publicUrl;
+        etiquetaNacexUrl = (await subirEtiqueta(
+          supabase,
+          `documentos/${pedidoCodigo}/etiqueta-nacex-${pedidoCodigo}.pdf`,
+          Buffer.from(etiquetaPdfBase64, "base64")
+        )) || "";
       } catch (storageErr) {
         console.error("Error guardando etiqueta NACEX en Storage:", storageErr);
       }
     }
 
-    // ── Actualizar pedido en Supabase (igual que CTT) ──
-    const trackingUrl = `https://www.nacex.com/seguimientoDetalle.do?agencia_origen=${localizador.split("/")[0]}&numero_albaran=${localizador.split("/")[1]}&externo=N`;
+    // ── Actualizar pedido en Supabase ──
+    const trackingUrl = urlSeguimiento(localizador);
 
-    await supabase.from("pedidos").update({
+    const g = await guardarPedido(supabase, pedidoId, {
       tracking: localizador,
       tracking_nacex: localizador,
-      etiqueta_nacex_url: etiquetaNacexUrl || undefined,
-      etiqueta_envio_url: etiquetaNacexUrl || undefined,
+      ...(etiquetaNacexUrl ? { etiqueta_nacex_url: etiquetaNacexUrl, etiqueta_envio_url: etiquetaNacexUrl } : {}),
       estado_envio: "preparando",
       agencia: "NACEX",
-      codigo_postal_destino: cpDest,
-    }).eq("id", pedidoId);
+      codigo_postal_destino: destinatario.cp,
+    });
+    await anotar(supabase, pedidoId, `NACEX OK — Envío ${localizador} — ${kilos} kg — tip_cob ${tipCob}${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+    if (g.error) await incidencia(supabase, pedidoId, codigo, "NACEX", `Envío ${localizador} creado en NACEX pero NO se pudo guardar en el pedido`, g.error);
+    if (!etiquetaNacexUrl) await incidencia(supabase, pedidoId, codigo, "NACEX", `Envío ${localizador} creado pero NACEX no devolvió la etiqueta`);
 
     return Response.json({
       ok: true,
@@ -220,11 +151,11 @@ export async function POST(request: Request) {
       linkSeguimiento: linkSeguimiento || trackingUrl,
       etiquetaNacexUrl,
       etiquetaPdfBase64,
-      rawResponse: rawText,
     });
 
   } catch (error) {
     console.error("Error NACEX crear-envio:", error);
+    await incidencia(supabase, pedidoId, codigo, "NACEX", "Error inesperado al crear el envío", String(error));
     return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }

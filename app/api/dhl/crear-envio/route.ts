@@ -1,10 +1,11 @@
+// app/api/dhl/crear-envio/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, txt,
+} from "@/app/lib/envios";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
 
 const DHL_USER = process.env.DHL_USER!;
 const DHL_KEY = process.env.DHL_KEY!;
@@ -13,7 +14,7 @@ const DHL_BASE = "https://external.dhl.es/cimapi/api/v1/customer";
 
 async function getToken(): Promise<string | null> {
   try {
-    const res = await fetch(`${DHL_BASE}/authenticate`, {
+    const res = await fetchT(`${DHL_BASE}/authenticate`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "accept": "application/json" },
       body: JSON.stringify({ Username: DHL_USER, Password: DHL_KEY }),
@@ -27,64 +28,64 @@ async function getToken(): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
-    const { pedidoId } = await req.json();
+    const reqBody = await req.json();
+    pedidoId = reqBody?.pedidoId;
     if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
 
-    // Cargar pedido
-    const { data: pedido } = await supabase.from("pedidos").select("*").eq("id", pedidoId).single();
-    if (!pedido) return NextResponse.json({ ok: false, error: "Pedido no encontrado" }, { status: 404 });
+    const r = await cargarDatosEnvio(supabase, pedidoId, reqBody);
+    if (!r.ok) {
+      if (r.status !== 404) await incidencia(supabase, pedidoId, "", "DHL", r.error);
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+    }
+    const { pedido, remitente, destinatario, pesoKg, avisos } = r.datos;
+    codigo = r.datos.codigo;
 
-    // Cargar datos del proveedor (remitente)
-    const productos = pedido.productos || [];
-    const proveedorId = productos[0]?.proveedor_id;
-    if (!proveedorId) return NextResponse.json({ ok: false, error: "Sin proveedor" }, { status: 400 });
+    // ── El pedido ya tiene envío DHL: no se duplica
+    if (tieneEnvio(pedido, "dhl", pedido.tracking_dhl)) {
+      const trackingNumber = txt(pedido.tracking_dhl) || txt(pedido.tracking);
+      return NextResponse.json({
+        ok: true, yaExistia: true, trackingNumber, lp: null,
+        etiquetaUrl: txt(pedido.etiqueta_envio_url) || null,
+        trackingUrl: `https://www.dhlparcel.es/es/envio/${trackingNumber}`,
+      });
+    }
 
-    const { data: prov } = await supabase.from("usuarios").select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email").eq("id", proveedorId).single();
-    if (!prov) return NextResponse.json({ ok: false, error: "Proveedor no encontrado" }, { status: 404 });
-
-    // Cargar datos del taller (destinatario)
-    const { data: taller } = await supabase.from("usuarios").select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email").eq("id", pedido.cliente_id).single();
-
-    // Parsear dirección del taller desde pedido si no tenemos perfil
-    const destNombre = taller?.nombre_empresa || pedido.cliente_nombre || pedido.cliente_email || "Cliente";
-    const destDireccion = taller?.direccion || pedido.direccion?.split(",")[0] || "Sin dirección";
-    const destCiudad = taller?.ciudad || pedido.direccion?.split(",")[1]?.trim() || "Sin ciudad";
-    const destCP = taller?.codigo_postal || "28001";
-    const destTelefono = taller?.telefono || pedido.cliente_telefono || "600000000";
-    const destEmail = pedido.cliente_email || taller?.email || "info@recambio-directo.com";
-
-    // Peso estimado
-    const pesoKg = Math.max(1, productos.length * 2);
+    const kilos = Math.max(1, Math.ceil(pesoKg));
 
     // Obtener token
     const token = await getToken();
-    if (!token) return NextResponse.json({ ok: false, error: "Error autenticación DHL" }, { status: 500 });
+    if (!token) {
+      await incidencia(supabase, pedidoId, codigo, "DHL", "Error de autenticación con DHL (no se obtuvo token)");
+      return NextResponse.json({ ok: false, error: "Error autenticación DHL" }, { status: 500 });
+    }
 
     // Crear envío
     const body = {
       Customer: DHL_CUSTOMER,
       Receiver: {
-        Name: destNombre.substring(0, 40),
-        Address: destDireccion.substring(0, 80),
-        City: destCiudad.substring(0, 20),
-        PostalCode: destCP.substring(0, 5),
+        Name: destinatario.nombre.substring(0, 40),
+        Address: destinatario.direccion.substring(0, 80),
+        City: destinatario.poblacion.substring(0, 20),
+        PostalCode: destinatario.cp,
         Country: "ES",
-        Phone: destTelefono.replace(/\s/g, "").substring(0, 15),
-        Email: destEmail.substring(0, 50),
+        Phone: destinatario.telefono,
+        Email: (destinatario.email || "info@recambio-directo.com").substring(0, 50),
       },
       Sender: {
-        Name: (prov.nombre_empresa || "Proveedor").substring(0, 40),
-        Address: (prov.direccion || "Sin dirección").substring(0, 40),
-        City: (prov.ciudad || "Sin ciudad").substring(0, 20),
-        PostalCode: (prov.codigo_postal || "30000").substring(0, 5),
+        Name: remitente.nombre.substring(0, 40),
+        Address: remitente.direccion.substring(0, 40),
+        City: remitente.poblacion.substring(0, 20),
+        PostalCode: remitente.cp,
         Country: "ES",
-        Phone: (prov.telefono || "600000000").replace(/\s/g, "").substring(0, 9),
-        Email: (prov.email || "").substring(0, 50),
+        Phone: remitente.telefono,
+        Email: remitente.email.substring(0, 50),
       },
-      Reference: pedido.codigo || `RD-${pedido.id}`,
+      Reference: codigo,
       Quantity: 1,
-      Weight: pesoKg,
+      Weight: kilos,
       WeightVolume: 0,
       CODAmount: 0,
       CODExpenses: "P",
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
       InsuranceExpenses: "P",
       InsuranceCurrency: "EUR",
       DeliveryNote: "",
-      Remarks1: `Pedido ${pedido.codigo || pedido.id}`,
+      Remarks1: `Pedido ${codigo}`,
       Remarks2: "",
       Incoterms: "CPT",
       ContactName: "",
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
       Product: "B2B",
     };
 
-    const shipRes = await fetch(`${DHL_BASE}/shipment`, {
+    const shipRes = await fetchT(`${DHL_BASE}/shipment`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -114,43 +115,53 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const shipData = await shipRes.json();
+    const shipRaw = await shipRes.text();
+    let shipData: any = null;
+    try { shipData = JSON.parse(shipRaw); } catch { shipData = null; }
 
-    if (!shipRes.ok || !shipData.Tracking) {
-      console.error("DHL error:", shipData);
-      return NextResponse.json({ ok: false, error: shipData.Message || "Error DHL", dhlError: shipData }, { status: 500 });
+    if (!shipRes.ok || !shipData?.Tracking) {
+      const motivo = shipData?.Message || "Error DHL";
+      await incidencia(supabase, pedidoId, codigo, "DHL", `DHL rechazó el envío (HTTP ${shipRes.status}): ${motivo}`, shipRaw.substring(0, 600));
+      return NextResponse.json({ ok: false, error: motivo, dhlError: shipData }, { status: 500 });
     }
 
+    const trackingNumber = txt(shipData.Tracking);
+
     // Guardar tracking en pedido
-    await supabase.from("pedidos").update({
-      tracking_dhl: shipData.Tracking,
-      tracking: shipData.Tracking,
+    const g1 = await guardarPedido(supabase, pedidoId, {
+      tracking_dhl: trackingNumber,
+      tracking: trackingNumber,
       estado_envio: "preparando",
       agencia: "DHL",
-    }).eq("id", pedidoId);
+    });
+    await anotar(supabase, pedidoId, `DHL OK — Envío ${trackingNumber} — ${kilos} kg${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+    if (g1.error) await incidencia(supabase, pedidoId, codigo, "DHL", `Envío ${trackingNumber} creado en DHL pero NO se pudo guardar en el pedido`, g1.error);
 
     // Convertir etiqueta base64 a URL guardada en Storage
     let etiquetaUrl: string | null = null;
     if (shipData.Label) {
       try {
-        const buffer = Buffer.from(shipData.Label, "base64");
-        const path = `documentos/dhl-${pedido.codigo || pedidoId}/etiqueta-dhl.pdf`;
-        await supabase.storage.from("FACTURAS").upload(path, buffer, { contentType: "application/pdf", upsert: true });
-        const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
-        etiquetaUrl = urlData.publicUrl;
-        await supabase.from("pedidos").update({ etiqueta_dhl_url: etiquetaUrl, etiqueta_envio_url: etiquetaUrl }).eq("id", pedidoId);
+        etiquetaUrl = await subirEtiqueta(
+          supabase,
+          `documentos/dhl-${codigo}/etiqueta-dhl.pdf`,
+          Buffer.from(String(shipData.Label), "base64")
+        );
       } catch (e) {
         console.error("Error guardando etiqueta DHL:", e);
       }
     }
+    if (etiquetaUrl) {
+      const g2 = await guardarPedido(supabase, pedidoId, { etiqueta_dhl_url: etiquetaUrl, etiqueta_envio_url: etiquetaUrl });
+      if (g2.error) await incidencia(supabase, pedidoId, codigo, "DHL", `Etiqueta del envío ${trackingNumber} generada pero no guardada en el pedido`, `${g2.error} — ${etiquetaUrl}`);
+    } else {
+      await incidencia(supabase, pedidoId, codigo, "DHL", `Envío ${trackingNumber} creado pero DHL no devolvió la etiqueta`);
+    }
 
-    const trackingUrl = `https://www.dhlparcel.es/es/envio/${shipData.Tracking}`;
-
-    
+    const trackingUrl = `https://www.dhlparcel.es/es/envio/${trackingNumber}`;
 
     return NextResponse.json({
       ok: true,
-      trackingNumber: shipData.Tracking,
+      trackingNumber,
       lp: shipData.LP?.[0] || null,
       etiquetaUrl,
       trackingUrl,
@@ -158,6 +169,7 @@ export async function POST(req: NextRequest) {
 
   } catch (e: any) {
     console.error("Error DHL crear-envio:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    await incidencia(supabase, pedidoId, codigo, "DHL", "Error inesperado al crear el envío", String(e?.message || e));
+    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }
 }

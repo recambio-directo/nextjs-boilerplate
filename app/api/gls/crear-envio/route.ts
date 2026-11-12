@@ -1,87 +1,67 @@
 // app/api/gls/crear-envio/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, txt, escXml,
+} from "@/app/lib/envios";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
 
 const GLS_URL  = "https://ws-customer.gls-spain.es/b2b.asmx";
-const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
+const GLS_GUID = process.env.GLS_GUID || ""; // identificador de cliente: solo en variables de entorno
 
 // Servicio BusinessParcel 24/48h (peninsular)
 const GLS_SERVICIO = "96";
 const GLS_HORARIO  = "18";
 
+// Texto seguro dentro de un bloque CDATA
+function cdata(v: string): string {
+  return v.replace(/]]>/g, "]] >");
+}
+
 export async function POST(req: NextRequest) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
-    const { pedidoId } = await req.json();
-    if (!pedidoId) return NextResponse.json({ error: "pedidoId requerido" }, { status: 400 });
+    const reqBody = await req.json();
+    pedidoId = reqBody?.pedidoId;
+    if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
 
-    const { data: pedido, error } = await supabase
-      .from("pedidos")
-      .select("*")
-      .eq("id", pedidoId)
-      .single();
+    const r = await cargarDatosEnvio(supabase, pedidoId, reqBody);
+    if (!r.ok) {
+      if (r.status !== 404) await incidencia(supabase, pedidoId, "", "GLS", r.error);
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+    }
+    const { pedido, remitente, destinatario, pesoKg, avisos } = r.datos;
+    codigo = r.datos.codigo;
+    const cpDest = destinatario.cp;
 
-    if (error || !pedido) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
-
-    const productos = pedido.productos || [];
-    const kilos     = Math.max(1, productos.length * 2);
-    const referencia = pedido.codigo || `RD-${pedidoId}`;
-
-    // ── Datos del PROVEEDOR (remitente) ──────────────────────────────────────
-    let nomRte  = "RECAMBIO DIRECTO";
-    let dirRte  = "C/ SOLA 16";
-    let pobRte  = "CEHEGIN";
-    let cpRte   = "30430";
-    let tlfRte  = "";
-
-    const proveedorId = productos[0]?.proveedor_id || null;
-    if (proveedorId) {
-      const { data: prov } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
-        .eq("id", proveedorId)
-        .single();
-      if (prov) {
-        nomRte = (prov.nombre_empresa || nomRte).toUpperCase().substring(0, 40);
-        dirRte = (prov.direccion     || dirRte).toUpperCase().substring(0, 100);
-        pobRte = (prov.ciudad        || pobRte).toUpperCase().substring(0, 40);
-        cpRte  = prov.codigo_postal  || cpRte;
-        tlfRte = (prov.telefono      || "").replace(/\D/g, "").substring(0, 15);
-      }
+    // ── El pedido ya tiene envío GLS: no se duplica
+    if (tieneEnvio(pedido, "gls", pedido.tracking_gls)) {
+      const codbarras = txt(pedido.tracking_gls) || txt(pedido.tracking);
+      return NextResponse.json({
+        ok: true, yaExistia: true, codbarras,
+        trackingUrl: `https://mygls.gls-spain.es/e/${codbarras}/${cpDest}/es`,
+        etiquetaUrl: txt(pedido.etiqueta_envio_url) || null,
+      });
     }
 
-    // ── Datos del TALLER (destinatario) ──────────────────────────────────────
-    let nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").toUpperCase().substring(0, 40);
-    let dirDest   = "VER PEDIDO";
-    let pobDest   = "ESPAÑA";
-    let cpDest    = "28001";
-    let tlfDest   = "";
-    let emailDest = (pedido.cliente_email || "").substring(0, 75);
-
-    if (pedido.cliente_id) {
-      const { data: taller } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
-        .eq("id", pedido.cliente_id)
-        .single();
-      if (taller) {
-        nomDest = (taller.nombre_empresa || nomDest).toUpperCase().substring(0, 40);
-        dirDest = (taller.direccion      || dirDest).toUpperCase().substring(0, 100);
-        pobDest = (taller.ciudad         || pobDest).toUpperCase().substring(0, 40);
-        cpDest  = taller.codigo_postal   || cpDest;
-        tlfDest = (taller.telefono       || "").replace(/\D/g, "").substring(0, 15);
-      }
-    } else {
-      const partes = (pedido.direccion || "").split(",");
-      dirDest = (partes[0]?.trim() || dirDest).toUpperCase();
-      pobDest = (partes[1]?.trim() || pobDest).toUpperCase();
+    if (!GLS_GUID) {
+      await incidencia(supabase, pedidoId, codigo, "GLS", "Falta la variable de entorno GLS_GUID en Vercel");
+      return NextResponse.json({ ok: false, error: "GLS no está configurado (GLS_GUID)" }, { status: 500 });
     }
 
-    cpDest = cpDest.replace(/\D/g, "").substring(0, 5) || "28001";
+    const kilos      = Math.max(1, Math.ceil(pesoKg));
+    const referencia = codigo;
+
+    const nomRte  = remitente.nombre.toUpperCase().substring(0, 40);
+    const dirRte  = remitente.direccion.toUpperCase().substring(0, 100);
+    const pobRte  = remitente.poblacion.toUpperCase().substring(0, 40);
+    const nomDest = destinatario.nombre.toUpperCase().substring(0, 40);
+    const dirDest = destinatario.direccion.toUpperCase().substring(0, 100);
+    const pobDest = destinatario.poblacion.toUpperCase().substring(0, 40);
+    const emailDest = destinatario.email.substring(0, 75);
+
     // GLS España usa código de país numérico 34
     const paisOrig = "34";
     const paisDest = "34";
@@ -93,7 +73,7 @@ export async function POST(req: NextRequest) {
   <soap12:Body>
     <GrabaServicios xmlns="http://www.asmred.com/">
       <docIn>
-        <Servicios uidcliente="${GLS_GUID}">
+        <Servicios uidcliente="${escXml(GLS_GUID)}">
           <Envio>
             <Portes>P</Portes>
             <Servicio>${GLS_SERVICIO}</Servicio>
@@ -101,27 +81,27 @@ export async function POST(req: NextRequest) {
             <Bultos>1</Bultos>
             <Peso>${kilos}</Peso>
             <Remite>
-              <Nombre><![CDATA[${nomRte}]]></Nombre>
-              <Direccion><![CDATA[${dirRte}]]></Direccion>
-              <Poblacion><![CDATA[${pobRte}]]></Poblacion>
+              <Nombre><![CDATA[${cdata(nomRte)}]]></Nombre>
+              <Direccion><![CDATA[${cdata(dirRte)}]]></Direccion>
+              <Poblacion><![CDATA[${cdata(pobRte)}]]></Poblacion>
               <Pais>${paisOrig}</Pais>
-              <CP>${cpRte}</CP>
-              <Telefono>${tlfRte}</Telefono>
+              <CP>${remitente.cp}</CP>
+              <Telefono>${remitente.telefono}</Telefono>
             </Remite>
             <Destinatario>
-              <Nombre><![CDATA[${nomDest}]]></Nombre>
-              <Direccion><![CDATA[${dirDest}]]></Direccion>
-              <Poblacion><![CDATA[${pobDest}]]></Poblacion>
+              <Nombre><![CDATA[${cdata(nomDest)}]]></Nombre>
+              <Direccion><![CDATA[${cdata(dirDest)}]]></Direccion>
+              <Poblacion><![CDATA[${cdata(pobDest)}]]></Poblacion>
               <Pais>${paisDest}</Pais>
               <CP>${cpDest}</CP>
-              <Telefono>${tlfDest}</Telefono>
-              <Movil>${tlfDest}</Movil>
-              <Email>${emailDest}</Email>
-              <Observaciones><![CDATA[Pedido ${referencia}]]></Observaciones>
+              <Telefono>${destinatario.telefono}</Telefono>
+              <Movil>${destinatario.telefono}</Movil>
+              <Email>${escXml(emailDest)}</Email>
+              <Observaciones><![CDATA[Pedido ${cdata(referencia)}]]></Observaciones>
             </Destinatario>
             <Referencias>
-              <Referencia tipo="0">${referencia.substring(0, 10).padStart(10, "0")}</Referencia>
-              <Referencia tipo="C">${referencia}</Referencia>
+              <Referencia tipo="0">${escXml(referencia.substring(0, 10).padStart(10, "0"))}</Referencia>
+              <Referencia tipo="C">${escXml(referencia)}</Referencia>
             </Referencias>
             <DevuelveAdicionales>
               <Etiqueta tipo="PDF"></Etiqueta>
@@ -134,7 +114,7 @@ export async function POST(req: NextRequest) {
   </soap12:Body>
 </soap12:Envelope>`;
 
-    const res = await fetch(GLS_URL, {
+    const res = await fetchT(GLS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/xml; charset=UTF-8" },
       body: xml,
@@ -144,23 +124,18 @@ export async function POST(req: NextRequest) {
     console.log("GLS crear envío response:", rawText.substring(0, 500));
 
     // Extraer codbarras del atributo en el XML de respuesta
-    const codbarrasMatch = rawText.match(/codbarras="([^"]+)"/);
-    const codbarras = codbarrasMatch?.[1] || null;
-
-    // Log específico para diagnóstico de etiqueta
-    const tieneEtiquetas = rawText.includes("<Etiquetas>");
-    const tieneEtiqueta  = rawText.includes("<Etiqueta ");
-    const posEtiquetas   = rawText.indexOf("<Etiquetas>");
-    console.log("GLS etiqueta diagnóstico — tieneEtiquetas:", tieneEtiquetas, "tieneEtiqueta:", tieneEtiqueta, "posición:", posEtiquetas);
-    if (posEtiquetas > 0) {
-      console.log("GLS etiqueta contenido:", rawText.substring(posEtiquetas, posEtiquetas + 200));
-    }
+    const codbarras = rawText.match(/codbarras="([^"]+)"/)?.[1] || null;
 
     if (!codbarras) {
       const errorMatch = rawText.match(/<Error[^>]*>([\s\S]*?)<\/Error>/);
       const retornoMatch = rawText.match(/return="([^"]+)"/);
-      console.error("GLS no devolvió codbarras. Retorno:", retornoMatch?.[1], "Error:", errorMatch?.[1]);
+      await incidencia(
+        supabase, pedidoId, codigo, "GLS",
+        `GLS no devolvió código de envío (retorno ${retornoMatch?.[1] || "?"}${errorMatch?.[1] ? ": " + errorMatch[1] : ""})`,
+        rawText.substring(0, 600)
+      );
       return NextResponse.json({
+        ok: false,
         error: "GLS no devolvió código de envío",
         retorno: retornoMatch?.[1],
         glsError: errorMatch?.[1],
@@ -169,39 +144,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Extraer etiqueta PDF en base64 — viene dentro de <Etiqueta bulto="1">...</Etiqueta>
+    // Se usan índices de string: más fiable que regex para base64 largo
     let etiquetaUrl: string | null = null;
-    // Extraer etiqueta PDF usando índices de string — más fiable que regex para base64 largo
     let etiquetaBase64: string | null = null;
     const tagOpen  = "<Etiqueta bulto=\"1\">";
     const tagClose = "</Etiqueta>";
     const idxOpen  = rawText.indexOf(tagOpen);
     const idxClose = rawText.indexOf(tagClose, idxOpen);
     if (idxOpen > -1 && idxClose > idxOpen) {
-      const raw = rawText.substring(idxOpen + tagOpen.length, idxClose);
-      etiquetaBase64 = raw.replace(/[\r\n\s]/g, "");
+      etiquetaBase64 = rawText.substring(idxOpen + tagOpen.length, idxClose).replace(/[\r\n\s]/g, "");
     }
-    console.log("GLS base64 raw longitud antes de replace:", etiquetaBase64?.length || 0);
-    console.log("GLS base64 raw primeros 50 chars:", etiquetaBase64?.substring(0, 50));
-    console.log("GLS base64 raw últimos 50 chars:", etiquetaBase64?.substring((etiquetaBase64?.length || 0) - 50));
-    console.log("GLS etiqueta base64 longitud:", etiquetaBase64?.length || 0);
-
 
     if (etiquetaBase64) {
       try {
-        const pdfBuffer = Buffer.from(etiquetaBase64, "base64");
-        console.log("GLS pdfBuffer tamaño bytes:", pdfBuffer.length);
-        console.log("GLS pdfBuffer primeros bytes:", pdfBuffer.slice(0, 10).toString("hex"));
-        const path = `etiquetas-gls/${pedidoId}/${Date.now()}_etiqueta.pdf`;
-        const { error: uploadErr } = await supabase.storage
-          .from("FACTURAS")
-          .upload(path, pdfBuffer, { contentType: "application/pdf" });
-        if (uploadErr) {
-          console.error("GLS upload error:", uploadErr);
-        } else {
-          const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
-          etiquetaUrl = urlData.publicUrl;
-          console.log("GLS etiqueta subida OK:", etiquetaUrl);
-        }
+        etiquetaUrl = await subirEtiqueta(
+          supabase,
+          `etiquetas-gls/${pedidoId}/${Date.now()}_etiqueta.pdf`,
+          Buffer.from(etiquetaBase64, "base64")
+        );
       } catch (e) {
         console.error("Error decodificando etiqueta GLS:", e);
       }
@@ -210,23 +170,23 @@ export async function POST(req: NextRequest) {
     // URL de tracking pública para el taller
     const trackingUrl = `https://mygls.gls-spain.es/e/${codbarras}/${cpDest}/es`;
 
-    await supabase.from("pedidos").update({
-      tracking:           codbarras,
-      tracking_gls:       codbarras,
-      etiqueta_envio_url: etiquetaUrl,
-      estado_envio:       "preparando",
-      agencia:            "GLS",
-    }).eq("id", pedidoId);
-
-    return NextResponse.json({
-      ok: true,
-      codbarras,
-      trackingUrl,
-      etiquetaUrl,
+    // Solo se escribe etiqueta_envio_url si hay etiqueta (nunca se borra la existente)
+    const g = await guardarPedido(supabase, pedidoId, {
+      tracking:     codbarras,
+      tracking_gls: codbarras,
+      ...(etiquetaUrl ? { etiqueta_envio_url: etiquetaUrl } : {}),
+      estado_envio: "preparando",
+      agencia:      "GLS",
     });
+    await anotar(supabase, pedidoId, `GLS OK — Envío ${codbarras} — ${kilos} kg${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+    if (g.error) await incidencia(supabase, pedidoId, codigo, "GLS", `Envío ${codbarras} creado en GLS pero NO se pudo guardar en el pedido`, g.error);
+    if (!etiquetaUrl) await incidencia(supabase, pedidoId, codigo, "GLS", `Envío ${codbarras} creado pero GLS no devolvió la etiqueta`);
+
+    return NextResponse.json({ ok: true, codbarras, trackingUrl, etiquetaUrl });
 
   } catch (e: any) {
     console.error("Error crear envío GLS:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    await incidencia(supabase, pedidoId, codigo, "GLS", "Error inesperado al crear el envío", String(e?.message || e));
+    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }
 }

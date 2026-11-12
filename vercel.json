@@ -43,31 +43,31 @@
   ],
   "functions": {
     "app/api/mrw/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/nacex/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/seur/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/ctt/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/gls/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/correos-express/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/dhl/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/devolucion/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "app/api/cron/**": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "version": 2

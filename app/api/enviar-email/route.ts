@@ -1,19 +1,17 @@
 // app/api/enviar-email/route.ts
 import { Resend } from "resend";
-import { createClient } from "@supabase/supabase-js";
+import { sbAdmin, incidencia } from "@/app/lib/envios";
+import { generarAlbaranes } from "@/app/lib/albaranServidor";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
       proveedorEmail, proveedorNombre,
-      productos, cliente, clienteEmail, telefono, cif, direccion,
+      productos: productosBody, cliente, clienteEmail, telefono, cif, direccion,
       agencia, formaPago, subtotal, iva, total,
       codigo, fecha, pedidoId,
     } = body;
@@ -50,11 +48,19 @@ export async function POST(request: Request) {
     }
 
     // Obtener URLs de PDFs y coste de transporte
-    const { data: pedidoData } = await supabase
+    // select("*"): la consulta no falla aunque alguna columna de etiqueta no exista
+    const { data: pedidoData, error: pedidoError } = await supabase
       .from("pedidos")
-      .select("albaran_url, albaran_proveedor_url, etiqueta_envio_url, etiqueta_mrw_url, etiqueta_nacex_url, etiqueta_seur_url, agencia, transporte, coste_transporte, gastos_gestion, forma_pago")
+      .select("*")
       .eq("id", pedidoId)
-      .single();
+      .maybeSingle();
+    if (pedidoError) console.error("[enviar-email] Error leyendo el pedido:", pedidoError.message);
+
+    // Los productos guardados en el pedido llevan la cantidad comprada
+    const productos: any[] = Array.isArray(pedidoData?.productos) && pedidoData.productos.length > 0
+      ? pedidoData.productos
+      : (Array.isArray(productosBody) ? productosBody : []);
+    const avisos: string[] = [];
 
     // Calcular totales separados: proveedor NO ve porte ni recargo, cliente SÍ
     const costeTransporte = Number(pedidoData?.coste_transporte || 0);
@@ -73,6 +79,8 @@ export async function POST(request: Request) {
     const esSeur  = agenciaPedido.includes("seur");
     const esCex   = agenciaPedido.includes("correos");
     const esCtt   = agenciaPedido.includes("ctt");
+    const esGls   = agenciaPedido.includes("gls");
+    const esDhl   = agenciaPedido.includes("dhl");
 
     let etiquetaUrl: string | null = null;
     if (esMisMedios) {
@@ -89,6 +97,8 @@ export async function POST(request: Request) {
     } else if (esCtt && pedidoData?.etiqueta_envio_url) {
       // CTT Express guarda la etiqueta en etiqueta_envio_url
       etiquetaUrl = pedidoData.etiqueta_envio_url;
+    } else if (esDhl && (pedidoData?.etiqueta_dhl_url || pedidoData?.etiqueta_envio_url)) {
+      etiquetaUrl = pedidoData.etiqueta_dhl_url || pedidoData.etiqueta_envio_url;
     } else {
       etiquetaUrl = pedidoData?.etiqueta_envio_url || null;
     }
@@ -160,27 +170,21 @@ export async function POST(request: Request) {
     albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
     if (!albaranProvBase64 && albaranProveedorUrl) albaranProvBase64 = await urlToBase64(albaranProveedorUrl);
 
-    // Si no hay albaranes, intentar generarlos al vuelo con generar-albaran
-    if (!albaranBase64 && !albaranProvBase64) {
-      console.log("[adjuntos] No se encontraron albaranes, intentando generar al vuelo...");
+    // Si falta alguno de los albaranes, se generan aquí mismo en servidor
+    if ((!albaranBase64 || !albaranProvBase64) && pedidoId) {
+      console.log("[adjuntos] Falta algún albarán, generando en servidor...");
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://www.recambio-directo.com");
-        const genRes = await fetch(`${baseUrl}/api/generar-albaran`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pedidoId }),
-        });
-        if (genRes.ok) {
-          const genData = await genRes.json();
-          console.log("[adjuntos] Albaranes generados al vuelo:", genData.ok);
-          // Reintentar descarga tras generación
-          albaranBase64 = await downloadFromStorage(albaranStoragePath);
-          albaranProvBase64 = await downloadFromStorage(albaranProvStoragePath);
+        const gen = await generarAlbaranes(supabase, pedidoId);
+        if (gen.ok) {
+          if (!albaranBase64) albaranBase64 = Buffer.from(gen.tallerBytes).toString("base64");
+          if (!albaranProvBase64) albaranProvBase64 = Buffer.from(gen.proveedorBytes).toString("base64");
         } else {
-          console.error("[adjuntos] Error generando albaranes al vuelo:", genRes.status);
+          console.error("[adjuntos] Error generando albaranes:", gen.error);
+          avisos.push(`No se pudo generar el albarán: ${gen.error}`);
         }
       } catch (genErr) {
-        console.error("[adjuntos] Error llamando generar-albaran:", genErr);
+        console.error("[adjuntos] Error generando albaranes:", genErr);
+        avisos.push(`No se pudo generar el albarán: ${String(genErr)}`);
       }
     }
 
@@ -188,20 +192,29 @@ export async function POST(request: Request) {
     if (etiquetaUrl) {
       etiquetaBase64 = await urlToBase64(etiquetaUrl);
     }
-    // Fallback: si es CTT y no hay etiqueta, intentar path conocido de CTT en storage
-    if (!etiquetaBase64 && esCtt) {
-      console.log("[adjuntos] CTT sin etiqueta, buscando en storage etiquetas-ctt/...");
+    // Respaldo: buscar la etiqueta en su ruta conocida de Storage
+    if (!etiquetaBase64 && !esMisMedios) {
+      const rutaFija = esNacex ? `documentos/${codigo}/etiqueta-nacex-${codigo}.pdf`
+        : esMrw  ? `documentos/${codigo}/etiqueta-mrw-${codigo}.pdf`
+        : esSeur ? `documentos/${codigo}/etiqueta-seur-${codigo}.pdf`
+        : esDhl  ? `documentos/dhl-${codigo}/etiqueta-dhl.pdf`
+        : null;
+      const carpeta = esCtt ? `etiquetas-ctt/${pedidoId}`
+        : esCex ? `etiquetas-cex/${pedidoId}`
+        : esGls ? `etiquetas-gls/${pedidoId}`
+        : null;
       try {
-        const { data: files } = await supabase.storage.from("FACTURAS").list(`etiquetas-ctt/${pedidoId}`, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
-        if (files && files.length > 0) {
-          const cttPath = `etiquetas-ctt/${pedidoId}/${files[0].name}`;
-          etiquetaBase64 = await downloadFromStorage(cttPath);
-          console.log("[adjuntos] CTT etiqueta encontrada en storage:", cttPath, etiquetaBase64 ? "OK" : "FAIL");
+        if (rutaFija) {
+          etiquetaBase64 = await downloadFromStorage(rutaFija);
+        } else if (carpeta && pedidoId) {
+          const { data: files } = await supabase.storage.from("FACTURAS").list(carpeta, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
+          if (files && files.length > 0) etiquetaBase64 = await downloadFromStorage(`${carpeta}/${files[0].name}`);
         }
       } catch (e) {
-        console.error("[adjuntos] Error buscando etiqueta CTT en storage:", e);
+        console.error("[adjuntos] Error buscando etiqueta en storage:", e);
       }
     }
+    const hayEtiqueta = !!etiquetaBase64;
 
     console.log("[adjuntos] Resultado:", {
       codigo,
@@ -344,6 +357,9 @@ export async function POST(request: Request) {
       : esMrw  ? `etiqueta-mrw-${codigo}.pdf`
       : esSeur ? `etiqueta-seur-${codigo}.pdf`
       : esCex  ? `etiqueta-correos-express-${codigo}.pdf`
+      : esCtt  ? `etiqueta-ctt-${codigo}.pdf`
+      : esGls  ? `etiqueta-gls-${codigo}.pdf`
+      : esDhl  ? `etiqueta-dhl-${codigo}.pdf`
       : `etiqueta-envio-${codigo}.pdf`;
 
     const mailEmbalaje = !esMisMedios ? await resend.emails.send({
@@ -361,7 +377,13 @@ export async function POST(request: Request) {
               <p style="color:#92400e;font-weight:700;margin:0;font-size:15px">📦 Instrucciones de embalaje — ${codigo}</p>
             </div>
             <p style="color:#374151;font-size:15px">Hola <strong>${proveedorNombre}</strong>,</p>
-            <p style="color:#374151">Adjunto encontrarás la <strong>etiqueta de envío de ${agenciaUpper}</strong> y el <strong>dossier de instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>
+            ${hayEtiqueta
+              ? `<p style="color:#374151">Adjunto encontrarás la <strong>etiqueta de envío de ${agenciaUpper}</strong> y a continuación las <strong>instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>`
+              : `<p style="color:#374151">A continuación tienes las <strong>instrucciones de embalaje</strong> para el pedido <strong>${codigo}</strong>.</p>
+                 <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin:16px 0">
+                   <p style="color:#b91c1c;font-size:13px;font-weight:700;margin:0 0 6px">La etiqueta de ${agenciaUpper} todavía no está disponible</p>
+                   <p style="color:#7f1d1d;font-size:12px;margin:0">Puedes ir preparando el paquete, pero <strong>no lo entregues sin etiqueta</strong>. Recambio Directo ya ha sido avisado y te la hará llegar en breve; también aparecerá en tu panel de proveedor.</p>
+                 </div>`}
             <div style="background:#f1f5f9;border-radius:10px;padding:18px;margin:20px 0">
               <p style="font-weight:700;color:#0b1736;margin:0 0 14px;font-size:14px">📋 INSTRUCCIONES RÁPIDAS</p>
               <div style="display:flex;gap:12px;margin-bottom:12px">
@@ -394,11 +416,11 @@ export async function POST(request: Request) {
                 <li>Cualquier daño por embalaje deficiente puede reclamarse al remitente</li>
               </ul>
             </div>
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin:16px 0">
+            ${hayEtiqueta ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin:16px 0">
               <p style="color:#166534;font-size:13px;margin:0">
                 📎 Adjunto a este email: <strong>etiqueta de envío ${agenciaUpper} (PDF)</strong>.
               </p>
-            </div>
+            </div>` : ""}
             <p style="color:#64748b;font-size:12px;margin-top:20px">
               ¿Tienes algún problema con el pedido? Contáctanos en
               <a href="mailto:info@recambio-directo.com" style="color:#2563eb">info@recambio-directo.com</a>
@@ -435,8 +457,22 @@ export async function POST(request: Request) {
       });
     } catch (e) { console.error("Error notif admin:", e); }
 
+    // Resend no lanza excepción si falla: devuelve { error }. Se comprueba cada envío.
+    if (mailProveedor.error) avisos.push(`Email de pedido al proveedor (${proveedorEmail}) NO enviado: ${mailProveedor.error.message}`);
+    if (mailCliente.error) avisos.push(`Email de confirmación al taller (${clienteEmail}) NO enviado: ${mailCliente.error.message}`);
+    if (mailEmbalaje?.error) avisos.push(`Email de etiqueta al proveedor (${proveedorEmail}) NO enviado: ${mailEmbalaje.error.message}`);
+    if (!esMisMedios && !hayEtiqueta) avisos.push(`El email al proveedor ha salido SIN etiqueta de ${agenciaUpper || "la agencia"}: no se encontró ninguna etiqueta para el pedido`);
+    if (!albaranBase64 && !albaranProvBase64) avisos.push("Los emails han salido SIN albarán adjunto");
+
+    if (avisos.length > 0 && pedidoId) {
+      await incidencia(supabase, pedidoId, String(codigo || ""), "EMAIL PEDIDO", avisos.join(" · "));
+    }
+
+    const enviados = !mailProveedor.error && !mailCliente.error && !mailEmbalaje?.error;
     return Response.json({
-      ok: true,
+      ok: enviados,
+      ...(enviados ? {} : { error: avisos.join(" · ") }),
+      avisos,
       mails: {
         proveedor: mailProveedor.data?.id || null,
         cliente: mailCliente.data?.id || null,
@@ -448,4 +484,4 @@ export async function POST(request: Request) {
     console.error("Error enviando emails:", error);
     return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
-}
+}

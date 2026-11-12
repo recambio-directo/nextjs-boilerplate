@@ -1,11 +1,11 @@
 // app/api/ctt/crear-envio/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
+  anotar, incidencia, fetchT, esperar, txt, hoyMadrid,
+} from "@/app/lib/envios";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = sbAdmin();
 
 const CTT_CLIENT_ID     = process.env.CTT_CLIENT_ID!;
 const CTT_CLIENT_SECRET = process.env.CTT_CLIENT_SECRET!;
@@ -29,7 +29,7 @@ async function getCTTToken(): Promise<string> {
     grant_type:    "client_credentials",
   });
 
-  const res = await fetch(`${CTT_BASE_URL}/integrations/oauth2/token`, {
+  const res = await fetchT(`${CTT_BASE_URL}/integrations/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -42,82 +42,116 @@ async function getCTTToken(): Promise<string> {
   return cachedToken!;
 }
 
+// Un intento de descarga de la etiqueta. CTT puede devolver PDF binario,
+// PDF como texto, JSON con base64 o base64 directo.
+async function pedirEtiquetaCTT(token: string, shippingCode: string): Promise<Buffer | null> {
+  const labelRes = await fetchT(
+    `${CTT_BASE_URL}/integrations/trf/labelling/v1.0/shippings/${shippingCode}/shipping-labels?label_type_code=PDF&model_type_code=SINGLE&label_offset=1`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "user_name":     CTT_USER,
+        "password":      CTT_PASSWORD,
+      },
+    },
+    7000
+  );
+
+  if (!labelRes.ok) {
+    console.error("CTT etiqueta HTTP error:", labelRes.status, await labelRes.text().catch(() => ""));
+    return null;
+  }
+
+  const contentType = labelRes.headers.get("content-type") || "";
+  let pdfBuffer: Buffer | null = null;
+
+  if (contentType.includes("application/pdf") || contentType.includes("octet-stream")) {
+    pdfBuffer = Buffer.from(await labelRes.arrayBuffer());
+  } else {
+    const labelRaw = await labelRes.text();
+    if (labelRaw.startsWith("%PDF")) {
+      pdfBuffer = Buffer.from(labelRaw, "binary");
+    } else {
+      try {
+        const labelData = JSON.parse(labelRaw);
+        const base64 = labelData.data?.[0]?.label
+          || labelData.labels?.[0]?.label_data
+          || labelData.label_data
+          || labelData.label
+          || (Array.isArray(labelData) && labelData[0]?.label)
+          || (Array.isArray(labelData) && labelData[0]?.label_data)
+          || null;
+        if (base64) pdfBuffer = Buffer.from(base64, "base64");
+        else console.error("CTT etiqueta: JSON sin etiqueta. Claves:", JSON.stringify(Object.keys(labelData)).slice(0, 300));
+      } catch {
+        if (labelRaw.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(labelRaw.trim())) {
+          pdfBuffer = Buffer.from(labelRaw.trim(), "base64");
+        } else {
+          console.error("CTT etiqueta: respuesta no reconocida:", labelRaw.substring(0, 300));
+        }
+      }
+    }
+  }
+
+  return pdfBuffer && pdfBuffer.length > 100 ? pdfBuffer : null;
+}
+
+// Descarga la etiqueta con reintentos (CTT a veces tarda unos segundos en
+// tenerla disponible tras grabar el envío) y la guarda en Storage.
+async function obtenerEtiquetaCTT(token: string, shippingCode: string, pedidoId: unknown): Promise<string | null> {
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const pdf = await pedirEtiquetaCTT(token, shippingCode);
+      if (pdf) {
+        const url = await subirEtiqueta(supabase, `etiquetas-ctt/${pedidoId}/${Date.now()}_etiqueta.pdf`, pdf);
+        if (url) return url;
+      }
+    } catch (e) {
+      console.error(`Error obteniendo etiqueta CTT (intento ${intento}):`, e);
+    }
+    if (intento < 3) await esperar(1500);
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
+  let pedidoId: unknown = null;
+  let codigo = "";
   try {
-    const { pedidoId } = await req.json();
-    if (!pedidoId) return NextResponse.json({ error: "pedidoId requerido" }, { status: 400 });
+    const reqBody = await req.json();
+    pedidoId = reqBody?.pedidoId;
+    if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
 
-    const { data: pedido, error } = await supabase
-      .from("pedidos")
-      .select("*")
-      .eq("id", pedidoId)
-      .single();
+    const r = await cargarDatosEnvio(supabase, pedidoId, reqBody);
+    if (!r.ok) {
+      if (r.status !== 404) await incidencia(supabase, pedidoId, "", "CTT Express", r.error);
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
+    }
+    const { pedido, remitente, destinatario, pesoKg, avisos } = r.datos;
+    codigo = r.datos.codigo;
 
-    if (error || !pedido) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
-
-    // Datos del proveedor (remitente) — proveedor_id está dentro del JSONB productos
-    let nomRte   = "RECAMBIO DIRECTO";
-    let dirRte   = "C/ Sola, 16";
-    let pobRte   = "Cehegín";
-    let cpRte    = "30430";
-    let tlfRte   = "744487895";
-    let emailRte = "info@recambio-directo.com";
+    // ── El pedido ya tiene envío CTT: no se duplica. Si falta la etiqueta, se reintenta.
+    if (tieneEnvio(pedido, "ctt", pedido.tracking_ctt)) {
+      const shippingCode = txt(pedido.tracking_ctt) || txt(pedido.tracking);
+      let etiquetaUrl: string | null = txt(pedido.etiqueta_envio_url) || null;
+      if (!etiquetaUrl) {
+        etiquetaUrl = await obtenerEtiquetaCTT(await getCTTToken(), shippingCode, pedidoId);
+        if (etiquetaUrl) await guardarPedido(supabase, pedidoId, { etiqueta_envio_url: etiquetaUrl });
+      }
+      return NextResponse.json({
+        ok: true, yaExistia: true, shippingCode,
+        trackingUrl: `https://www.cttexpress.com/localizador-de-envios/?sc=${shippingCode}`,
+        etiquetaUrl,
+      });
+    }
 
     const productos = pedido.productos || [];
-    const proveedorId = productos[0]?.proveedor_id || null;
-
-    if (proveedorId) {
-      const { data: prov } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono, email")
-        .eq("id", proveedorId)
-        .single();
-      if (prov) {
-        nomRte   = prov.nombre_empresa || nomRte;
-        dirRte   = prov.direccion || dirRte;
-        pobRte   = prov.ciudad || pobRte;
-        cpRte    = prov.codigo_postal || cpRte;
-        tlfRte   = prov.telefono || tlfRte;
-        emailRte = prov.email || emailRte;
-      }
-    }
-
-    // Datos del taller (destinatario) — buscar por cliente_id para datos completos
-    let nomDest   = (pedido.cliente_nombre || pedido.cliente_email || "CLIENTE").substring(0, 40);
-    let dirDest   = "VER PEDIDO";
-    let pobDest   = "ESPAÑA";
-    let cpDest    = "28001";
-    let tlfDest   = "600000000";
-    const emailDest = (pedido.cliente_email || "").substring(0, 75);
-
-    if (pedido.cliente_id) {
-      const { data: taller } = await supabase
-        .from("usuarios")
-        .select("nombre_empresa, direccion, ciudad, codigo_postal, telefono")
-        .eq("id", pedido.cliente_id)
-        .single();
-      if (taller) {
-        nomDest = (taller.nombre_empresa || nomDest).substring(0, 40);
-        dirDest = taller.direccion || dirDest;
-        pobDest = taller.ciudad || pobDest;
-        cpDest  = taller.codigo_postal || cpDest;
-        tlfDest = taller.telefono || tlfDest;
-      }
-    } else {
-      // Fallback: parsear el campo direccion del pedido "calle, ciudad"
-      const partes = (pedido.direccion || "").split(",");
-      dirDest = partes[0]?.trim() || dirDest;
-      pobDest = partes[1]?.trim() || pobDest;
-    }
-
-    dirDest = dirDest.substring(0, 100);
-    pobDest = pobDest.substring(0, 40);
-    cpDest  = cpDest.replace(/\D/g, "").substring(0, 10) || "28001";
-    tlfDest = tlfDest.replace(/\D/g, "");
-
-    const fechaHoy = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const kilos = Math.max(1, productos.length * 2);
+    const hoy = hoyMadrid();
+    const fechaHoy = `${hoy.yyyy}-${hoy.mm}-${hoy.dd}`; // YYYY-MM-DD
+    const kilos = Math.max(1, Math.ceil(pesoKg));
     const refs = productos.map((p: any) => p.referencia).join(", ").substring(0, 30);
+    const nomDest = destinatario.nombre.substring(0, 40);
 
     const token = await getCTTToken();
 
@@ -125,28 +159,28 @@ export async function POST(req: NextRequest) {
       client_center_code:          CTT_CLIENT_CENTER,
       shipping_type_code:          "C24",
       client_bar_code:             "",
-      client_references:           [pedido.codigo || `RD-${pedidoId}`, ""],
+      client_references:           [codigo, ""],
       shipping_weight_declared:    kilos,
       item_count:                  1,
-      sender_name:                 nomRte.substring(0, 40),
+      sender_name:                 remitente.nombre.substring(0, 40),
       sender_country_code:         "ES",
-      sender_postal_code:          cpRte,
-      sender_address:              dirRte.substring(0, 100),
-      sender_town:                 pobRte.substring(0, 40),
-      sender_email_notify_address: emailRte,
-      sender_phones:               [`+34 ${tlfRte}`, ""],
+      sender_postal_code:          remitente.cp,
+      sender_address:              remitente.direccion.substring(0, 100),
+      sender_town:                 remitente.poblacion.substring(0, 40),
+      sender_email_notify_address: remitente.email || "info@recambio-directo.com",
+      sender_phones:               [`+34 ${remitente.telefono}`, ""],
       recipient_name:              nomDest,
       recipient_country_code:      "ES",
-      recipient_postal_code:       cpDest,
-      recipient_address:           dirDest,
-      recipient_town:              pobDest,
-      recipient_email_notify_address: emailDest,
-      recipient_phones:            [tlfDest ? `+34 ${tlfDest}` : "", ""],
+      recipient_postal_code:       destinatario.cp,
+      recipient_address:           destinatario.direccion.substring(0, 100),
+      recipient_town:              destinatario.poblacion.substring(0, 40),
+      recipient_email_notify_address: destinatario.email.substring(0, 75),
+      recipient_phones:            [`+34 ${destinatario.telefono}`, ""],
       shipping_date:               fechaHoy,
       delivery: {
         contact_name:  nomDest,
         referral_name: "",
-        comments:      `Pedido RD ${pedido.codigo || pedidoId}`,
+        comments:      `Pedido RD ${codigo}`,
       },
       items: [
         {
@@ -160,7 +194,7 @@ export async function POST(req: NextRequest) {
       ],
     };
 
-    const res = await fetch(`${CTT_BASE_URL}/integrations/manifest/v2.0/shippings`, {
+    const res = await fetchT(`${CTT_BASE_URL}/integrations/manifest/v2.0/shippings`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -173,123 +207,43 @@ export async function POST(req: NextRequest) {
 
     const rawText = await res.text();
     if (!res.ok) {
-      console.error("CTT crear envío error:", rawText);
-      return NextResponse.json({ error: "Error CTT", raw: rawText }, { status: 400 });
+      await incidencia(supabase, pedidoId, codigo, "CTT Express", `CTT rechazó el envío (HTTP ${res.status})`, rawText);
+      return NextResponse.json({ ok: false, error: "Error CTT", raw: rawText }, { status: 400 });
     }
 
-    const data = JSON.parse(rawText);
-    const shippingCode = data.shipping_data?.shipping_code || data.shipping_code || data.code || data.id || "";
+    let data: any = null;
+    try { data = JSON.parse(rawText); } catch { data = null; }
+    const shippingCode = txt(data?.shipping_data?.shipping_code || data?.shipping_code || data?.code || data?.id);
 
     if (!shippingCode) {
-      console.error("CTT no devolvió shipping_code:", data);
-      return NextResponse.json({ error: "CTT no devolvió código de envío", raw: data }, { status: 400 });
+      await incidencia(supabase, pedidoId, codigo, "CTT Express", "CTT no devolvió código de envío", rawText);
+      return NextResponse.json({ ok: false, error: "CTT no devolvió código de envío", raw: rawText.substring(0, 600) }, { status: 400 });
     }
 
-    // Obtener etiqueta PDF
-    let etiquetaUrl: string | null = null;
-    try {
-      const labelRes = await fetch(
-        `${CTT_BASE_URL}/integrations/trf/labelling/v1.0/shippings/${shippingCode}/shipping-labels?label_type_code=PDF&model_type_code=SINGLE&label_offset=1`,
-        {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "user_name":     CTT_USER,
-            "password":      CTT_PASSWORD,
-          },
-        }
-      );
-
-      if (labelRes.ok) {
-        const contentType = labelRes.headers.get("content-type") || "";
-        console.log("CTT etiqueta content-type:", contentType, "status:", labelRes.status);
-
-        let pdfBuffer: Buffer | null = null;
-
-        if (contentType.includes("application/pdf") || contentType.includes("octet-stream")) {
-          // Respuesta binaria directa (PDF)
-          const arrayBuf = await labelRes.arrayBuffer();
-          pdfBuffer = Buffer.from(arrayBuf);
-          console.log("CTT etiqueta: PDF binario recibido, bytes:", pdfBuffer.length);
-        } else {
-          // Intentar parsear como JSON con base64
-          const labelRaw = await labelRes.text();
-          console.log("CTT etiqueta response primeros 500:", labelRaw.substring(0, 500));
-
-          // Si empieza con %PDF, es un PDF en texto
-          if (labelRaw.startsWith("%PDF")) {
-            pdfBuffer = Buffer.from(labelRaw, "binary");
-            console.log("CTT etiqueta: PDF como texto, bytes:", pdfBuffer.length);
-          } else {
-            try {
-              const labelData = JSON.parse(labelRaw);
-              console.log("CTT etiqueta keys:", JSON.stringify(Object.keys(labelData)));
-              if (Array.isArray(labelData)) console.log("CTT etiqueta array[0] keys:", JSON.stringify(Object.keys(labelData[0] || {})));
-              const base64 = labelData.data?.[0]?.label
-                || labelData.labels?.[0]?.label_data
-                || labelData.label_data
-                || labelData.label
-                || (Array.isArray(labelData) && labelData[0]?.label)
-                || (Array.isArray(labelData) && labelData[0]?.label_data)
-                || null;
-              console.log("CTT base64 longitud:", base64?.length || 0);
-              if (base64) {
-                pdfBuffer = Buffer.from(base64, "base64");
-              }
-            } catch (jsonErr) {
-              console.error("CTT etiqueta: no es JSON válido, intentando como base64 directo");
-              // Quizá es base64 directamente sin wrapper JSON
-              if (labelRaw.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(labelRaw.trim())) {
-                pdfBuffer = Buffer.from(labelRaw.trim(), "base64");
-                console.log("CTT etiqueta: base64 directo, bytes:", pdfBuffer.length);
-              }
-            }
-          }
-        }
-
-        if (pdfBuffer && pdfBuffer.length > 100) {
-          const path = `etiquetas-ctt/${pedidoId}/${Date.now()}_etiqueta.pdf`;
-          const { error: uploadErr } = await supabase.storage
-            .from("FACTURAS")
-            .upload(path, pdfBuffer, { contentType: "application/pdf", upsert: true });
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage.from("FACTURAS").getPublicUrl(path);
-            etiquetaUrl = urlData.publicUrl;
-            console.log("CTT etiqueta guardada:", etiquetaUrl);
-          } else {
-            console.error("CTT etiqueta upload error:", uploadErr.message);
-          }
-        } else {
-          console.warn("CTT etiqueta: no se obtuvo PDF válido (buffer null o muy pequeño)");
-        }
-      } else {
-        console.error("CTT etiqueta HTTP error:", labelRes.status, await labelRes.text().catch(() => ""));
-      }
-    } catch (e) {
-      console.error("Error obteniendo etiqueta CTT:", e);
-    }
-
-    // Tracking URL para el taller
+    // Primero se guarda el envío (lo importante); después la etiqueta
     const trackingUrl = `https://www.cttexpress.com/localizador-de-envios/?sc=${shippingCode}`;
-
-    // Actualizar pedido — solo guardar etiqueta_envio_url si realmente tenemos una
-    await supabase.from("pedidos").update({
-      tracking:              shippingCode,
-      tracking_ctt:          shippingCode,
-      ...(etiquetaUrl ? { etiqueta_envio_url: etiquetaUrl } : {}),
-      estado_envio:          "preparando",
-      agencia:               "CTT Express",
-    }).eq("id", pedidoId);
-
-    return NextResponse.json({
-      ok:          true,
-      shippingCode,
-      trackingUrl,
-      etiquetaUrl,
+    const g1 = await guardarPedido(supabase, pedidoId, {
+      tracking:     shippingCode,
+      tracking_ctt: shippingCode,
+      estado_envio: "preparando",
+      agencia:      "CTT Express",
     });
+    await anotar(supabase, pedidoId, `CTT OK — Envío ${shippingCode} — ${kilos} kg${avisos.length ? " — Avisos: " + avisos.join("; ") : ""}`);
+    if (g1.error) await incidencia(supabase, pedidoId, codigo, "CTT Express", `Envío ${shippingCode} creado en CTT pero NO se pudo guardar en el pedido`, g1.error);
+
+    const etiquetaUrl = await obtenerEtiquetaCTT(token, shippingCode, pedidoId);
+    if (etiquetaUrl) {
+      const g2 = await guardarPedido(supabase, pedidoId, { etiqueta_envio_url: etiquetaUrl });
+      if (g2.error) await incidencia(supabase, pedidoId, codigo, "CTT Express", `Etiqueta del envío ${shippingCode} generada pero no guardada en el pedido`, `${g2.error} — ${etiquetaUrl}`);
+    } else {
+      await incidencia(supabase, pedidoId, codigo, "CTT Express", `Envío ${shippingCode} creado pero CTT no devolvió la etiqueta tras 3 intentos`);
+    }
+
+    return NextResponse.json({ ok: true, shippingCode, trackingUrl, etiquetaUrl });
 
   } catch (e: any) {
     console.error("Error crear envío CTT:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    await incidencia(supabase, pedidoId, codigo, "CTT Express", "Error inesperado al crear el envío", String(e?.message || e));
+    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }
 }

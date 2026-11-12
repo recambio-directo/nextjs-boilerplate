@@ -621,7 +621,7 @@ export default function CheckoutPage() {
       const nuevoCreditoRD = Math.max(0, creditoRD - total);
       await supabase.from("usuarios").update({ credito_rd: nuevoCreditoRD }).eq("id", user.id);
       setCreditoRD(nuevoCreditoRD);
-      if (nuevoCreditoRD === 0) { try { await fetch("/api/send-credito-agotado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteEmail: user.email, clienteNombre: empresa }) }); } catch (e) { console.error(e); } }
+      if (nuevoCreditoRD === 0) { try { await fetch("/api/enviar-email/send-credito-agotado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteEmail: user.email, clienteNombre: empresa }) }); } catch (e) { console.error(e); } }
     }
     // Redirigir inmediatamente sin esperar emails ni PDFs
     const { data: perfilTipo } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
@@ -1009,4 +1009,4 @@ export default function CheckoutPage() {
       {mostrarStripe && <StripeCheckout total={total} metadata={{ cliente_nombre: empresa, cliente_email: clienteEmail, pedido_codigo: "RD-" + Date.now().toString().slice(-7) }} onSuccess={async () => { setMostrarStripe(false); await procesarPedido(); }} onCancel={() => setMostrarStripe(false)} />}
     </main>
   );
-}
+}
