@@ -2,93 +2,271 @@
 // IPDA (Isi Condal) — Cliente API para TecDoc
 // Autenticación, búsqueda de vehículos, categorías y piezas
 // ══════════════════════════════════════════════════════════════
+//
+// SESIONES: IPDA solo permite UNA sesión activa por usuario. Cada login nuevo
+// invalida el token anterior ("Another session active"). Para que no falle:
+//   1. El token de cada usuario se comparte entre todas las instancias del
+//      servidor a través de la tabla `ipda_sesiones` de Supabase (así no se
+//      pisan unas a otras haciendo login).
+//   2. Hay varios usuarios (IPDA_USER + IPDA_USERS). Si la sesión de uno
+//      cae, la petición se repite al momento con el siguiente y la sesión
+//      caída se renueva. El usuario final no ve el fallo.
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
-const IPDA_USER = process.env.IPDA_USER!;       // "10811"
-const IPDA_PASS = process.env.IPDA_PASS!;       // contraseña
 const IPDA_CK = process.env.IPDA_CK || "3950753949";
 const IPDA_CUSTOMER = parseInt(process.env.IPDA_CUSTOMER || "10811", 10);
 
-// ── Token cache en memoria (se renueva automáticamente) ──
-let cachedToken: string | null = null;
-let tokenExpiry: number = 0;
+type CuentaIpda = { usr: string; pss: string };
 
-export async function getIpdaToken(): Promise<string> {
-  // Si tenemos un token válido con margen de 5 min, reutilizar
-  if (cachedToken && Date.now() < tokenExpiry - 300_000) {
-    return cachedToken;
+// Usuario principal (IPDA_USER / IPDA_PASS) + adicionales en IPDA_USERS con
+// formato "usuario:contraseña,usuario:contraseña". Solo en variables de entorno.
+function cuentasIpda(): CuentaIpda[] {
+  const lista: CuentaIpda[] = [];
+  const add = (usr?: string, pss?: string) => {
+    const u = (usr || "").trim();
+    const p = (pss || "").trim();
+    if (u && p && !lista.some((c) => c.usr === u)) lista.push({ usr: u, pss: p });
+  };
+  add(process.env.IPDA_USER, process.env.IPDA_PASS);
+  for (const par of (process.env.IPDA_USERS || "").split(",")) {
+    const i = par.indexOf(":");
+    if (i > 0) add(par.slice(0, i), par.slice(i + 1));
   }
+  return lista;
+}
 
-  const res = await fetch(`${IPDA_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      usr: IPDA_USER,
-      pss: IPDA_PASS,
-      force: 1,
-      ck: IPDA_CK,
-      language: "es",
-      userType: "standard",
-    }),
-  });
+// ── Estado en memoria de esta instancia ──
+type Sesion = { token: string; expira: number };
+const sesiones = new Map<string, Sesion>();            // usuario → token en uso
+const bloqueados = new Map<string, number>();          // usuario → no reintentar login hasta (ms)
+const rechazados = new Map<string, string>();          // usuario → último token que IPDA rechazó
+const loginsEnCurso = new Map<string, Promise<Sesion>>();
+const MARGEN_MS = 5 * 60 * 1000;
+const TIMEOUT_MS = 20000;
 
-  const json = await res.json();
-
-  if (!res.ok || !json.success || !json.data?.token) {
-    console.error("IPDA login response:", JSON.stringify(json).slice(0, 500));
-    throw new Error(`IPDA login failed: ${res.status} - ${json.error || json.message || JSON.stringify(json).slice(0, 200)}`);
+let sb: SupabaseClient | null = null;
+function tabla() {
+  if (!sb) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return null;
+    sb = createClient(url, key);
   }
+  return sb.from("ipda_sesiones");
+}
 
-  cachedToken = json.data.token;
-  // Log datos útiles del login (sin el token)
-  const loginKeys = Object.keys(json.data).filter(k => k !== "token");
-  const loginInfo: Record<string, any> = {};
-  for (const k of loginKeys) loginInfo[k] = json.data[k];
-  console.log("[IPDA] Login OK, data keys:", JSON.stringify(loginInfo).slice(0, 500));
+function vigente(s: Sesion | null | undefined): s is Sesion {
+  return !!s && !!s.token && Date.now() < s.expira - MARGEN_MS;
+}
 
-  // Decodificar exp del JWT para saber cuándo caduca
+function caducidadJwt(token: string): number {
   try {
-    const payload = JSON.parse(
-      Buffer.from(json.data.token.split(".")[1], "base64").toString()
-    );
-    tokenExpiry = (payload.exp || 0) * 1000;
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+    if (payload.exp) return payload.exp * 1000;
+  } catch { /* se asume 6h */ }
+  return Date.now() + 6 * 60 * 60 * 1000;
+}
+
+function descError(json: any): string {
+  const e = json?.error;
+  if (e && typeof e === "object") return e.DESC || JSON.stringify(e).slice(0, 200);
+  return String(e || json?.message || JSON.stringify(json ?? "").slice(0, 200));
+}
+
+async function leerSesionCompartida(usr: string): Promise<Sesion | null> {
+  try {
+    const t = tabla();
+    if (!t) return null;
+    const { data, error } = await t.select("token, expira").eq("usuario", usr).maybeSingle();
+    if (error || !data?.token) return null;
+    return { token: data.token, expira: new Date(data.expira).getTime() };
   } catch {
-    // Si no podemos decodificar, asumir 12h
-    tokenExpiry = Date.now() + 12 * 60 * 60 * 1000;
+    return null;
+  }
+}
+
+async function guardarSesionCompartida(usr: string, s: Sesion): Promise<void> {
+  try {
+    const t = tabla();
+    if (!t) return;
+    const { error } = await t.upsert(
+      { usuario: usr, token: s.token, expira: new Date(s.expira).toISOString(), actualizado: new Date().toISOString() },
+      { onConflict: "usuario" }
+    );
+    if (error) console.error("[IPDA] No se pudo guardar la sesión compartida (¿falta la tabla ipda_sesiones?):", error.message);
+  } catch (e) {
+    console.error("[IPDA] Error guardando la sesión compartida:", e);
+  }
+}
+
+async function login(cuenta: CuentaIpda): Promise<Sesion> {
+  // Dentro de una misma instancia, un solo login a la vez por usuario
+  const enCurso = loginsEnCurso.get(cuenta.usr);
+  if (enCurso) return enCurso;
+
+  const p = (async () => {
+    const res = await fetch(`${IPDA_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usr: cuenta.usr, pss: cuenta.pss, force: 1, ck: IPDA_CK, language: "es", userType: "standard" }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    let json: any = null;
+    try { json = await res.json(); } catch { json = null; }
+
+    if (!res.ok || !json?.success || !json.data?.token) {
+      // Usuario caducado o contraseña incorrecta: no insistir durante 30 min
+      bloqueados.set(cuenta.usr, Date.now() + 30 * 60 * 1000);
+      console.error(`IPDA login response (usuario ${cuenta.usr}):`, JSON.stringify(json).slice(0, 300));
+      throw new Error(`IPDA login failed (usuario ${cuenta.usr}): ${res.status} - ${descError(json)}`);
+    }
+
+    const s: Sesion = { token: json.data.token, expira: caducidadJwt(json.data.token) };
+    sesiones.set(cuenta.usr, s);
+    bloqueados.delete(cuenta.usr);
+    rechazados.delete(cuenta.usr);
+    await guardarSesionCompartida(cuenta.usr, s);
+    console.log(`[IPDA] Login OK usuario ${cuenta.usr}`);
+    return s;
+  })();
+
+  loginsEnCurso.set(cuenta.usr, p);
+  try {
+    return await p;
+  } finally {
+    loginsEnCurso.delete(cuenta.usr);
+  }
+}
+
+/**
+ * Token válido para un usuario: memoria → sesión compartida en Supabase → login.
+ * Un token que IPDA ha rechazado no se reutiliza aunque siga guardado.
+ */
+async function obtenerSesion(cuenta: CuentaIpda): Promise<Sesion> {
+  const tokenCaido = rechazados.get(cuenta.usr);
+  const enMemoria = sesiones.get(cuenta.usr);
+  if (vigente(enMemoria) && enMemoria.token !== tokenCaido) return enMemoria;
+
+  // Otra instancia puede haber renovado ya la sesión: se usa la suya, sin login
+  const compartida = await leerSesionCompartida(cuenta.usr);
+  if (vigente(compartida) && compartida.token !== tokenCaido) {
+    sesiones.set(cuenta.usr, compartida);
+    return compartida;
   }
 
-  return cachedToken!;
+  if ((bloqueados.get(cuenta.usr) || 0) > Date.now()) {
+    throw new Error(`IPDA: usuario ${cuenta.usr} no disponible temporalmente`);
+  }
+  return await login(cuenta);
+}
+
+function esSesionCaida(status: number, json: any): boolean {
+  const e = json?.error;
+  return status === 401 || e?.HTTP_STATUS_CODE === 401 || e?.CODE === 8;
+}
+
+/**
+ * Ejecuta una llamada a IPDA con sesión. Si la sesión del usuario ha caído,
+ * la renueva y repite con el siguiente usuario. `llamar` recibe el token y
+ * devuelve la respuesta; `caida` decide si esa respuesta es de sesión caída.
+ */
+async function conSesion<T>(
+  llamar: (token: string) => Promise<T>,
+  caida: (resultado: T) => boolean
+): Promise<T> {
+  const cuentas = cuentasIpda();
+  if (cuentas.length === 0) throw new Error("IPDA: no hay usuarios configurados (IPDA_USER / IPDA_PASS)");
+
+  let ultimo: T | undefined;
+  let ultimoError: unknown = null;
+
+  // Dos vueltas como máximo: la segunda usa las sesiones ya renovadas
+  for (let intento = 0; intento < cuentas.length * 2; intento++) {
+    const cuenta = cuentas[intento % cuentas.length];
+    let sesion: Sesion;
+    try {
+      sesion = await obtenerSesion(cuenta);
+    } catch (e) {
+      ultimoError = e;
+      continue;
+    }
+    const resultado = await llamar(sesion.token);
+    if (!caida(resultado)) return resultado;
+
+    console.warn(`[IPDA] Sesión caída del usuario ${cuenta.usr}; se reintenta con otra sesión`);
+    rechazados.set(cuenta.usr, sesion.token);
+    if (sesiones.get(cuenta.usr)?.token === sesion.token) sesiones.delete(cuenta.usr);
+    ultimo = resultado;
+  }
+
+  if (ultimo !== undefined) return ultimo;
+  throw ultimoError instanceof Error ? ultimoError : new Error("IPDA: no se pudo iniciar sesión con ningún usuario");
+}
+
+/** Token de sesión vigente (compatibilidad). Para peticiones usa ipdaFetchConSesion. */
+export async function getIpdaToken(): Promise<string> {
+  const cuentas = cuentasIpda();
+  let ultimoError: unknown = new Error("IPDA: no hay usuarios configurados (IPDA_USER / IPDA_PASS)");
+  for (const cuenta of cuentas) {
+    try {
+      return (await obtenerSesion(cuenta)).token;
+    } catch (e) {
+      ultimoError = e;
+    }
+  }
+  throw ultimoError;
+}
+
+/**
+ * fetch a IPDA con cabecera App-Token y reintento automático si la sesión ha
+ * caído. `ruta` es relativa a la base de la API (p. ej. "/document/retrieve2?img=...").
+ */
+export async function ipdaFetchConSesion(ruta: string, init: RequestInit = {}): Promise<Response> {
+  return await conSesion(
+    (token) => fetch(`${IPDA_BASE}${ruta}`, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string> | undefined), "App-Token": token },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    }),
+    (res) => res.status === 401
+  );
 }
 
 async function ipdaPost(endpoint: string, body: Record<string, any>): Promise<any> {
-  const token = await getIpdaToken();
-  const url = `${IPDA_BASE}${endpoint}`;
   console.log(`[IPDA] POST ${endpoint}`, JSON.stringify(body).slice(0, 300));
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "App-Token": token,
+  const r = await conSesion(
+    async (token) => {
+      const res = await fetch(`${IPDA_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "App-Token": token },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        return { status: res.status, ok: res.ok, json: null as any, noJson: `${contentType}: ${text.slice(0, 300)}` };
+      }
+      let json: any = null;
+      try { json = await res.json(); } catch { json = null; }
+      return { status: res.status, ok: res.ok, json, noJson: "" };
     },
-    body: JSON.stringify(body),
-  });
+    (x) => esSesionCaida(x.status, x.json)
+  );
 
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    const text = await res.text();
-    console.error(`[IPDA] ${endpoint} returned non-JSON (${contentType}):`, text.slice(0, 300));
-    throw new Error(`IPDA ${endpoint}: respuesta no JSON (${res.status})`);
+  if (r.noJson) {
+    console.error(`[IPDA] ${endpoint} returned non-JSON (${r.noJson})`);
+    throw new Error(`IPDA ${endpoint}: respuesta no JSON (${r.status})`);
   }
 
-  const json = await res.json();
-
-  if (!res.ok || !json.success) {
-    console.error(`IPDA ${endpoint} response:`, JSON.stringify(json).slice(0, 500));
-    throw new Error(`IPDA ${endpoint}: ${res.status} - ${json.error || json.message || JSON.stringify(json).slice(0, 200)}`);
+  if (!r.ok || !r.json?.success) {
+    console.error(`IPDA ${endpoint} response:`, JSON.stringify(r.json).slice(0, 500));
+    throw new Error(`IPDA ${endpoint}: ${r.status} - ${descError(r.json)}`);
   }
 
-  return json.data;
+  return r.json.data;
 }
 
 // ══════════════════════════════════════════════════════════════

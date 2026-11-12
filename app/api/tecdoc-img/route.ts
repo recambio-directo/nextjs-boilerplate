@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIpdaToken } from "../../lib/ipda";
-
-const IPDA_BASE = "https://rgranvia-backend.isicondal.com/public/api/v1";
+import { ipdaFetchConSesion } from "../../lib/ipda";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +20,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const token = await getIpdaToken();
-    const url = `${IPDA_BASE}/document/retrieve2?img=${img}`;
     console.log("[tecdoc-img] Fetching image, token start:", img.slice(0, 30));
 
-    const res = await fetch(url, {
-      headers: {
-        "App-Token": token,
-      },
-    });
+    // Con reintento automático si la sesión de IPDA ha caído
+    const res = await ipdaFetchConSesion(`/document/retrieve2?img=${img}`);
 
     console.log("[tecdoc-img] Response status:", res.status, "content-type:", res.headers.get("content-type"));
 
