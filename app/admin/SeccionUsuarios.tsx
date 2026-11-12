@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { adminPost, datosQueFaltan } from "./adminApi";
-import { Usuario, SUSCRIPCION_LABELS, tipoBadge, subBadge, selectSub, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnAccion, btnFiltro, searchInput, filtrosBox } from "./types";
+import { Usuario, stickyTh, stickyTd, SUSCRIPCION_LABELS, tipoBadge, subBadge, selectSub, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnAccion, btnFiltro, searchInput, filtrosBox } from "./types";
 
 type Props = {
   usuarios: Usuario[];
@@ -121,10 +121,10 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
   return (
     <>
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>USUARIOS</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Gestiona talleres y proveedores de la plataforma.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>USUARIOS</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Gestiona talleres y proveedores de la plataforma.</p>
       <div style={filtrosBox}>
-        <input placeholder="Buscar empresa, email, CIF..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={searchInput} />
+        <input placeholder="Buscar empresa, email, CIF, teléfono, ciudad..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={searchInput} />
         <div style={{ display: "flex", gap: 8 }}>
           {["todos", "taller", "proveedor"].map(t => (
             <button key={t} onClick={() => setFiltroTipo(t)} style={{ ...btnFiltro, background: filtroTipo === t ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", color: filtroTipo === t ? "white" : "#94a3b8", border: filtroTipo === t ? "none" : "1px solid rgba(255,255,255,0.08)" }}>{t === "todos" ? "Todos" : t}</button>
@@ -139,86 +139,85 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
         <span style={{ color: "#94a3b8", fontSize: 13 }}>{usuariosFiltrados.length} usuarios</span>
       </div>
       <div style={tableContainer}>
-        <table style={tableStyle}>
-          <thead><tr>{["EMPRESA", "TELÉFONO", "EMAIL", "CIF", "TIPO", "SUSCRIPCIÓN", "ÚLTIMO ACCESO", "FTP", "VEHÍCULO", "ACTIVO", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+        <table style={{ ...tableStyle, minWidth: 960 }}>
+          <thead><tr>{["EMPRESA", "CONTACTO", "TIPO", "SUSCRIPCIÓN", "ÚLTIMA VISITA", "SERVICIOS", "ACCESO"].map(h => <th key={h} style={thStyle}>{h}</th>)}<th style={stickyTh}>ACCIONES</th></tr></thead>
           <tbody>
-            {usuariosFiltrados.map(u => (
-              <tr key={u.id} style={{ ...trStyle, opacity: u.activo ? 1 : 0.5 }}>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 700 }}>{u.nombre_empresa || "-"}</div>
-                  {u.ciudad && <div style={{ color: "#94a3b8", fontSize: 12 }}>📍 {u.ciudad}</div>}
-                  {u.notas_admin && <div style={{ color: "#fbbf24", fontSize: 11, marginTop: 2 }}>📝 {u.notas_admin.substring(0, 40)}...</div>}
-                  {datosQueFaltan(u).length > 0 && <div style={{ color: "#f87171", fontSize: 11, marginTop: 2, fontWeight: 700 }}>⚠️ Falta: {datosQueFaltan(u).join(", ")}</div>}
+            {usuariosFiltrados.length === 0 && (
+              <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: 40 }}>No hay usuarios con los filtros aplicados</td></tr>
+            )}
+            {usuariosFiltrados.map(u => {
+              const faltan = datosQueFaltan(u);
+              const dias = u.ultimo_acceso ? Math.floor((Date.now() - new Date(u.ultimo_acceso).getTime()) / 86400000) : null;
+              return (
+              <tr key={u.id} style={{ ...trStyle, opacity: u.activo ? 1 : 0.55 }}>
+                <td style={{ ...tdStyle, minWidth: 180, maxWidth: 280 }}>
+                  <div style={{ fontWeight: 700, overflowWrap: "anywhere" as const }}>{u.nombre_empresa || "-"}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 12 }}>{u.ciudad ? `📍 ${u.ciudad}` : ""}{u.cif ? `${u.ciudad ? " · " : ""}${u.cif}` : ""}</div>
+                  {u.notas_admin && <div title={u.notas_admin} style={{ color: "#fbbf24", fontSize: 11, marginTop: 2 }}>📝 {u.notas_admin.length > 40 ? u.notas_admin.substring(0, 40) + "…" : u.notas_admin}</div>}
+                  {faltan.length > 0 && <div style={{ color: "#f87171", fontSize: 11, marginTop: 2, fontWeight: 700 }}>⚠️ Falta: {faltan.join(", ")}</div>}
                 </td>
-                <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.telefono || "-"}</td>
-<td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.email}</td>
-                <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{u.cif || "-"}</td>
+                <td style={{ ...tdStyle, maxWidth: 200 }}>
+                  <div title={u.email} style={{ color: "#cbd5e1", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{u.email}</div>
+                  <div style={{ color: "#60a5fa", fontSize: 12 }}>{u.telefono ? `📞 ${u.telefono}` : <span style={{ color: "#475569" }}>sin teléfono</span>}</div>
+                </td>
                 <td style={tdStyle}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span style={tipoBadge(u.tipo)}>{u.tipo}</span>
-                    <select
-                      value={u.tipo}
-                      disabled={cambiandoTipo === u.id}
-                      onChange={e => cambiarTipo(u.id, e.target.value)}
-                      style={{ background: "#020617", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 6px", fontSize: 11, cursor: "pointer", outline: "none" }}
-                    >
-                      <option value="taller">taller</option>
-                      <option value="proveedor">proveedor</option>
-                    </select>
-                  </div>
+                  <select
+                    value={u.tipo}
+                    disabled={cambiandoTipo === u.id}
+                    onChange={e => cambiarTipo(u.id, e.target.value)}
+                    style={{ ...tipoBadge(u.tipo), border: "none", cursor: "pointer", outline: "none", padding: "5px 8px" }}
+                  >
+                    <option value="taller">taller</option>
+                    <option value="proveedor">proveedor</option>
+                  </select>
                 </td>
                 <td style={tdStyle}>
                   <select value={u.suscripcion} onChange={e => cambiarSuscripcion(u.id, e.target.value)} style={selectSub(u.suscripcion)}>
                     {Object.entries(SUSCRIPCION_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
                 </td>
-                <td style={tdStyle}>
-                  {u.ultimo_acceso ? (
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" as const }}>
+                  {dias !== null ? (
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: (() => { const dias = Math.floor((Date.now() - new Date(u.ultimo_acceso).getTime()) / 86400000); return dias === 0 ? "#4ade80" : dias <= 3 ? "#60a5fa" : dias <= 7 ? "#fbbf24" : "#f87171"; })() }}>
-                        {(() => { const dias = Math.floor((Date.now() - new Date(u.ultimo_acceso).getTime()) / 86400000); return dias === 0 ? "🟢 Hoy" : dias === 1 ? "🔵 Ayer" : dias <= 7 ? `🟡 Hace ${dias} días` : `🔴 Hace ${dias} días`; })()}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: dias === 0 ? "#4ade80" : dias <= 3 ? "#60a5fa" : dias <= 7 ? "#fbbf24" : "#f87171" }}>
+                        {dias === 0 ? "🟢 Hoy" : dias === 1 ? "🔵 Ayer" : dias <= 7 ? `🟡 Hace ${dias} días` : `🔴 Hace ${dias} días`}
                       </div>
-                      <div style={{ color: "#64748b", fontSize: 11 }}>{new Date(u.ultimo_acceso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+                      <div style={{ color: "#64748b", fontSize: 11 }}>{new Date(u.ultimo_acceso!).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
                     </div>
                   ) : (
                     <span style={{ color: "#475569", fontSize: 12 }}>Sin datos</span>
                   )}
                 </td>
                 <td style={tdStyle}>
-                  {u.ftp_activo ? (
-                    <div>
-                      <span style={{ background: "rgba(139,92,246,0.2)", color: "#a78bfa", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>🔄 Activo</span>
-                      {u.ftp_usuario && <div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>{u.ftp_usuario}</div>}
-                    </div>
-                  ) : (
-                    <button onClick={() => { setSeccion("ftp"); setFtpProveedorId(u.id); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>+ Activar</button>
-                  )}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                    {u.ftp_activo ? (
+                      <span title={u.ftp_usuario || "FTP activo"} style={{ background: "rgba(139,92,246,0.2)", color: "#a78bfa", padding: "5px 9px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" as const }}>🔄 FTP</span>
+                    ) : u.tipo === "proveedor" ? (
+                      <button title="Activar FTP Sync" onClick={() => { setSeccion("ftp"); setFtpProveedorId(u.id); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748b", padding: "4px 9px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>+ FTP</button>
+                    ) : null}
+                    {u.tipo === "taller" && (
+                      <button title="Búsqueda por matrícula / vehículo" onClick={async () => {
+                        const nuevo = !u.vehiculo_activo;
+                        await supabase.from("usuarios").update({ vehiculo_activo: nuevo }).eq("id", u.id);
+                        setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, vehiculo_activo: nuevo } : x));
+                      }} style={{ background: u.vehiculo_activo ? "rgba(22,163,74,0.15)" : "rgba(255,255,255,0.05)", border: u.vehiculo_activo ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)", color: u.vehiculo_activo ? "#4ade80" : "#64748b", padding: "4px 9px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
+                        {u.vehiculo_activo ? "🚗 ON" : "🚗 OFF"}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td style={tdStyle}>
-                  {u.tipo === "taller" ? (
-                    <button onClick={async () => {
-                      const nuevo = !u.vehiculo_activo;
-                      await supabase.from("usuarios").update({ vehiculo_activo: nuevo }).eq("id", u.id);
-                      setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, vehiculo_activo: nuevo } : x));
-                    }} style={{ background: u.vehiculo_activo ? "rgba(22,163,74,0.15)" : "rgba(255,255,255,0.05)", border: u.vehiculo_activo ? "none" : "1px solid rgba(255,255,255,0.08)", color: u.vehiculo_activo ? "#4ade80" : "#64748b", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
-                      {u.vehiculo_activo ? "🚗 Activo" : "Activar"}
-                    </button>
-                  ) : (
-                    <span style={{ color: "#334155", fontSize: 12 }}>—</span>
-                  )}
+                  <button title={u.activo ? "Bloquear el acceso" : "Permitir el acceso"} onClick={() => toggleActivo(u)} style={{ background: u.activo ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: "none", color: u.activo ? "#4ade80" : "#f87171", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>{u.activo ? "✅ Activo" : "❌ Inactivo"}</button>
                 </td>
-                <td style={tdStyle}>
-                  <button onClick={() => toggleActivo(u)} style={{ background: u.activo ? "rgba(22,163,74,0.15)" : "rgba(239,68,68,0.15)", border: "none", color: u.activo ? "#4ade80" : "#f87171", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{u.activo ? "✅ Activo" : "❌ Inactivo"}</button>
-                </td>
-                <td style={tdStyle}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => { setUsuarioEditando(u); setNotasTemp(u.notas_admin || ""); }} style={btnAccion}>📝</button>
-<button title="Ficha completa: editar todos los datos" onClick={() => abrirFicha(u)} style={{ ...btnAccion, background: "rgba(245,158,11,0.15)", color: "#fbbf24" }}>✏️</button>
+                <td style={stickyTd}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" as const }}>
+                    <button title="Ficha completa: ver y editar todos los datos" onClick={() => abrirFicha(u)} style={{ ...btnAccion, background: "rgba(245,158,11,0.15)", color: "#fbbf24", whiteSpace: "nowrap" as const }}>✏️ Ficha</button>
+                    <button title="Notas internas" onClick={() => { setUsuarioEditando(u); setNotasTemp(u.notas_admin || ""); }} style={btnAccion}>📝</button>
                     <button title="Eliminar usuario" disabled={eliminando === u.id} onClick={() => eliminarConConfirmacion(u)} style={{ ...btnAccion, background: "rgba(239,68,68,0.15)", color: "#f87171" }}>{eliminando === u.id ? "..." : "🗑️"}</button>
                   </div>
                 </td>
               </tr>
-            ))}
+            ); })}
           </tbody>
         </table>
       </div>
@@ -243,7 +242,7 @@ export default function SeccionUsuarios({ usuarios, setSeccion, setFtpProveedorI
                 <input
                   value={form[k] ?? ""}
                   onChange={e => setForm(prev => ({ ...prev, [k]: k === "codigo_postal" ? e.target.value.replace(/\D/g, "").slice(0, 5) : e.target.value }))}
-                  style={{ background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none" }}
+                  style={{ background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 500, outline: "none" }}
                 />
               </label>
             ))}

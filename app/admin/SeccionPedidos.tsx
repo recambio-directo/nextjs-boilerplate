@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { adminPost, desglosePedido, incidenciasPedido, datosQueFaltan, importesProveedor, eur } from "./adminApi";
-import { Usuario, Pedido, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnFiltro, btnPagina, searchInput } from "./types";
+import { Usuario, Pedido, stickyTh, stickyTd, ESTADO_ENVIO, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnFiltro, btnPagina, searchInput } from "./types";
 
 type Props = { pedidos: Pedido[]; usuarios: Usuario[]; cargarDatos: () => void; crearPagoProveedorSiNoExiste: (p: Pedido) => void; };
 
@@ -280,8 +280,8 @@ export default function SeccionPedidos({ pedidos, usuarios, cargarDatos, crearPa
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>PEDIDOS</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Todos los pedidos de la plataforma.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>PEDIDOS</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Todos los pedidos de la plataforma.</p>
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" as const, alignItems: "center" }}>
         <input placeholder="Buscar código, cliente, email..." value={busquedaPedidos} onChange={e => { setBusquedaPedidos(e.target.value); setPaginaPedidos(1); }} style={{ ...searchInput, minWidth: 260 }} />
         <div style={{ display: "flex", gap: 6 }}>{[{key:"todos",label:"Todos"},{key:"pendiente",label:"⏳ Pendiente"},{key:"preparando",label:"🔧 Preparando"},{key:"enviado",label:"🚚 Enviado"},{key:"entregado",label:"✅ Entregado"}].map(({key,label}) => (<button key={key} onClick={() => { setFiltroPedidoEstado(key); setPaginaPedidos(1); }} style={{ ...btnFiltro, fontSize: 12, padding: "7px 12px", background: filtroPedidoEstado===key ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.05)", color: filtroPedidoEstado===key ? "#60a5fa" : "#94a3b8", border: filtroPedidoEstado===key ? "1px solid rgba(37,99,235,0.5)" : "1px solid rgba(255,255,255,0.08)" }}>{label}</button>))}</div>
@@ -295,73 +295,66 @@ export default function SeccionPedidos({ pedidos, usuarios, cargarDatos, crearPa
         <span style={{ color: "#94a3b8", fontSize: 13 }}>{pedidosFiltrados.length} pedido{pedidosFiltrados.length !== 1 ? "s" : ""}</span>
       </div>
       <div style={tableContainer}>
-        <table style={tableStyle}>
-          <thead><tr>{["CÓDIGO","COMPRADOR","VENDEDOR","TOTAL","PAGO","AGENCIA","TRACKING","ESTADO","FECHA","ACCIÓN"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+        <table style={{ ...tableStyle, minWidth: 980 }}>
+          <thead><tr>{["PEDIDO","COMPRADOR (TALLER)","VENDEDOR (PROVEEDOR)","IMPORTE","ENVÍO","ESTADO"].map(h => <th key={h} style={thStyle}>{h}</th>)}<th style={stickyTh}>ACCIÓN</th></tr></thead>
           <tbody>
             {pedidosPagina.length === 0 ? (
-              <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
+              <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#94a3b8", padding: "40px" }}>No hay pedidos con los filtros aplicados</td></tr>
             ) : pedidosPagina.map(p => (
               <React.Fragment key={p.id}>
-              <tr style={{ ...trStyle, opacity: p.anulado ? 0.5 : 1 }}>
-                <td style={tdStyle}>
-                  <span style={{ color: "#60a5fa", fontWeight: 700 }}>{p.codigo || `#${p.id}`}</span>
+              <tr style={{ ...trStyle, opacity: p.anulado ? 0.55 : 1 }}>
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" as const }}>
+                  <span style={{ color: "#60a5fa", fontWeight: 800 }}>{p.codigo || `#${p.id}`}</span>
+                  <div style={{ color: "#94a3b8", fontSize: 12 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</div>
                   {p.anulado && <div style={{ color: "#f87171", fontSize: 11, fontWeight: 700 }}>❌ Anulado</div>}
-                  {incidenciasPedido(p).map(m => <div key={m} style={{ marginTop: 3 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" as const }}>⚠️ {m}</span></div>)}
+                  {incidenciasPedido(p).map(m => <div key={m} style={{ marginTop: 3 }}><span style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", padding: "1px 7px", borderRadius: 999, fontSize: 10, fontWeight: 800 }}>⚠️ {m}</span></div>)}
                 </td>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 600 }}>{p.cliente_nombre||"-"}</div>
-                  <div style={{ color: "#94a3b8", fontSize: 12 }}>{p.cliente_email}</div>
+                <td style={{ ...tdStyle, maxWidth: 230 }}>
+                  <div style={{ fontWeight: 600, overflowWrap: "anywhere" as const }}>{p.cliente_nombre||"-"}</div>
+                  <div title={p.cliente_email} style={{ color: "#94a3b8", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{p.cliente_email}</div>
                   {(p as any).cliente_telefono && <div style={{ color: "#60a5fa", fontSize: 12 }}>📞 {(p as any).cliente_telefono}</div>}
                 </td>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 600 }}>{(p.productos||[])[0]?.proveedor_nombre||"-"}</div>
-                  <div style={{ color: "#94a3b8", fontSize: 11 }}>{(p.productos||[])[0]?.proveedor_id ? "ID: " + (p.productos||[])[0]?.proveedor_id.substring(0,8)+"..." : "-"}</div>
+                <td style={{ ...tdStyle, maxWidth: 230 }}>
+                  <div style={{ fontWeight: 600, overflowWrap: "anywhere" as const }}>{usuarios.find(u => u.id === (p.productos||[])[0]?.proveedor_id)?.nombre_empresa || (p.productos||[])[0]?.proveedor_nombre || "-"}</div>
+                  <div style={{ color: "#94a3b8", fontSize: 11 }}>{(p.productos||[]).length} referencia{(p.productos||[]).length !== 1 ? "s" : ""}</div>
                 </td>
-                <td style={{ ...tdStyle, color: "#22c55e", fontWeight: 700 }}>{Number(p.total||0).toFixed(2)}€</td>
-                <td style={tdStyle}>
-                  <span style={{ background: p.forma_pago==="rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago==="rd_pago" ? "#60a5fa" : "#a78bfa", padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" as const }}>
+                  <div style={{ color: "#22c55e", fontWeight: 800, fontSize: 15 }}>{eur(Number(p.total||0))}</div>
+                  <span style={{ background: p.forma_pago==="rd_pago" ? "rgba(37,99,235,0.2)" : "rgba(139,92,246,0.2)", color: p.forma_pago==="rd_pago" ? "#60a5fa" : "#a78bfa", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
                     {p.forma_pago==="rd_pago" ? "RD Pago" : "Tarjeta"}
                   </span>
                 </td>
-                <td style={tdStyle}>
-                  <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</span>
-                </td>
-                <td style={tdStyle}>
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" as const }}>
+                  <div style={{ fontSize: 13, color: "#cbd5e1", fontWeight: 700 }}>{p.agencia || p.transporte || "—"}</div>
                   {(() => {
                     const tn = getTrackingNumber(p);
                     const url = getTrackingUrl(p);
-                    if (!tn) return <span style={{ color: "#475569", fontSize: 12 }}>—</span>;
-                    return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {url ? (
-                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#4ade80", fontWeight: 700, textDecoration: "none" }} title="Ver tracking">{tn.length > 18 ? tn.substring(0, 18) + "…" : tn} 🔗</a>
-                        ) : (
-                          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{tn.length > 18 ? tn.substring(0, 18) + "…" : tn}</span>
-                        )}
-                      </div>
-                    );
+                    if (!tn) return <span style={{ color: "#475569", fontSize: 11 }}>sin nº de envío</span>;
+                    const corto = tn.length > 20 ? tn.substring(0, 20) + "…" : tn;
+                    return url
+                      ? <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#4ade80", fontWeight: 700, textDecoration: "none" }} title={`Ver seguimiento de ${tn}`}>{corto} 🔗</a>
+                      : <span title={tn} style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{corto}</span>;
                   })()}
                 </td>
-                <td style={tdStyle}>
-                  <span style={{ color: p.estado_envio==="entregado" ? "#4ade80" : p.estado_envio==="en_transito" ? "#a78bfa" : p.estado_envio==="preparando" ? "#60a5fa" : p.estado_envio==="recogido" ? "#38bdf8" : p.estado_envio==="incidencia" ? "#f87171" : "#f59e0b", fontWeight: 700, fontSize: 13 }}>
-                    {p.estado_envio || "pendiente"}
+                <td style={{ ...tdStyle, whiteSpace: "nowrap" as const }}>
+                  <span style={{ color: (ESTADO_ENVIO[p.estado_envio || "pendiente"] || ESTADO_ENVIO.pendiente).color, fontWeight: 700, fontSize: 13 }}>
+                    {(ESTADO_ENVIO[p.estado_envio || "pendiente"] || { label: p.estado_envio }).label}
                   </span>
                 </td>
-                <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 13 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
-                <td style={tdStyle}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {!p.anulado && p.estado_envio !== "entregado" && (
-                      <button onClick={async () => { await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅ Entregado</button>
-                    )}
-                    <button onClick={() => setPedidoExpandido(pedidoExpandido === p.id ? null : p.id)} style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                <td style={stickyTd}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" as const }}>
+                    <button onClick={() => setPedidoExpandido(pedidoExpandido === p.id ? null : p.id)} style={{ background: pedidoExpandido === p.id ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(37,99,235,0.15)", color: pedidoExpandido === p.id ? "white" : "#60a5fa", border: "none", padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
                       {pedidoExpandido === p.id ? "▲ Cerrar" : "⚙️ Gestionar"}
                     </button>
+                    {!p.anulado && p.estado_envio !== "entregado" && (
+                      <button title="Marcar como entregado (programa el pago al proveedor a 7 días)" onClick={async () => { if (!confirm(`¿Marcar ${p.codigo || "#" + p.id} como ENTREGADO?\n\nSe programará el pago al proveedor a 7 días.`)) return; await supabase.from("pedidos").update({ estado_envio: "entregado", fecha_entrega_confirmada: new Date().toISOString() }).eq("id", p.id); await crearPagoProveedorSiNoExiste(p); cargarDatos(); }} style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", border: "none", padding: "7px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12 }}>✅</button>
+                    )}
                   </div>
                 </td>
               </tr>
               {pedidoExpandido === p.id && (
                 <tr>
-                  <td colSpan={10} style={{ padding: "0 0 12px 0", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb" }}>
+                  <td colSpan={7} style={{ padding: "0 0 12px 0", background: "rgba(37,99,235,0.04)", borderLeft: "3px solid #2563eb" }}>
                     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
                       {/* TRACKING INFO */}
                       {getTrackingNumber(p) && (
@@ -476,7 +469,7 @@ export default function SeccionPedidos({ pedidos, usuarios, cargarDatos, crearPa
                               color: p.estado_envio === est ? "#60a5fa" : "#94a3b8",
                               padding: "6px 12px", borderRadius: 8, cursor: p.estado_envio === est ? "default" : "pointer", fontWeight: 700, fontSize: 12, opacity: cambiandoEstado === p.id ? 0.5 : 1
                             }}>
-                              {est}
+                              {ESTADO_ENVIO[est]?.label || est}
                             </button>
                           ))}
                         </div>

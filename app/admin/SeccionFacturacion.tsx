@@ -143,8 +143,8 @@ export default function SeccionFacturacion({ usuarios }: Props) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>FACTURACIÓN</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 24 }}>Lo que factura Recambio Directo cada mes, separado por concepto.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>FACTURACIÓN</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Lo que factura Recambio Directo cada mes, separado por concepto.</p>
 
       <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 14, padding: "14px 18px", marginBottom: 24 }}>
         <p style={{ color: "#fbbf24", fontWeight: 800, margin: 0, fontSize: 14 }}>Todos los importes de esta pantalla y del Excel son BASE SIN IVA.</p>

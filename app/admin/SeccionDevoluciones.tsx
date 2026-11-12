@@ -75,8 +75,8 @@ export default function SeccionDevoluciones() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>DEVOLUCIONES</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Todas las devoluciones de la plataforma.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>DEVOLUCIONES</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Todas las devoluciones de la plataforma.</p>
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
@@ -243,4 +243,4 @@ export default function SeccionDevoluciones() {
       )}
     </div>
   );
-}
+}

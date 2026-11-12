@@ -82,8 +82,8 @@ export default function SeccionSistema() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>SISTEMA</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Monitorización de crons, estado del sistema y acciones de mantenimiento.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>SISTEMA</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Monitorización de crons, estado del sistema y acciones de mantenimiento.</p>
 
       {/* HEALTH CHECK */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, marginBottom: 32 }}>

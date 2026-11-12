@@ -78,8 +78,8 @@ export default function SeccionChats() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>CHATS</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Todas las conversaciones de la plataforma.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>CHATS</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Todas las conversaciones de la plataforma.</p>
 
       <div style={{ display: "flex", gap: 24, height: "calc(100vh - 280px)", minHeight: 500 }}>
 
@@ -150,4 +150,4 @@ export default function SeccionChats() {
       </div>
     </div>
   );
-}
+}

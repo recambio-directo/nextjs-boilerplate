@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import * as XLSX from "xlsx";
 import { Usuario, Pedido, PagoProveedor } from "./types";
-import { adminPost, importesProveedor, r2 } from "./adminApi";
+import { adminPost, importesProveedor, incidenciasPedido, r2 } from "./adminApi";
 import SeccionDashboard from "./SeccionDashboard";
 import SeccionUsuarios from "./SeccionUsuarios";
 import SeccionCobros from "./SeccionCobros";
@@ -40,6 +40,8 @@ export default function AdminPage() {
     const dias = Math.floor((new Date().getTime() - new Date(u.fecha_registro).getTime()) / (1000 * 60 * 60 * 24));
     return dias >= 20 && dias <= 35;
   });
+
+  const pedidosConAviso = pedidos.filter(p => incidenciasPedido(p).length > 0).length;
 
   useEffect(() => {
     async function init() {
@@ -188,29 +190,31 @@ export default function AdminPage() {
   }
 
   const mainStyle = { display: "flex", minHeight: "100vh", background: "linear-gradient(180deg,#020617,#020b2d)", color: "white" };
-  const sidebarStyle = { width: 260, background: "rgba(15,23,42,0.98)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "32px 24px", display: "flex", flexDirection: "column" as const };
+  // Menú fijo: siempre visible aunque la página sea larga
+  const sidebarStyle = { width: 230, flexShrink: 0, position: "sticky" as const, top: 0, height: "100vh", overflowY: "auto" as const, alignSelf: "flex-start" as const, background: "rgba(15,23,42,0.98)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "24px 16px", display: "flex", flexDirection: "column" as const };
   const logoBadge = { width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#dc2626,#991b1b)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 };
-  const menuItem = { padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 600, fontSize: 15, color: "#94a3b8" };
+  const menuItem = { padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14, color: "#94a3b8" };
   const menuActivo = { ...menuItem, background: "linear-gradient(135deg,#dc2626,#991b1b)", color: "white", boxShadow: "0 8px 25px rgba(220,38,38,0.3)" };
-  const contentStyle = { flex: 1, padding: 48, overflowY: "auto" as const };
+  // minWidth 0: sin esto el contenido ancho empuja la página y se corta por la derecha
+  const contentStyle = { flex: 1, minWidth: 0, padding: "28px 32px 60px" };
 
   return (
     <main style={mainStyle}>
       <aside style={sidebarStyle}>
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={logoBadge}>RD</div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, marginTop: 12 }}>RECAMBIO DIRECTO</h1>
+          <h1 style={{ fontSize: 17, fontWeight: 900, marginTop: 10 }}>RECAMBIO DIRECTO</h1>
           <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>Panel Administración</p>
           <div style={{ marginTop: 12, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#f87171", fontWeight: 700 }}>🔐 {adminNombre}</div>
         </div>
-        <nav style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+        <nav style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
           {[
             { key: "dashboard",   label: "📊 Dashboard" },
             { key: "usuarios",    label: "👥 Usuarios" },
             { key: "cobros",      label: "💰 Cobros" },
             { key: "facturacion", label: "🧾 Facturación" },
             { key: "financiero",  label: `🏦 Financiero${proximosACobrar.length > 0 ? " 🔴" : ""}` },
-            { key: "pedidos",     label: "📦 Pedidos" },
+            { key: "pedidos",     label: `📦 Pedidos${pedidosConAviso > 0 ? ` 🔴 ${pedidosConAviso}` : ""}` },
             { key: "ftp",         label: "🔄 FTP Sync" },
             { key: "api",         label: "🔑 API Stock" },
             { key: "chats",       label: "💬 Chats" },

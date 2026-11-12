@@ -113,8 +113,8 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>FINANCIERO</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Créditos RD, IBAN proveedores y pagos a 7 días.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>FINANCIERO</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Créditos RD, IBAN proveedores y pagos a 7 días.</p>
 
       {proximos.length > 0 && (
         <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 16, padding: "16px 20px", marginBottom: 28 }}>
@@ -158,7 +158,7 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
 
         <div style={tableContainer}>
           <table style={tableStyle}>
-            <thead><tr>{["EMPRESA", "TIPO", "CRÉDITO ACTUAL", "CRÉDITO MÁX", "IBAN", "ACCIONES"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+            <thead><tr>{["EMPRESA", "TIPO", "CRÉDITO ACTUAL", "CRÉDITO MÁX", "IBAN", "ACCIONES"].map(h => <th key={h} style={{ ...thStyle, whiteSpace: "nowrap" as const }}>{h}</th>)}</tr></thead>
             <tbody>
               {usuariosFiltrados.map(u => (
                 <tr key={u.id} style={{ ...trStyle, background: u.suscripcion === "moroso" ? "rgba(239,68,68,0.04)" : "transparent" }}>
@@ -198,7 +198,7 @@ export default function SeccionFinanciero({ usuarios, pagosProveedores, cambiarS
                     )}
                   </td>
                   <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" as const }}>
                       <button onClick={() => renovarCreditoRD(u)} disabled={renovandoCredito === u.id || Number(u.credito_rd_maximo || 0) <= 0} style={{ background: Number(u.credito_rd_maximo || 0) > 0 ? "rgba(22,163,74,0.2)" : "rgba(255,255,255,0.05)", color: Number(u.credito_rd_maximo || 0) > 0 ? "#4ade80" : "#475569", border: "none", padding: "6px 12px", borderRadius: 8, cursor: Number(u.credito_rd_maximo || 0) > 0 ? "pointer" : "not-allowed", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" as const }}>
                         {renovandoCredito === u.id ? "..." : "🔄 Renovar"}
                       </button>

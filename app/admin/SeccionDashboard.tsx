@@ -1,5 +1,5 @@
 import { incidenciasPedido, datosQueFaltan, eur } from "./adminApi";
-import { Usuario, Pedido, PagoProveedor, SUSCRIPCION_LABELS, tipoBadge, subBadge, kpiCard, kpiLabel, kpiNum, seccionCard, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnVer } from "./types";
+import { Usuario, Pedido, PagoProveedor, ESTADO_ENVIO, SUSCRIPCION_LABELS, tipoBadge, subBadge, kpiCard, kpiLabel, kpiNum, seccionCard, tableContainer, tableStyle, thStyle, trStyle, tdStyle, btnVer } from "./types";
 
 type Props = {
   usuarios: Usuario[];
@@ -82,8 +82,8 @@ export default function SeccionDashboard({ usuarios, pedidos, pagosProveedores =
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>PANEL DE CONTROL</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Resumen general de Recambio Directo.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>PANEL DE CONTROL</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Resumen general de Recambio Directo.</p>
 
       {/* ALERTAS */}
       {alertas.length > 0 && (
@@ -217,10 +217,10 @@ export default function SeccionDashboard({ usuarios, pedidos, pagosProveedores =
                     <td style={tdStyle}><span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 13 }}>{p.agencia || "-"}</span></td>
                     <td style={tdStyle}>
                       <span style={{ background: `${estadoColor[p.estado_envio || ""] || "#94a3b8"}20`, color: estadoColor[p.estado_envio || ""] || "#94a3b8", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-                        {p.estado_envio || "—"}
+                        {ESTADO_ENVIO[p.estado_envio || ""]?.label || p.estado_envio || "—"}
                       </span>
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12, color: p.tracking_number ? "#4ade80" : "#475569" }}>{p.tracking_number || "—"}</td>
+                    <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12, color: (p.tracking || p.tracking_number) ? "#4ade80" : "#475569" }}>{p.tracking || p.tracking_number || "—"}</td>
                     <td style={{ ...tdStyle, color: "#94a3b8", fontSize: 12 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("es-ES") : "-"}</td>
                   </tr>
                 );

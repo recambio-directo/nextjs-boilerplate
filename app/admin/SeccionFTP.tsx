@@ -21,8 +21,8 @@ export default function SeccionFTP({ usuarios, ftpProveedorId, setFtpProveedorId
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>FTP SYNC</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Crea accesos FTP para que los proveedores suban su catálogo automáticamente.</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>FTP SYNC</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Crea accesos FTP para que los proveedores suban su catálogo automáticamente.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20, marginBottom: 32 }}>
         <div style={kpiCard}><p style={kpiLabel}>PROVEEDORES TOTALES</p><h2 style={{ ...kpiNum, color: "#60a5fa" }}>{proveedoresFTP.length}</h2></div>
         <div style={kpiCard}><p style={kpiLabel}>CON FTP ACTIVO</p><h2 style={{ ...kpiNum, color: "#4ade80" }}>{ftpActivos.length}</h2></div>
@@ -103,4 +103,4 @@ export default function SeccionFTP({ usuarios, ftpProveedorId, setFtpProveedorId
       )}
     </div>
   );
-}
+}

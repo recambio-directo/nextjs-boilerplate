@@ -47,8 +47,8 @@ export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }:
 
   return (
     <div>
-      <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 12 }}>COBROS</h1>
-      <p style={{ color: "#94a3b8", fontSize: 18, marginBottom: 36 }}>Gestión de suscripciones y remesas mensuales. Los talleres tienen acceso gratuito ({talleres.length} talleres).</p>
+      <h1 style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 8 }}>COBROS</h1>
+      <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 22 }}>Gestión de suscripciones y remesas mensuales. Los talleres tienen acceso gratuito ({talleres.length} talleres).</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 32 }}>
         {[
           { label: "PROVEEDORES EN GRATUITO", value: enGratuito, color: "#fbbf24", desc: "Primer mes" },
@@ -93,4 +93,4 @@ export default function SeccionCobros({ usuarios, pedidos, cambiarSuscripcion }:
       </div>
     </div>
   );
-}
+}
