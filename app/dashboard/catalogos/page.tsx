@@ -11066,7 +11066,7 @@ export default function CatalogosPage() {
                   display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px",
                   background: "#2563eb", color: "#fff", fontSize: "15px", fontWeight: 700, textDecoration: "none",
                 }}>✉️ info@recambiodirecto.com</a>
-                <a href="tel:+34744487895" style={{
+                <a href="tel:+34650495270" style={{
                   display: "inline-flex", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "12px",
                   border: "1px solid #334155", background: "transparent", color: "#e2e8f0", fontSize: "15px", fontWeight: 700, textDecoration: "none",
                 }}>📞 +34 744 487 895</a>
@@ -11144,7 +11144,7 @@ export default function CatalogosPage() {
                   ✉️ info@recambiodirecto.com
                 </a>
                 <a
-                  href="tel:+34744487895"
+                  href="tel:+34650495270"
                   style={{
                     display: "inline-flex", alignItems: "center", gap: "8px",
                     padding: "10px 20px", borderRadius: "10px",

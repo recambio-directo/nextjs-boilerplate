@@ -27,7 +27,7 @@ const jsonLd = {
     "logo": "https://www.recambio-directo.com/icons/manifest-icon-512.maskable.png",
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "+34744487895",
+      "telephone": "+34650495270",
       "contactType": "customer service",
       "availableLanguage": "Spanish"
     }

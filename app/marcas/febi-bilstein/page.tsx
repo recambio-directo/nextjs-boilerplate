@@ -8,23 +8,22 @@ export const metadata: Metadata = {
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "Product",
+  "@type": "CollectionPage",
   "name": "Recambios febi bilstein",
   "description": "febi bilstein: catálogo de recambios más amplio del mercado europeo aftermarket. Compra piezas de motor, dirección, suspensión y mantenimiento en Recambio Directo.",
   "url": "https://www.recambio-directo.com/marcas/febi-bilstein",
-  "brand": {
+  "about": {
     "@type": "Brand",
     "name": "febi bilstein"
   },
-  "offers": {
-    "@type": "AggregateOffer",
-    "priceCurrency": "EUR",
-    "availability": "https://schema.org/InStock",
-    "seller": {
-      "@type": "Organization",
-      "name": "Recambio Directo",
-      "url": "https://www.recambio-directo.com"
-    }
+  "isPartOf": { "@id": "https://www.recambio-directo.com/#website" },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.recambio-directo.com" },
+      { "@type": "ListItem", "position": 2, "name": "Marcas", "item": "https://www.recambio-directo.com/marcas" },
+      { "@type": "ListItem", "position": 3, "name": "febi bilstein" }
+    ]
   }
 };
 
@@ -36,6 +35,15 @@ export default function RecambiosFebiBilsteinPage() {
     <main style={ { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" } }>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div style={ { maxWidth: 900, margin: "0 auto" } }>
+
+        <nav aria-label="Migas de pan" style={{ marginBottom: 32, fontSize: 13, color: "#64748b" }}>
+          <a href="/" style={{ color: "#60a5fa", textDecoration: "none" }}>Inicio</a>
+          {" › "}
+          <a href="/marcas" style={{ color: "#60a5fa", textDecoration: "none" }}>Marcas</a>
+          {" › "}
+          <span style={{ color: "#94a3b8" }}>febi bilstein</span>
+        </nav>
+
 
         <div style={ { textAlign: "center", marginBottom: 48 } }>
           <div style={badge}>RECAMBIOS FEBI BILSTEIN</div>

@@ -15,8 +15,10 @@ export default function Page() {
       <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
-          <nav style={{ marginBottom: 32, fontSize: 13, color: "#64748b" }}>
+          <nav aria-label="Migas de pan" style={{ marginBottom: 32, fontSize: 13, color: "#64748b" }}>
             <a href="/" style={{ color: "#60a5fa", textDecoration: "none" }}>Inicio</a>
+            {" › "}
+            <a href="/recambios" style={{ color: "#60a5fa", textDecoration: "none" }}>Recambios</a>
             {" › "}
             <span style={{ color: "#94a3b8" }}>Recambios de Frenos</span>
           </nav>

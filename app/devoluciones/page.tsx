@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Política de Devoluciones",
+  description: "Condiciones y plazos de devolución de recambios comprados a través de Recambio Directo.",
+  alternates: { canonical: "https://www.recambio-directo.com/devoluciones" },
+};
+
 export default function DevolucionesPage() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
@@ -65,7 +73,7 @@ export default function DevolucionesPage() {
           <Section title="8. CONTACTO PARA INCIDENCIAS">
             Para cualquier incidencia relacionada con devoluciones o reclamaciones puede contactar con nuestro equipo en:<br /><br />
             <strong>Email:</strong> info@recambio-directo.com<br />
-            <strong>Teléfono:</strong> 744487895<br /><br />
+            <strong>Teléfono:</strong> 650 49 52 70<br /><br />
             Responderemos en un plazo máximo de 48 horas laborables.
           </Section>
 
@@ -90,4 +98,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };

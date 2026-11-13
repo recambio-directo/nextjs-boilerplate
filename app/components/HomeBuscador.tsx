@@ -84,7 +84,8 @@ export default function HomeBuscador() {
             if (debounceRef.current) clearTimeout(debounceRef.current);
           }}
           onKeyDown={(e) => e.key === "Enter" && buscar()}
-          placeholder="Busca por referencia (ej: 1K0615301AA, 0986494524...)"
+          aria-label="Buscar recambio por referencia OEM o IAM"
+          placeholder="Referencia OEM o IAM"
           style={{
             flex: 1,
             background: "transparent",
@@ -92,6 +93,7 @@ export default function HomeBuscador() {
             outline: "none",
             color: "white",
             fontSize: 16,
+            minWidth: 0,
             padding: "14px 18px",
             fontFamily: "inherit",
           }}
@@ -99,6 +101,7 @@ export default function HomeBuscador() {
         <button
           onClick={buscar}
           disabled={loading || query.trim().length < 3}
+          className="home-buscador-btn"
           style={{
             background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
             color: "white",
@@ -112,7 +115,7 @@ export default function HomeBuscador() {
             whiteSpace: "nowrap" as const,
           }}
         >
-          {loading ? "Buscando..." : "🔍 Buscar"}
+          {loading ? "Buscando..." : "Buscar"}
         </button>
       </div>
 
@@ -184,30 +187,33 @@ export default function HomeBuscador() {
       )}
 
       {/* ── CONTADORES ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-        {[
-          { label: "Referencias", value: stats.referencias, color: "#60a5fa" },
-          { label: "Proveedores", value: stats.proveedores, color: "#4ade80" },
-          { label: "Talleres", value: stats.talleres, color: "#a78bfa" },
-          { label: "Pedidos", value: stats.pedidos, color: "#fbbf24" },
-        ].map(({ label, value, color }) => (
-          <div
-            key={label}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 14,
-              padding: "16px 12px",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: 28, fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>
-              <AnimNum target={value} />
+      {/* Solo se muestran cuando la API ha respondido (evita ver "0" si falla) */}
+      {stats.referencias > 0 && (
+        <div className="home-contadores">
+          {[
+            { label: "Referencias", value: stats.referencias, color: "#60a5fa" },
+            { label: "Proveedores", value: stats.proveedores, color: "#4ade80" },
+            { label: "Talleres", value: stats.talleres, color: "#a78bfa" },
+            { label: "Pedidos", value: stats.pedidos, color: "#fbbf24" },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 14,
+                padding: "16px 12px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>
+                <AnimNum target={value} />
+              </div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{label}</div>
             </div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{label}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

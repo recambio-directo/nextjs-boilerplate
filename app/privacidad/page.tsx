@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Política de Privacidad",
+  description: "Cómo trata Recambio Directo los datos personales de talleres y proveedores: finalidad, base legal, conservación y derechos.",
+  alternates: { canonical: "https://www.recambio-directo.com/privacidad" },
+};
+
 export default function PrivacidadPage() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
@@ -11,7 +19,7 @@ export default function PrivacidadPage() {
           <Section title="1. RESPONSABLE DEL TRATAMIENTO">
             <strong>Vicente de Paco Cabeza</strong> — NIF: 77856096S<br />
             C/ Sola Nº16, 30430 Cehegín (Murcia), España<br />
-            Email: info@recambio-directo.com · Tel: 744487895
+            Email: info@recambio-directo.com · Tel: 650 49 52 70
           </Section>
 
           <Section title="2. DATOS QUE RECOPILAMOS">
@@ -62,4 +70,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };

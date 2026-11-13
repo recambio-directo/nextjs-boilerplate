@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Política de Cookies",
+  description: "Qué cookies utiliza Recambio Directo, para qué sirven y cómo puedes configurarlas o rechazarlas.",
+  alternates: { canonical: "https://www.recambio-directo.com/cookies" },
+};
+
 export default function CookiesPage() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
@@ -64,4 +72,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };

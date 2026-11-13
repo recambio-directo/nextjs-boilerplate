@@ -8,23 +8,22 @@ export const metadata: Metadata = {
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "Product",
+  "@type": "CollectionPage",
   "name": "Recambios Sachs",
   "description": "Sachs: especialista en amortiguación y embragues del grupo ZF. Compra amortiguadores, embragues y volantes bimasa en Recambio Directo.",
   "url": "https://www.recambio-directo.com/marcas/sachs",
-  "brand": {
+  "about": {
     "@type": "Brand",
     "name": "Sachs"
   },
-  "offers": {
-    "@type": "AggregateOffer",
-    "priceCurrency": "EUR",
-    "availability": "https://schema.org/InStock",
-    "seller": {
-      "@type": "Organization",
-      "name": "Recambio Directo",
-      "url": "https://www.recambio-directo.com"
-    }
+  "isPartOf": { "@id": "https://www.recambio-directo.com/#website" },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.recambio-directo.com" },
+      { "@type": "ListItem", "position": 2, "name": "Marcas", "item": "https://www.recambio-directo.com/marcas" },
+      { "@type": "ListItem", "position": 3, "name": "Sachs" }
+    ]
   }
 };
 
@@ -36,6 +35,15 @@ export default function RecambiosSachsPage() {
     <main style={ { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" } }>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div style={ { maxWidth: 900, margin: "0 auto" } }>
+
+        <nav aria-label="Migas de pan" style={{ marginBottom: 32, fontSize: 13, color: "#64748b" }}>
+          <a href="/" style={{ color: "#60a5fa", textDecoration: "none" }}>Inicio</a>
+          {" › "}
+          <a href="/marcas" style={{ color: "#60a5fa", textDecoration: "none" }}>Marcas</a>
+          {" › "}
+          <span style={{ color: "#94a3b8" }}>Sachs</span>
+        </nav>
+
 
         <div style={ { textAlign: "center", marginBottom: 48 } }>
           <div style={badge}>RECAMBIOS SACHS</div>

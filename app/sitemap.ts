@@ -3,12 +3,14 @@ import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.recambio-directo.com";
-  const ahora = new Date();
+  // Fecha del último cambio real de contenido. Actualízala al publicar cambios:
+  // con new Date() Google veía "modificado hoy" en todas las URLs y dejaba de fiarse.
+  const ahora = new Date("2026-11-13");
 
   // Slugs que coinciden EXACTAMENTE con las carpetas /app/recambios-{slug}/
   const provincias = [
     "alava", "albacete", "alicante", "almeria", "asturias",
-    "badajoz", "baleares", "barcelona", "bilbao", "burgos",
+    "badajoz", "baleares", "barcelona", "burgos",
     "caceres", "cadiz", "cantabria", "castellon", "ciudad-real",
     "cordoba", "cuenca", "girona", "granada", "guadalajara",
     "guipuzcoa", "huelva", "huesca", "jaen", "la-coruna",
@@ -85,6 +87,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    // Índices de categorías y marcas
+    {
+      url: `${base}/recambios`,
+      lastModified: ahora,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${base}/marcas`,
+      lastModified: ahora,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
     // Landings de categoría
     ...categorias.map((cat) => ({
       url: `${base}/recambios/${cat}`,
@@ -134,6 +149,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/terminos`,
+      lastModified: ahora,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${base}/cookies`,
+      lastModified: ahora,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${base}/devoluciones`,
       lastModified: ahora,
       changeFrequency: "yearly",
       priority: 0.3,

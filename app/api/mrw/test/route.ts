@@ -52,7 +52,7 @@ export async function GET() {
           </Direccion>
           <Nif></Nif>
           <Nombre>Auto Recambios Gran Via</Nombre>
-          <Telefono>744487895</Telefono>
+          <Telefono>650495270</Telefono>
           <Contacto></Contacto>
           <Horario>
             <Rangos>
@@ -224,7 +224,7 @@ export async function GET() {
 					</Direccion>
 					<Nif></Nif>
 					<Nombre>Auto Recambios Gran Via</Nombre>
-					<Telefono>744487895</Telefono>
+					<Telefono>650495270</Telefono>
 					<Contacto></Contacto>
 					<Horario>
 						<Rangos>

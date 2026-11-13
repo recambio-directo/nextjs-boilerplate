@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import CookieBanner from "./components/CookieBanner";
+import SiteHeader from "./components/SiteHeader";
+import SiteFooter from "./components/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -26,20 +28,6 @@ export const metadata: Metadata = {
     template: "%s | Recambio Directo",
   },
   description: "Marketplace B2B especializado en recambios de automoción. Conectamos talleres y proveedores en toda España. Busca piezas OEM e IAM, compara precios y recibe en 24h.",
-  keywords: [
-    "recambios automoción B2B",
-    "marketplace recambios",
-    "piezas de coche",
-    "recambios taller",
-    "recambios OEM",
-    "recambios IAM",
-    "distribuidor recambios España",
-    "comprar recambios online",
-    "recambios para talleres",
-    "proveedor recambios",
-    "piezas automóvil",
-    "recambios mecánicos",
-  ],
   authors: [{ name: "Recambio Directo", url: "https://www.recambio-directo.com" }],
   creator: "Recambio Directo",
   publisher: "Recambio Directo",
@@ -77,9 +65,6 @@ export const metadata: Metadata = {
     description: "Conectamos talleres y proveedores de recambios en toda España. Busca piezas OEM e IAM y recibe en 24h.",
     images: ["/og-image.png"],
   },
-  alternates: {
-    canonical: "https://www.recambio-directo.com",
-  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -99,7 +84,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Datos estructurados JSON-LD para Google
+// Datos estructurados JSON-LD globales (solo WebSite + Organization).
+// FAQ y migas de pan van en cada página, con su contenido real.
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -111,14 +97,6 @@ const jsonLd = {
       "description": "Marketplace B2B de recambios de automoción en España",
       "publisher": { "@id": "https://www.recambio-directo.com/#organization" },
       "inLanguage": "es-ES",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://www.recambio-directo.com/dashboard/buscar?q={search_term_string}",
-        },
-        "query-input": "required name=search_term_string",
-      },
     },
     {
       "@type": "Organization",
@@ -150,24 +128,6 @@ const jsonLd = {
       "description": "Marketplace B2B especializado en recambios de automoción. Conectamos talleres y proveedores en toda España.",
       "knowsAbout": ["recambios de automoción", "piezas OEM", "piezas IAM", "marketplace B2B"],
     },
-    {
-      "@type": "FAQPage",
-      "@id": "https://www.recambio-directo.com/#faq",
-      "mainEntity": [
-        { "@type": "Question", "name": "¿Cuánto cuesta Recambio Directo?", "acceptedAnswer": { "@type": "Answer", "text": "El primer mes es completamente gratuito. A partir del segundo mes, el precio es de 25€/mes sin permanencia ni costes ocultos." } },
-        { "@type": "Question", "name": "¿Quién puede registrarse?", "acceptedAnswer": { "@type": "Answer", "text": "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." } },
-        { "@type": "Question", "name": "¿Cuánto tarda en activarse mi cuenta?", "acceptedAnswer": { "@type": "Answer", "text": "Verificamos cada cuenta manualmente en menos de 24 horas laborables." } },
-        { "@type": "Question", "name": "¿Qué agencias de transporte están disponibles?", "acceptedAnswer": { "@type": "Answer", "text": "Trabajamos con GLS, MRW, NACEX, SEUR, Correos Express y CTT Express." } },
-        { "@type": "Question", "name": "¿Cómo funciona RD Pago?", "acceptedAnswer": { "@type": "Answer", "text": "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." } },
-      ],
-    },
-    {
-      "@type": "BreadcrumbList",
-      "@id": "https://www.recambio-directo.com/#breadcrumb",
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.recambio-directo.com" },
-      ],
-    },
   ],
 };
 
@@ -181,11 +141,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Recambio Directo" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
         <meta name="geo.region" content="ES" />
         <meta name="geo.placename" content="España" />
-        <meta name="language" content="Spanish" />
-        <meta name="revisit-after" content="7 days" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1290-2796.jpg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1179-2556.jpg" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
         <link rel="apple-touch-startup-image" href="/icons/apple-splash-1170-2532.jpg" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
@@ -207,7 +164,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         `}</style>
       </head>
       <body style={bodyStyle}>
+        <SiteHeader />
         {children}
+        <SiteFooter />
         <CookieBanner />
         <Analytics />
       </body>
@@ -221,4 +180,4 @@ const bodyStyle: React.CSSProperties = {
   color: "white",
   background: "linear-gradient(180deg,#020617 0%,#0f172a 100%)",
   fontFamily: "var(--font-geist-sans)",
-};
+};

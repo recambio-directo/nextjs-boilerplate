@@ -377,7 +377,7 @@ export default function ArticuloVentajasB2B() {
             <a href="/recambios-barcelona" style={{ color: "#60a5fa", textDecoration: "none" }}>Barcelona</a>{" · "}
             <a href="/recambios-valencia" style={{ color: "#60a5fa", textDecoration: "none" }}>Valencia</a>{" · "}
             <a href="/recambios-sevilla" style={{ color: "#60a5fa", textDecoration: "none" }}>Sevilla</a>{" · "}
-            <a href="/recambios-bilbao" style={{ color: "#60a5fa", textDecoration: "none" }}>Bilbao</a>
+            <a href="/recambios-vizcaya" style={{ color: "#60a5fa", textDecoration: "none" }}>Bilbao</a>
           </p>
         </div>
 

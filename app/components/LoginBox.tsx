@@ -64,25 +64,11 @@ export default function LoginBox() {
         <>
           <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 6, color: "white" }}>Accede a tu cuenta</h2>
           <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 24 }}>Plataforma exclusiva para profesionales del sector</p>
-          <input type="email" placeholder="Email profesional" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown} style={inputStyle} />
-          <input type="password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown} style={inputStyle} />
+          <input type="email" aria-label="Email profesional" autoComplete="email" placeholder="Email profesional" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown} style={inputStyle} />
+          <input type="password" aria-label="Contraseña" autoComplete="current-password" placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown} style={inputStyle} />
           <button onClick={iniciarSesion} style={loginButton}>INICIAR SESIÓN →</button>
-          <a href="/registro" style={registerButton}>➕ CREAR CUENTA GRATIS</a>
-          <button onClick={() => setMostrarReset(true)} style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 13, marginTop: 12, width: "100%", textAlign: "center" as const }}>¿Olvidaste tu contraseña?</button>
-          <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap" as const, gap: 4, marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            {[
-              { label: "Privacidad", href: "/privacidad" },
-              { label: "Términos", href: "/terminos" },
-              { label: "Cookies", href: "/cookies" },
-              { label: "Devoluciones", href: "/devoluciones" },
-              { label: "Aviso Legal", href: "/aviso-legal" },
-            ].map(({ label, href }, i) => (
-              <span key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>·</span>}
-                <a href={href} style={{ color: "#94a3b8", fontSize: 11, textDecoration: "none", fontWeight: 600 }}>{label}</a>
-              </span>
-            ))}
-          </div>
+          <a href="/registro" style={registerButton}>CREAR CUENTA GRATIS</a>
+          <button onClick={() => setMostrarReset(true)} style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 14, marginTop: 8, padding: "12px 0", width: "100%", textAlign: "center" as const }}>¿Olvidaste tu contraseña?</button>
         </>
       ) : (
         <>
@@ -107,4 +93,4 @@ export default function LoginBox() {
 
 const inputStyle: React.CSSProperties = { width: "100%", padding: "16px 18px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", marginBottom: "14px", fontSize: "15px", background: "rgba(15,23,42,0.8)", color: "white", outline: "none", boxSizing: "border-box" };
 const loginButton: React.CSSProperties = { width: "100%", padding: "16px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", marginBottom: "12px", boxShadow: "0 10px 30px rgba(37,99,235,0.35)", display: "block", textAlign: "center" as const };
-const registerButton: React.CSSProperties = { width: "100%", padding: "16px", background: "rgba(255,255,255,0.05)", color: "white", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", display: "block", textAlign: "center" as const, textDecoration: "none" };
+const registerButton: React.CSSProperties = { width: "100%", padding: "16px", background: "rgba(255,255,255,0.05)", color: "white", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "14px", fontSize: "15px", fontWeight: 700, cursor: "pointer", display: "block", textAlign: "center" as const, textDecoration: "none" };

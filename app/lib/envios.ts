@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export const ADMIN_EMAIL = "info@recambio-directo.com";
 // Teléfono de Recambio Directo: se usa solo cuando una parte no tiene teléfono
 // y la agencia lo exige. Nunca se inventan direcciones ni códigos postales.
-export const TELEFONO_RD = "744487895";
+export const TELEFONO_RD = "650495270";
 
 export type ParteEnvio = {
   nombre: string;

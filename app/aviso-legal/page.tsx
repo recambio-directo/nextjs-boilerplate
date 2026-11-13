@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Aviso Legal",
+  description: "Aviso legal e información del titular de Recambio Directo, marketplace B2B de recambios de automoción.",
+  alternates: { canonical: "https://www.recambio-directo.com/aviso-legal" },
+};
+
 export default function AvisoLegalPage() {
   return (
     <main style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617,#0f172a)", color: "white", padding: "60px 20px" }}>
@@ -14,7 +22,7 @@ export default function AvisoLegalPage() {
             <strong>NIF:</strong> 77856096S<br />
             <strong>Domicilio:</strong> C/ Sola Nº16, 30430 Cehegín (Murcia), España<br />
             <strong>Email:</strong> info@recambio-directo.com<br />
-            <strong>Teléfono:</strong> 744487895<br />
+            <strong>Teléfono:</strong> 650 49 52 70<br />
             <strong>Web:</strong> www.recambio-directo.com<br /><br />
             <strong>Actividad:</strong> Intermediarios del Comercio — Epígrafe IAE 631 Sección 1ª. La actividad consiste en poner en relación a compradores y vendedores de recambios de automoción entre profesionales del sector.
           </Section>
@@ -66,4 +74,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };
+const legalLink = { color: "#94a3b8", fontSize: 13, textDecoration: "none", fontWeight: 600 };

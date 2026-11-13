@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import React from "react";
 import LoginBox from "./components/LoginBox";
 import HomeBuscador from "./components/HomeBuscador";
+import { Wrench, Factory, ClipboardList, BadgeCheck, Rocket, Search, Package, Truck, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Recambio Directo — Marketplace B2B de Recambios de Automoción en España",
@@ -9,8 +10,56 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.recambio-directo.com" },
 };
 
+const FAQS = [
+  { q: "¿Cuánto cuesta Recambio Directo?", a: "Para talleres es completamente gratis, sin límites ni costes ocultos. Los proveedores pagan 25€/mes sin permanencia ni comisiones por venta, con el primer mes gratis." },
+  { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
+  { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
+  { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
+  { q: "¿Puedo controlar quién ve mis precios?", a: "Sí. Los proveedores pueden excluir talleres concretos o códigos postales específicos para que no vean su catálogo ni sus precios." },
+  { q: "¿Cómo funciona RD Pago?", a: "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." },
+];
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": FAQS.map(({ q, a }) => ({ "@type": "Question", "name": q, "acceptedAnswer": { "@type": "Answer", "text": a } })),
+};
+
+const CATEGORIAS = [
+  { nombre: "Frenos", href: "/recambios/frenos" },
+  { nombre: "Filtros", href: "/recambios/filtros" },
+  { nombre: "Embragues", href: "/recambios/embragues" },
+  { nombre: "Suspensión", href: "/recambios/suspension" },
+  { nombre: "Distribución", href: "/recambios/distribucion" },
+  { nombre: "Aceites", href: "/recambios/aceites" },
+  { nombre: "Baterías", href: "/recambios/baterias" },
+  { nombre: "Escape", href: "/recambios/escape" },
+  { nombre: "Dirección", href: "/recambios/direccion" },
+  { nombre: "Encendido", href: "/recambios/encendido" },
+];
+
+const MARCAS = [
+  { nombre: "Bosch", href: "/marcas/bosch" },
+  { nombre: "Brembo", href: "/marcas/brembo" },
+  { nombre: "Valeo", href: "/marcas/valeo" },
+  { nombre: "MANN-FILTER", href: "/marcas/mann-filter" },
+  { nombre: "Sachs", href: "/marcas/sachs" },
+  { nombre: "LuK", href: "/marcas/luk" },
+  { nombre: "TRW", href: "/marcas/trw" },
+  { nombre: "febi bilstein", href: "/marcas/febi-bilstein" },
+  { nombre: "Monroe", href: "/marcas/monroe" },
+  { nombre: "NGK", href: "/marcas/ngk" },
+  { nombre: "Denso", href: "/marcas/denso" },
+  { nombre: "Continental", href: "/marcas/continental" },
+  { nombre: "SKF", href: "/marcas/skf" },
+  { nombre: "INA", href: "/marcas/ina" },
+  { nombre: "Gates", href: "/marcas/gates" },
+];
+
+const chipStyle: React.CSSProperties = { background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "8px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" };
+const saberMas: React.CSSProperties = { display: "block", textAlign: "center", color: "#93c5fd", fontSize: 14, fontWeight: 700, textDecoration: "none", marginTop: 14, padding: "8px 0" };
+
 const badgeStyle: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 16px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, marginBottom: "24px", letterSpacing: "0.05em" };
-const footerLink: React.CSSProperties = { display: "block", color: "#94a3b8", fontSize: 13, textDecoration: "none", marginBottom: 8 };
 
 export default function Home() {
   return (
@@ -19,44 +68,30 @@ export default function Home() {
       <div style={{ width: "600px", height: "600px", borderRadius: "999px", background: "rgba(37,99,235,0.22)", filter: "blur(160px)", position: "absolute", top: "-200px", left: "-200px", pointerEvents: "none", zIndex: 1 }} />
       <div style={{ width: "400px", height: "400px", borderRadius: "999px", background: "rgba(22,163,74,0.12)", filter: "blur(140px)", position: "absolute", bottom: "0", right: "-100px", pointerEvents: "none", zIndex: 1 }} />
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+
       {/* ── HERO ── */}
       <section className="landing-hero">
-        <div className="landing-hero-mobile-header">
-          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
-          <h1 style={{ fontSize: "42px", fontWeight: 900, color: "white", lineHeight: 1.1, marginBottom: "16px", letterSpacing: "-0.04em" }}>
-            Marketplace B2B de Recambios de Automoción en España
-          </h1>
-          <p style={{ color: "#94a3b8", marginBottom: "24px", fontSize: "15px", lineHeight: 1.6 }}>
-            La plataforma B2B que conecta talleres y proveedores de recambios en toda España.
-          </p>
-        </div>
         <div className="landing-hero-text">
-          <div style={badgeStyle}>MARKETPLACE B2B AUTOMOCIÓN</div>
-          <h1 className="sr-only">Marketplace B2B de Recambios de Automoción en España — Recambio Directo</h1>
-          <div aria-hidden="true" style={{ fontSize: "86px", fontWeight: 900, color: "white", lineHeight: 0.95, marginBottom: "24px", letterSpacing: "-0.04em" }}>
-            RECAMBIO<br /><span style={{ color: "#2563eb" }}>DIRECTO</span>
-          </div>
-          <p style={{ color: "#94a3b8", marginBottom: "36px", fontSize: "18px", lineHeight: 1.7, maxWidth: 480 }}>
-            La plataforma profesional que conecta talleres y proveedores de recambios en toda España. Sin intermediarios, sin llamadas. Gratis para talleres.
+          <div style={{ ...badgeStyle, alignSelf: "flex-start" }}>MARKETPLACE B2B AUTOMOCIÓN</div>
+          <h1 className="landing-hero-h1">
+            Marketplace B2B de recambios de automoción, <span style={{ color: "#3b82f6" }}>gratis para talleres</span>
+          </h1>
+          <p className="landing-hero-sub">
+            Busca una referencia OEM o IAM y compara el stock de proveedores de toda España. Sin intermediarios, sin llamadas y con entrega en 24-48h.
           </p>
-          <div className="landing-stats">
-            {[
-              { num: "B2B", label: "Solo profesionales" },
-              { num: "24h", label: "Entrega express" },
-              { num: "100%", label: "Digital y seguro" },
-              { num: "0€", label: "Gratis para talleres" },
-            ].map(({ num, label }) => (
-              <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: "14px 20px", minWidth: 80 }}>
-                <span style={{ fontSize: 24, fontWeight: 900, color: "#60a5fa" }}>{num}</span>
-                <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, textAlign: "center" as const }}>{label}</span>
-              </div>
-            ))}
+          <HomeBuscador />
+          <div className="landing-hero-ctas">
+            <a href="/registro" className="landing-cta-primario">Crear cuenta gratis →</a>
+            <a href="/para-proveedores" className="landing-cta-secundario">Soy proveedor</a>
           </div>
-          <div style={{ marginTop: 32 }}>
-            <HomeBuscador />
-          </div>
+          <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 14 }}>
+            Sin tarjeta · Sin permanencia · Alta verificada en 24h laborables
+          </p>
         </div>
-        <LoginBox />
+        <div id="acceso" className="landing-hero-login">
+          <LoginBox />
+        </div>
       </section>
 
       {/* ── PARA TALLERES Y PROVEEDORES ── */}
@@ -68,7 +103,7 @@ export default function Home() {
         </div>
         <div className="landing-grid-2">
           <div style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 24, padding: 36 }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
+            <div style={{ marginBottom: 16, color: "#60a5fa" }}><Wrench size={40} strokeWidth={1.8} aria-hidden="true" /></div>
             <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY TALLER</div>
             <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Busca por matrícula, bastidor o aplicación y compra en 3 clics</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Introduce la matrícula o el VIN del vehículo y encuentra las piezas compatibles al instante. Compara precios de varios proveedores en la misma pantalla y haz el pedido sin llamadas ni esperas.</p>
@@ -81,9 +116,10 @@ export default function Home() {
               ))}
             </ul>
             <a href="/registro" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como taller →</a>
+            <a href="/para-talleres" style={saberMas}>Ver todas las ventajas para talleres</a>
           </div>
           <div style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)", borderRadius: 24, padding: 36 }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>🏭</div>
+            <div style={{ marginBottom: 16, color: "#4ade80" }}><Factory size={40} strokeWidth={1.8} aria-hidden="true" /></div>
             <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>SOY PROVEEDOR</div>
             <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Tu catálogo visto por talleres de toda España</h3>
             <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>Sube tu catálogo una vez y empieza a recibir pedidos sin visitas comerciales y sin llamadas.</p>
@@ -96,6 +132,7 @@ export default function Home() {
               ))}
             </ul>
             <a href="/registro?tipo=proveedor" style={{ display: "block", width: "100%", padding: "16px", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", border: "none", borderRadius: "14px", fontSize: "16px", fontWeight: 800, cursor: "pointer", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}>Registrarme como proveedor →</a>
+            <a href="/para-proveedores" style={{ ...saberMas, color: "#86efac" }}>Ver cómo vender en Recambio Directo</a>
           </div>
         </div>
       </section>
@@ -109,15 +146,15 @@ export default function Home() {
         </div>
         <div className="landing-grid-3">
           {[
-            { num: "01", icon: "📝", title: "Crea tu cuenta", desc: "Rellena tus datos profesionales en menos de 3 minutos. Solo necesitas tu CIF y email de empresa.", color: "#2563eb" },
-            { num: "02", icon: "✅", title: "Verificación en 24h", desc: "Nuestro equipo valida tu perfil profesional y activa tu acceso. Recibirás un email de confirmación.", color: "#16a34a" },
-            { num: "03", icon: "🚀", title: "Opera desde el primer día", desc: "Busca piezas, sube tu catálogo o gestiona tus pedidos. Todo desde un panel diseñado para el sector.", color: "#7c3aed" },
-          ].map(({ num, icon, title, desc, color }) => (
+            { num: "01", Icon: ClipboardList, title: "Crea tu cuenta", desc: "Rellena tus datos profesionales en menos de 3 minutos. Solo necesitas tu CIF y email de empresa.", color: "#2563eb" },
+            { num: "02", Icon: BadgeCheck, title: "Verificación en 24h", desc: "Nuestro equipo valida tu perfil profesional y activa tu acceso. Recibirás un email de confirmación.", color: "#16a34a" },
+            { num: "03", Icon: Rocket, title: "Opera desde el primer día", desc: "Busca piezas, sube tu catálogo o gestiona tus pedidos. Todo desde un panel diseñado para el sector.", color: "#7c3aed" },
+          ].map(({ num, Icon, title, desc, color }) => (
             <div key={num} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, position: "relative" as const }}>
               <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, background: `${color}30`, border: `1px solid ${color}60`, marginBottom: 16 }}>
-                <span style={{ fontSize: 20 }}>{icon}</span>
+                <Icon size={22} color="white" strokeWidth={2} aria-hidden="true" />
               </div>
-              <div style={{ position: "absolute" as const, top: 32, right: 32, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.04)" }}>{num}</div>
+              <div style={{ position: "absolute" as const, top: 32, right: 32, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.08)" }} aria-hidden="true">{num}</div>
               <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>{title}</h3>
               <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7 }}>{desc}</p>
             </div>
@@ -132,8 +169,8 @@ export default function Home() {
           <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Mira la plataforma en acción</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Búsqueda por referencia, por matrícula, precios en tiempo real y pedido en 3 clics</p>
         </div>
-        <div style={{ maxWidth: 520, margin: "0 auto", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-          <video autoPlay loop muted playsInline src="/demo-plataforma.mp4" style={{ width: "100%", display: "block" }}>Tu navegador no soporta vídeo.</video>
+        <div style={{ maxWidth: 920, margin: "0 auto", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+          <video autoPlay loop muted playsInline preload="metadata" width={1280} height={720} aria-label="Demostración de la plataforma Recambio Directo" src="/demo-plataforma.mp4" style={{ width: "100%", height: "auto", display: "block" }}>Tu navegador no soporta vídeo.</video>
         </div>
         <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 32, flexWrap: "wrap" as const }}>
           {["Busca por referencia OEM/IAM", "Busca por matrícula del vehículo", "Compara precios al instante", "Pide en 3 clics"].map(t => (
@@ -151,21 +188,43 @@ export default function Home() {
           <div style={badgeStyle}>PLATAFORMA</div>
           <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Búsqueda por matrícula, bastidor y aplicación de vehículo incluida</h2>
           <p style={{ color: "#94a3b8", fontSize: 17 }}>Diseñado específicamente para el sector del recambio de automoción en España</p>
+          <a href="/buscar-por-matricula" style={{ ...saberMas, display: "inline-block" }}>Cómo funciona la búsqueda por matrícula →</a>
         </div>
         <div className="landing-grid-2">
           {[
-            { icon: "🔍", title: "Busca por matrícula, bastidor o aplicación de vehículo", desc: "Introduce la matrícula o el VIN y encuentra las piezas compatibles automáticamente. También puedes buscar por marca, modelo, versión y motor, o por referencia OEM e IAM. Precios en tiempo real de múltiples proveedores.", color: "#2563eb" },
-            { icon: "📦", title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
-            { icon: "🚚", title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
-            { icon: "🔒", title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
-          ].map(({ icon, title, desc, color }) => (
+            { Icon: Search, title: "Busca por matrícula, bastidor o aplicación de vehículo", desc: "Introduce la matrícula o el VIN y encuentra las piezas compatibles automáticamente. También puedes buscar por marca, modelo, versión y motor, o por referencia OEM e IAM. Precios en tiempo real de múltiples proveedores.", color: "#2563eb" },
+            { Icon: Package, title: "Gestión de pedidos completa para talleres", desc: "Albarán automático, etiqueta de envío, chat con el proveedor y seguimiento en tiempo real desde el panel.", color: "#16a34a" },
+            { Icon: Truck, title: "Logística integrada con las principales agencias nacionales", desc: "Conectado con las principales agencias de transporte. Elige agencia, se genera la etiqueta automáticamente y el tracking llega por email.", color: "#7c3aed" },
+            { Icon: ShieldCheck, title: "Control total sobre tu negocio de recambios", desc: "Excluye competidores, controla quién ve tus precios, gestiona crédito RD y accede a tu histórico completo.", color: "#f59e0b" },
+          ].map(({ Icon, title, desc, color }) => (
             <div key={title} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, display: "flex", gap: 16, alignItems: "flex-start" }}>
-              <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
+              <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 14, background: `${color}20`, border: `1px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={24} color="white" strokeWidth={2} aria-hidden="true" /></div>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{title}</h3>
                 <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{desc}</p>
               </div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CATEGORÍAS Y MARCAS ── */}
+      <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={badgeStyle}>CATÁLOGO</div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 12 }}>Recambios por categoría y marca</h2>
+          <p style={{ color: "#94a3b8", fontSize: 15, maxWidth: 600, margin: "0 auto" }}>Piezas OEM e IAM de las principales marcas del aftermarket</p>
+        </div>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#94a3b8", textAlign: "center", marginBottom: 14, letterSpacing: "0.05em" }}><a href="/recambios" style={{ color: "inherit", textDecoration: "none" }}>CATEGORÍAS</a></h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 32 }}>
+          {CATEGORIAS.map(({ nombre, href }) => (
+            <a key={href} href={href} style={chipStyle}>{nombre}</a>
+          ))}
+        </div>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#94a3b8", textAlign: "center", marginBottom: 14, letterSpacing: "0.05em" }}><a href="/marcas" style={{ color: "inherit", textDecoration: "none" }}>MARCAS</a></h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {MARCAS.map(({ nombre, href }) => (
+            <a key={href} href={href} style={{ ...chipStyle, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e2e8f0" }}>{nombre}</a>
           ))}
         </div>
       </section>
@@ -229,7 +288,7 @@ export default function Home() {
             { nombre: "Palencia", href: "/recambios-palencia" },
             { nombre: "Zamora", href: "/recambios-zamora" },
           ].map(({ nombre, href }) => (
-            <a key={nombre} href={href} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{nombre}</a>
+            <a key={nombre} href={href} style={{ background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", color: "#93c5fd", padding: "8px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{nombre}</a>
           ))}
         </div>
       </section>
@@ -237,7 +296,7 @@ export default function Home() {
       {/* ── AGENCIAS ── */}
       <section className="landing-section-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="landing-agencias" style={{ background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, padding: "32px 48px", display: "flex", alignItems: "center", gap: 32 }}>
-          <div style={{ fontSize: 36, flexShrink: 0 }}>🚚</div>
+          <div style={{ flexShrink: 0, color: "#60a5fa" }}><Truck size={40} strokeWidth={1.8} aria-hidden="true" /></div>
           <div style={{ flex: 1 }}>
             <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Logística integrada con las principales agencias de transporte nacionales</h3>
             <p style={{ color: "#94a3b8", fontSize: 15, margin: 0, lineHeight: 1.6 }}>Etiquetas automáticas, tracking en tiempo real y entrega en 24-48h en toda España. Trabajamos con las agencias líderes del mercado para garantizar la mejor cobertura en cada envío.</p>
@@ -256,14 +315,7 @@ export default function Home() {
           <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 12 }}>Preguntas frecuentes sobre recambios B2B</h2>
         </div>
         <div className="landing-grid-2 landing-faq-grid" style={{ gap: 20, maxWidth: 1000, margin: "0 auto" }}>
-          {[
-            { q: "¿Cuánto cuesta Recambio Directo?", a: "Para talleres es completamente gratis, sin límites ni costes ocultos. Los proveedores pagan 25€/mes sin permanencia." },
-            { q: "¿Quién puede registrarse?", a: "La plataforma es exclusiva para profesionales del sector: talleres mecánicos, concesionarios, distribuidores y proveedores de recambios." },
-            { q: "¿Cuánto tarda en activarse mi cuenta?", a: "Verificamos cada cuenta manualmente en menos de 24 horas laborables para garantizar que todos los usuarios son profesionales del sector." },
-            { q: "¿Qué agencias de transporte están disponibles?", a: "Trabajamos con varias de las principales agencias de transporte nacionales. La etiqueta de envío se genera automáticamente al crear el pedido y el tracking llega por email." },
-            { q: "¿Puedo controlar quién ve mis precios?", a: "Sí. Los proveedores pueden excluir talleres concretos o códigos postales específicos para que no vean su catálogo ni sus precios." },
-            { q: "¿Cómo funciona RD Pago?", a: "RD Pago es nuestra línea de crédito para talleres. Permite comprar ahora y pagar en 15 días. Se activa tras 1 mes de actividad y 1 pago con tarjeta." },
-          ].map(({ q, a }) => (
+          {FAQS.map(({ q, a }) => (
             <div key={q} style={{ background: "rgba(30,41,59,0.7)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 }}>
               <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10, color: "#60a5fa" }}>{q}</h3>
               <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{a}</p>
@@ -293,52 +345,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer style={{ padding: "clamp(32px, 6vw, 60px) clamp(20px, 6vw, 80px) 30px", position: "relative", zIndex: 10 }}>
-        <div className="landing-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div>
-            <h3 style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>RECAMBIO DIRECTO</h3>
-            <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>Marketplace B2B de recambios de automoción. Conectamos talleres y proveedores de recambios en toda España.</p>
-          </div>
-          <div>
-            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Plataforma</h4>
-            <a href="/registro" style={footerLink}>Crear cuenta</a>
-            <a href="/quienes-somos" style={footerLink}>Quiénes somos</a>
-            <a href="/blog" style={footerLink}>Blog</a>
-            <a href="mailto:info@recambio-directo.com" style={footerLink}>Contacto</a>
-          </div>
-          <div>
-            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Recambios por ciudad</h4>
-            <a href="/recambios-madrid" style={footerLink}>Recambios en Madrid</a>
-            <a href="/recambios-barcelona" style={footerLink}>Recambios en Barcelona</a>
-            <a href="/recambios-valencia" style={footerLink}>Recambios en Valencia</a>
-            <a href="/recambios-sevilla" style={footerLink}>Recambios en Sevilla</a>
-            <a href="/recambios-bilbao" style={footerLink}>Recambios en Bilbao</a>
-          </div>
-          <div>
-            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Legal</h4>
-            <a href="/aviso-legal" style={footerLink}>Aviso legal</a>
-            <a href="/privacidad" style={footerLink}>Política de privacidad</a>
-            <a href="/terminos" style={footerLink}>Términos y condiciones</a>
-            <a href="/cookies" style={footerLink}>Política de cookies</a>
-            <a href="/devoluciones" style={footerLink}>Política de devoluciones</a>
-          </div>
-          <div>
-            <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: "white" }}>Contacto</h4>
-            <p style={{ color: "#94a3b8", fontSize: 13 }}>info@recambio-directo.com</p>
-            <a href="tel:+34650495270" style={{ color: "#94a3b8", fontSize: 13, marginTop: 4, display: "block", textDecoration: "none" }}>650 49 52 70</a>
-            <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>España</p>
-            <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
-              <a href="https://www.instagram.com/recambiodirect/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>📷</a>
-              <a href="https://www.linkedin.com/company/135907554" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 16 }}>💼</a>
-              <span style={{ background: "rgba(22,163,74,0.15)", color: "#4ade80", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>● Online</span>
-            </div>
-          </div>
-        </div>
-        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 12 }}>
-          <p>© 2026 Recambio Directo · Marketplace B2B de Recambios de Automoción · España</p>
-        </div>
-      </footer>
     </main>
   );
 }
