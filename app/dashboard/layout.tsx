@@ -6,6 +6,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
+const SONIDO_NOTIF = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=";
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -59,57 +61,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     suscribirRealtime(user.id);
   }
 
+  // Convierte una fila de notificaciones_usuario al formato que pinta la campanita
+  function mapNotif(n: any) {
+    return { id: n.id, tipo: n.tipo, texto: n.texto, leido: !!n.leida, created_at: n.created_at, conv_id: n.conv_id, pedido_id: n.pedido_id };
+  }
+
+  // Las notificaciones las crea la base de datos (triggers en pedidos y mensajes).
+  // Aquí solo escuchamos las filas nuevas de este usuario.
   function suscribirRealtime(uid: string) {
-    const channelName = `taller-notif-${uid}-${Date.now()}`;
     const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, async (payload) => {
-        const m = payload.new as any;
-        if (m.user_id === uid) return;
-        if (m.conversacion_id) {
-          const { data: conv } = await supabase
-            .from("conversaciones").select("id")
-            .eq("id", m.conversacion_id)
-            .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
-            .maybeSingle();
-          if (!conv) return;
-        }
-        const texto = (m.mensaje || "").substring(0, 60);
-        agregarNotif({ id: m.id, tipo: "chat", texto: `💬 ${texto}`, leido: false, created_at: m.created_at, conv_id: m.conversacion_id });
-        try { new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=").play(); } catch {}
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pedidos" }, (payload) => {
-        const p = payload.new as any;
-        // Notificar al proveedor cuando recibe un pedido nuevo
-        const productos = p.productos || [];
-        const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
-        if (esParaProveedor) {
-          agregarNotif({ id: `new-${p.id}-${Date.now()}`, tipo: "pedido", texto: `🆕 Nuevo pedido ${p.codigo || `#${p.id}`}`, leido: false, created_at: p.created_at || new Date().toISOString(), pedido_id: p.id });
-          try { new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=").play(); } catch {}
-        }
-        // Notificar al cliente de su pedido (si lo necesita)
-        if (p.cliente_id === uid) {
-          agregarNotif({ id: `new-cli-${p.id}-${Date.now()}`, tipo: "pedido", texto: `🆕 Pedido ${p.codigo || `#${p.id}`} creado`, leido: false, created_at: p.created_at || new Date().toISOString(), pedido_id: p.id });
-        }
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, (payload) => {
-        const p = payload.new as any;
-        const old = payload.old as any;
-        if (p.estado_envio === old?.estado_envio) return;
-        // Notificar al cliente
-        const esCliente = p.cliente_id === uid;
-        // Notificar al proveedor
-        const productos = p.productos || [];
-        const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
-        if (!esCliente && !esParaProveedor) return;
-        const estadoLabel: Record<string, string> = {
-          preparando: "🔧 en preparación",
-          enviado: "🚚 enviado",
-          entregado: "✅ entregado",
-          anulado: "❌ anulado",
-        };
-        const label = estadoLabel[p.estado_envio] || p.estado_envio;
-        agregarNotif({ id: `upd-${p.id}-${Date.now()}`, tipo: "pedido", texto: `📦 Pedido ${p.codigo || `#${p.id}`} → ${label}`, leido: false, created_at: new Date().toISOString(), pedido_id: p.id });
+      .channel(`notif-${uid}-${Date.now()}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notificaciones_usuario", filter: `user_id=eq.${uid}` }, (payload) => {
+        agregarNotif(mapNotif(payload.new));
+        try { new Audio(SONIDO_NOTIF).play().catch(() => {}); } catch {}
       })
       .subscribe();
     channelRef.current = channel;
@@ -140,124 +104,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   async function cargarNotificaciones(uid: string) {
-    const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
-    const CLEARED_KEY = `rd_notif_cleared_${uid}`;
-    const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
-    const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const clearedAt = localStorage.getItem(CLEARED_KEY);
-    const clearedDate = clearedAt ? new Date(clearedAt) : null;
-
-    const notifsTotales: any[] = [];
-
-    const { data: convs1 } = await supabase.from("conversaciones").select("id").eq("user1_id", uid);
-    const { data: convs2 } = await supabase.from("conversaciones").select("id").eq("user2_id", uid);
-    const convIds = [...(convs1 || []), ...(convs2 || [])].map(c => c.id);
-
-    if (convIds.length > 0) {
-      const { data: msgs } = await supabase
-        .from("mensajes")
-        .select("id, mensaje, created_at, conversacion_id")
-        .in("conversacion_id", convIds)
-        .neq("user_id", uid)
-        .or("leido.is.null,leido.eq.false")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      (msgs || []).forEach(m => {
-        const esNuevo = new Date(m.created_at) > lastSeenDate;
-        notifsTotales.push({
-          id: m.id,
-          tipo: "chat",
-          texto: `💬 ${(m.mensaje || "").substring(0, 50)}${(m.mensaje || "").length > 50 ? "..." : ""}`,
-          leido: !esNuevo,
-          created_at: m.created_at,
-          conv_id: m.conversacion_id,
-        });
-      });
-    }
-
-    const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-    // Notificaciones de pedidos para CLIENTE (cambios de estado)
-    const { data: pedidosCliente } = await supabase
-      .from("pedidos")
-      .select("id, codigo, estado_envio, created_at, updated_at")
-      .eq("cliente_id", uid)
-      .neq("estado_envio", "pendiente")
-      .not("estado_envio", "is", null)
-      .gte("updated_at", hace24h.toISOString())
-      .order("updated_at", { ascending: false })
-      .limit(5);
-
-    (pedidosCliente || []).forEach(p => {
-      const estadoLabel: Record<string, string> = {
-        preparando: "🔧 en preparación",
-        enviado: "🚚 enviado",
-        entregado: "✅ entregado",
-        anulado: "❌ anulado",
-      };
-      const esNuevo = new Date(p.updated_at || p.created_at) > lastSeenDate;
-      notifsTotales.push({
-        id: `ped-${p.id}`,
-        tipo: "pedido",
-        texto: `📦 Pedido ${p.codigo || `#${p.id}`} → ${estadoLabel[p.estado_envio] || p.estado_envio}`,
-        leido: !esNuevo,
-        created_at: p.updated_at || p.created_at,
-        pedido_id: p.id,
-      });
-    });
-
-    // Notificaciones de pedidos para PROVEEDOR (pedidos nuevos recibidos)
-    const { data: pedidosRecientes } = await supabase
-      .from("pedidos")
-      .select("id, codigo, estado_envio, productos, created_at, updated_at")
-      .gte("created_at", hace24h.toISOString())
+    const { data, error } = await supabase
+      .from("notificaciones_usuario")
+      .select("id, tipo, texto, leida, created_at, conv_id, pedido_id")
+      .eq("user_id", uid)
       .order("created_at", { ascending: false })
-      .limit(20);
-
-    (pedidosRecientes || []).forEach(p => {
-      const productos = p.productos || [];
-      const esParaProveedor = productos.some((pr: any) => pr.proveedor_id === uid);
-      if (!esParaProveedor) return;
-      const esNuevo = new Date(p.created_at) > lastSeenDate;
-      notifsTotales.push({
-        id: `prov-${p.id}`,
-        tipo: "pedido",
-        texto: `🆕 Nuevo pedido ${p.codigo || `#${p.id}`}`,
-        leido: !esNuevo,
-        created_at: p.created_at,
-        pedido_id: p.id,
-      });
-    });
-
-    const filtradas = clearedDate ? notifsTotales.filter(n => new Date(n.created_at) > clearedDate) : notifsTotales;
-    filtradas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    setNotifs(filtradas);
+      .limit(30);
+    if (error) { console.error("Error cargando notificaciones:", error.message); return; }
+    setNotifs((data || []).map(mapNotif));
   }
 
-  function limpiarNotifs() {
+  // Limpiar = borrar de verdad en la base de datos (ya no depende del navegador)
+  async function limpiarNotifs() {
     const uid = userIdRef.current;
-    if (uid) localStorage.setItem(`rd_notif_cleared_${uid}`, new Date().toISOString());
     setNotifs([]);
-    marcarLeidas();
+    if (!uid) return;
+    const { error } = await supabase.from("notificaciones_usuario").delete().eq("user_id", uid);
+    if (error) console.error("Error limpiando notificaciones:", error.message);
   }
 
   async function marcarLeidas() {
     const uid = userIdRef.current;
     if (!uid) return;
-
-    const LAST_SEEN_KEY = `rd_notif_last_seen_${uid}`;
-    localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
-
     setNotifs(prev => prev.map(n => ({ ...n, leido: true })));
-
-    const convIds = notifs.filter(n => n.tipo === "chat" && n.conv_id).map(n => n.conv_id);
-    if (convIds.length > 0) {
-      await supabase.from("mensajes")
-        .update({ leido: true })
-        .in("conversacion_id", [...new Set(convIds)])
-        .neq("user_id", uid);
-    }
+    const { error } = await supabase.from("notificaciones_usuario").update({ leida: true }).eq("user_id", uid).eq("leida", false);
+    if (error) console.error("Error marcando notificaciones como leídas:", error.message);
   }
 
   function buscarAhora() {

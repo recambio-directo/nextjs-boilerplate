@@ -192,10 +192,8 @@ function ChatPageInner() {
           .update({ leido: true })
           .eq("conversacion_id", convId)
           .neq("user_id", uid);
-        // Limpiar cooldown para que al volver al dashboard recargue las notificaciones
-        // y las encuentre ya como leídas en Supabase
-        localStorage.removeItem(`rd_notif_last_prov_${uid}`);
-localStorage.removeItem(`rd_notif_last_${uid}`);
+        // Al abrir la conversación, quitar sus avisos de la campanita
+        await supabase.from("notificaciones_usuario").delete().eq("user_id", uid).eq("conv_id", convId);
       }
       return;
     }
