@@ -17,10 +17,11 @@ import SeccionChats from "./SeccionChats";
 import SeccionDevoluciones from "./SeccionDevoluciones";
 import SeccionSistema from "./SeccionSistema";
 import SeccionAPI from "./SeccionAPI";
+import SeccionAsistente from "./SeccionAsistente";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"api"|"chats"|"devoluciones"|"sistema">("dashboard");
+  const [seccion, setSeccion] = useState<"dashboard"|"usuarios"|"pedidos"|"cobros"|"financiero"|"facturacion"|"ftp"|"api"|"chats"|"devoluciones"|"sistema"|"asistente">("dashboard");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [pagosProveedores, setPagosProveedores] = useState<PagoProveedor[]>([]);
@@ -218,6 +219,7 @@ export default function AdminPage() {
             { key: "ftp",         label: "🔄 FTP Sync" },
             { key: "api",         label: "🔑 API Stock" },
             { key: "chats",       label: "💬 Chats" },
+            { key: "asistente",   label: "🤖 Asistente" },
             { key: "devoluciones", label: "🔄 Devoluciones" },
             { key: "sistema",      label: "⚙️ Sistema" },
           ].map(({ key, label }) => (
@@ -239,6 +241,7 @@ export default function AdminPage() {
         {seccion === "ftp"         && <SeccionFTP usuarios={usuarios} ftpProveedorId={ftpProveedorId} setFtpProveedorId={setFtpProveedorId} ftpPassword={ftpPassword} setFtpPassword={setFtpPassword} ftpTipoReferencias={ftpTipoReferencias} setFtpTipoReferencias={setFtpTipoReferencias} ftpCreando={ftpCreando} ftpResultado={ftpResultado} setFtpResultado={setFtpResultado} crearUsuarioFTP={crearUsuarioFTP} descargarCredencialesFTP={descargarCredencialesFTP} />}
         {seccion === "api"          && <SeccionAPI usuarios={usuarios} />}
         {seccion === "chats"        && <SeccionChats />}
+        {seccion === "asistente"    && <SeccionAsistente />}
         {seccion === "devoluciones" && <SeccionDevoluciones />}
         {seccion === "sistema"      && <SeccionSistema />}
       </section>
