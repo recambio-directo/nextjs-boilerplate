@@ -68,6 +68,14 @@ export async function POST(request: Request) {
     const totalProveedor = Number(total) - costeTransporte;
     const totalCliente = Number(total) + gastosGestion;
 
+    // Impuesto del pedido (IVA por defecto). Solo se avisa cuando es IGIC o exento.
+    const impuestoTipo: string = pedidoData?.impuesto_tipo || "IVA";
+    const impuestoNota: string = impuestoTipo === "IVA" ? "" : (pedidoData?.impuesto_nota || "");
+    const textoImpuestoTotal = impuestoTipo === "IGIC" ? "(IGIC incl.)" : impuestoTipo === "EXENTO" ? "(exento)" : "(IVA incl.)";
+    const avisoImpuestoHtml = impuestoNota
+      ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin:20px 0;font-size:13px;color:#92400e"><strong>Fiscalidad:</strong> ${impuestoNota}</div>`
+      : "";
+
     const albaranUrl = pedidoData?.albaran_url || null;
     const albaranProveedorUrl = pedidoData?.albaran_proveedor_url || null;
 
@@ -271,6 +279,7 @@ export async function POST(request: Request) {
                 </div>
               `).join("")}
             </div>
+            ${avisoImpuestoHtml}
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
               <p style="color:#1e40af;font-size:13px;margin:0">
                 📧 Recibirás un segundo email con la <strong>etiqueta de envío</strong> y las <strong>instrucciones de embalaje</strong>.
@@ -334,9 +343,10 @@ export async function POST(request: Request) {
                 <span style="color:#0b1736;font-weight:700">${gastosGestion.toFixed(2)}€</span>
               </div>` : ""}
               <div style="text-align:right;margin-top:12px;font-size:14px">
-                <strong style="color:#0b1736">TOTAL: ${totalCliente.toFixed(2)}€ (IVA incl.)</strong>
+                <strong style="color:#0b1736">TOTAL: ${totalCliente.toFixed(2)}€ ${textoImpuestoTotal}</strong>
               </div>
             </div>
+            ${avisoImpuestoHtml}
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin:20px 0">
               <p style="color:#1e40af;font-size:13px;margin:0">
                 🚚 Recibirás una notificación cuando tu pedido sea enviado con el número de seguimiento de <strong>${agenciaUpper}</strong>.

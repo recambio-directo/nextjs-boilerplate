@@ -90,7 +90,23 @@ export async function generarAlbaranes(supabase: SupabaseClient, pedidoId: unkno
   const costeTransporte = Number(pedido.coste_transporte || 0);
   const total = Number(pedido.total || 0);
   const totalSinPorte = total - costeTransporte;
-  const iva = subtotal * 0.21;
+  // Impuesto guardado en el pedido (los antiguos no lo tienen: IVA 21 %)
+  const impuestoTipo: string = pedido.impuesto_tipo || "IVA";
+  const impuestoPct = pedido.impuesto_pct != null ? Number(pedido.impuesto_pct) : 21;
+  const impuestoNota: string = impuestoTipo === "IVA" ? "" : (pedido.impuesto_nota || "");
+  const iva = subtotal * impuestoPct / 100;
+  const etiquetaImpuesto = impuestoTipo === "IGIC" ? `IGIC (${impuestoPct}%):` : impuestoTipo === "EXENTO" ? "Impuesto (exento):" : `IVA (${impuestoPct}%):`;
+  // Parte un texto largo en líneas de como mucho `max` caracteres
+  const partirTexto = (texto: string, max: number): string[] => {
+    const lineas: string[] = [];
+    let actual = "";
+    for (const palabra of texto.split(/\s+/)) {
+      if ((actual + " " + palabra).trim().length > max) { if (actual) lineas.push(actual); actual = palabra; }
+      else actual = (actual + " " + palabra).trim();
+    }
+    if (actual) lineas.push(actual);
+    return lineas;
+  };
 
   async function crearAlbaran(destinatario: "taller" | "proveedor"): Promise<Uint8Array> {
     const esProveedor = destinatario === "proveedor";
@@ -201,7 +217,7 @@ export async function generarAlbaranes(supabase: SupabaseClient, pedidoId: unkno
     t("Subtotal:", { x: totX, y: y - 12, size: 8, font, color: gray });
     t(`${subtotal.toFixed(2)} €`, { x: totX + 90, y: y - 12, size: 8, font, color: black });
     y -= 16;
-    t("IVA (21%):", { x: totX, y: y - 12, size: 8, font, color: gray });
+    t(etiquetaImpuesto, { x: totX, y: y - 12, size: 8, font, color: gray });
     t(`${iva.toFixed(2)} €`, { x: totX + 90, y: y - 12, size: 8, font, color: black });
     y -= 16;
 
@@ -209,6 +225,15 @@ export async function generarAlbaranes(supabase: SupabaseClient, pedidoId: unkno
     t("TOTAL:", { x: totX, y: y - 12, size: 10, font: fontBold, color: navy });
     t(`${(esProveedor ? totalSinPorte : total).toFixed(2)} €`, { x: totX + 90, y: y - 12, size: 10, font: fontBold, color: navy });
     y -= 24;
+
+    // Mención fiscal: solo en pedidos con IGIC o exentos (Canarias, Ceuta, Melilla)
+    if (impuestoNota) {
+      const lineas = partirTexto(impuestoNota, 105);
+      saltoSiHaceFalta(16 + lineas.length * 10, false);
+      page.drawRectangle({ x: 40, y: y - (8 + lineas.length * 10), width: width - 80, height: 8 + lineas.length * 10, borderWidth: 0.5, borderColor: blue, color: white });
+      lineas.forEach((l, i) => t(l, { x: 48, y: y - 12 - i * 10, size: 7.5, font: fontBold, color: navy }));
+      y -= 14 + lineas.length * 10;
+    }
 
     // Forma de pago y Agencia
     if (formaPago || agencia) {

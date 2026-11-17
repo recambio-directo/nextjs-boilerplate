@@ -283,6 +283,41 @@ function Paso({ numero, titulo, icono, activo, completado, resumen, children, on
   );
 }
 
+// ── Impuesto indirecto según territorio fiscal (origen = proveedor, destino = taller) ──
+// Península y Baleares aplican IVA; Canarias, IGIC; Ceuta y Melilla, IPSI.
+//  · Península/Baleares → Península/Baleares ........ IVA 21 %
+//  · Península/Baleares → Canarias, Ceuta o Melilla .. exportación exenta de IVA (art. 21 Ley 37/1992)
+//  · Canarias → fuera de Canarias ..................... exportación exenta de IGIC (el destinatario liquida la importación)
+//  · Canarias → Canarias .............................. IGIC tipo general 7 %
+type TerritorioFiscal = "iva" | "canarias" | "ceuta_melilla";
+type ImpuestoPedido = { tipo: "IVA" | "IGIC" | "EXENTO"; pct: number; etiqueta: string; nota: string };
+
+function territorioFiscal(cp?: string | null): TerritorioFiscal {
+  const c = (cp || "").trim();
+  if (c.startsWith("35") || c.startsWith("38")) return "canarias";
+  if (c.startsWith("51") || c.startsWith("52")) return "ceuta_melilla";
+  return "iva";
+}
+
+function calcularImpuestoPedido(cpOrigen?: string | null, cpDestino?: string | null): ImpuestoPedido {
+  const o = territorioFiscal(cpOrigen);
+  const d = territorioFiscal(cpDestino);
+  if (o === "iva" && d === "iva") return { tipo: "IVA", pct: 21, etiqueta: "IVA (21%)", nota: "" };
+  if (o === "canarias" && d === "canarias") {
+    return { tipo: "IGIC", pct: 7, etiqueta: "IGIC (7%)", nota: "Operación sujeta a IGIC (tipo general 7%). No se repercute IVA." };
+  }
+  if (o === "iva") {
+    const destino = d === "canarias" ? "Canarias" : "Ceuta/Melilla";
+    const impDestino = d === "canarias" ? "IGIC" : "IPSI";
+    return { tipo: "EXENTO", pct: 0, etiqueta: "Exento de IVA", nota: `Operación exenta de IVA según el artículo 21 de la Ley 37/1992 (exportación a ${destino}). El ${impDestino} de importación corre a cargo del destinatario.` };
+  }
+  if (o === "canarias") {
+    const impDestino = d === "iva" ? "El IVA de importación corre" : "Los impuestos de importación corren";
+    return { tipo: "EXENTO", pct: 0, etiqueta: "Exento de IGIC", nota: `Exportación desde Canarias exenta de IGIC. ${impDestino} a cargo del destinatario.` };
+  }
+  return { tipo: "EXENTO", pct: 0, etiqueta: "Exento", nota: "Envío desde Ceuta/Melilla. Los impuestos de importación corren a cargo del destinatario." };
+}
+
 export default function CheckoutPage() {
   const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1);
   const [empresa, setEmpresa] = useState("");
@@ -314,6 +349,7 @@ export default function CheckoutPage() {
   const [ciudadEdit, setCiudadEdit] = useState("");
   const [cifEdit, setCifEdit] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [cpProveedores, setCpProveedores] = useState<Record<string, string>>({});
   const [agenciasDisponibles, setAgenciasDisponibles] = useState<string[]>(["MRW","NACEX","SEUR","GLS","Correos Express","CTT Express","DHL","Mis Medios"]);
 
   useEffect(() => {
@@ -394,13 +430,16 @@ export default function CheckoutPage() {
       setCantidades(initCantidades);
       const proveedorIds = [...new Set(cesta.map((p: any) => p.proveedor_id).filter(Boolean))];
       let agenciasValidas = ["MRW","SEUR","GLS","Correos Express","CTT Express","DHL","Mis Medios"];
+      const cps: Record<string, string> = {};
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal").eq("id", provId).single();
         const cpOrigen = prov?.codigo_postal || "";
+        cps[provId as string] = cpOrigen;
         const cpDestino = perfil?.codigo_postal || "";
         const disponibles = getAgenciasDisponibles(cpOrigen, cpDestino);
         agenciasValidas = agenciasValidas.filter(a => disponibles.includes(a));
       }
+      setCpProveedores(cps);
       let nacexDisponible = true;
       for (const provId of proveedorIds) {
         const { data: prov } = await supabase.from("usuarios").select("codigo_postal, ciudad").eq("id", provId).single();
@@ -437,7 +476,16 @@ export default function CheckoutPage() {
 
   const subtotal = productos.reduce((acc, item) => acc + (Number(item.precio) + Number(item.impuesto || 0)) * (cantidades[item.referencia] || 1), 0);
   const precioTransporte = getPrecioTransporte();
-  const iva = subtotal * 0.21;
+  // Impuesto de cada proveedor según su CP y el del taller (IVA, IGIC o exento)
+  const desgloseImpuestos = Array.from(getGruposPorProveedor().entries()).map(([provId, g]) => {
+    const base = g.productos.reduce((acc, p) => acc + (Number(p.precio) + Number(p.impuesto || 0)) * (cantidades[p.referencia] || 1), 0);
+    const imp = calcularImpuestoPedido(cpProveedores[provId] || "", codigoPostal);
+    return { imp, importe: base * imp.pct / 100 };
+  });
+  const iva = desgloseImpuestos.reduce((acc, d) => acc + d.importe, 0);
+  const etiquetasImpuesto = [...new Set(desgloseImpuestos.map(d => d.imp.etiqueta))];
+  const etiquetaImpuesto = etiquetasImpuesto.length === 0 ? "IVA (21%)" : etiquetasImpuesto.length === 1 ? etiquetasImpuesto[0] : "Impuestos";
+  const notaImpuesto = [...new Set(desgloseImpuestos.map(d => d.imp.nota).filter(Boolean))].join(" ");
   const total = subtotal + precioTransporte + iva;
   const puedeConfirmar = productos.length > 0 && transporte !== null && !cargando;
 
@@ -460,10 +508,10 @@ export default function CheckoutPage() {
   (o.key === "Mis Medios" || preciosAgencias.length === 0 || preciosAgencias.some(p => p.key === o.key))
 );
 
-  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, totalGrupo: number, fecha: string, numeroEnvio?: string, numeroSolicitud?: string) {
+  async function generarYGuardarPDFs(pedidoId: number, codigo: string, proveedorNombre: string, proveedorEmail: string, proveedorCif: string, proveedorTelefono: string, proveedorDireccion: string, proveedorCiudad: string, proveedorCodigoPostal: string, proveedorProvincia: string, productosGrupo: Producto[], subtotalGrupo: number, ivaGrupo: number, impuestoGrupo: ImpuestoPedido, totalGrupo: number, fecha: string, numeroEnvio?: string, numeroSolicitud?: string) {
     try {
       const gastosGestion = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
-      const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, cliente: empresa, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia, agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion, numeroEnvio, numeroSolicitud };
+      const props = { codigo, fecha, proveedorNombre, proveedorEmail, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, cliente: empresa, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia, agencia: transporte || "", formaPago, productos: productosGrupo, subtotal: subtotalGrupo, iva: ivaGrupo, total: totalGrupo, gastosGestion, numeroEnvio, numeroSolicitud, impuestoTipo: impuestoGrupo.tipo, impuestoEtiqueta: impuestoGrupo.etiqueta, impuestoNota: impuestoGrupo.nota };
       const albaranTallerBlob = await pdf(React.createElement(AlbaranPDF, { ...props, destinatario: "taller" }) as any).toBlob();
       const albaranProvBlob = await pdf(React.createElement(AlbaranPDF, { ...props, destinatario: "proveedor" }) as any).toBlob();
       const etiquetaBlob = await pdf(React.createElement(EtiquetaEnvioPDF, props) as any).toBlob();
@@ -514,7 +562,8 @@ export default function CheckoutPage() {
     for (const [provId, grupo] of grupos) {
       const subtotalGrupo = grupo.productos.reduce((acc, p) => acc + (Number(p.precio) + Number(p.impuesto || 0)) * (cantidades[p.referencia] || 1), 0);
       const transporteGrupo = primerPedido ? precioTransporte : 0;
-      const ivaGrupo = subtotalGrupo * 0.21;
+      const impGrupo = calcularImpuestoPedido(cpProveedores[provId] || "", codigoPostal);
+      const ivaGrupo = subtotalGrupo * impGrupo.pct / 100;
       const totalGrupo = subtotalGrupo + transporteGrupo + ivaGrupo;
       const totalSinPorte = subtotalGrupo + ivaGrupo;
       const codigo = "RD-" + Math.floor(Math.random() * 9000000 + 1000000);
@@ -528,13 +577,13 @@ export default function CheckoutPage() {
       }
       const productosConCantidad = grupo.productos.map(p => ({ ...p, cantidad: cantidades[p.referencia] || 1 }));
       const gastosGestionPedido = formaPago === "tarjeta" ? calcularRecargo(totalGrupo).recargo : 0;
-      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, gastos_gestion: gastosGestionPedido, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: productosConCantidad };
+      const pedido = { cliente_id: user.id, cliente_email: user.email, cliente_nombre: empresa, cliente_telefono: telefono, direccion: direccionCompleta, subtotal: subtotalGrupo, total: totalGrupo, coste_transporte: transporteGrupo, gastos_gestion: gastosGestionPedido, peso_kg: pesoKg, tramo_peso: tramoPeso, estado: "pendiente", estado_pago: formaPago === "tarjeta" ? "pagado" : "pendiente", estado_envio: "pendiente", codigo, transporte, agencia: transporte, forma_pago: formaPago, metodo_pago: "pagofacil", productos: productosConCantidad, impuesto_tipo: impGrupo.tipo, impuesto_pct: impGrupo.pct, impuesto_nota: impGrupo.nota || null };
       const { data: pedidoInsertado, error } = await supabase.from("pedidos").insert(pedido).select("id").single();
       if (error) { console.error("Error creando pedido:", error); continue; }
       primerPedido = false;
       // Descontar stock en servidor — no bloqueamos la redirección
       if (pedidoInsertado?.id) fetch("/api/descontar-stock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) }).catch(e => console.error("Error stock:", e));
-      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha);
+      if (pedidoInsertado?.id) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha);
 
       if (transporte === "MRW" && pedidoInsertado?.id) {
         try {
@@ -547,7 +596,7 @@ export default function CheckoutPage() {
           const clienteCP = clienteExtra?.codigo_postal || "";
           const mrwRes = await fetch("/api/mrw/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: provCP, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: clienteCP, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const mrwData = await mrwRes.json();
-          if (mrwData.ok && mrwData.numeroEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, mrwData.numeroEnvio, mrwData.numeroSolicitud);
+          if (mrwData.ok && mrwData.numeroEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, mrwData.numeroEnvio, mrwData.numeroSolicitud);
         } catch (e) { console.error("Error MRW:", e); }
       }
       if (transporte === "NACEX" && pedidoInsertado?.id) {
@@ -557,7 +606,7 @@ export default function CheckoutPage() {
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
           const nacexRes = await fetch("/api/nacex/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const nacexData = await nacexRes.json();
-          if (nacexData.ok && nacexData.localizador) { await supabase.from("pedidos").update({ tracking_nacex: nacexData.localizador, codigo_postal_destino: codigoPostal }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, nacexData.localizador); }
+          if (nacexData.ok && nacexData.localizador) { await supabase.from("pedidos").update({ tracking_nacex: nacexData.localizador, codigo_postal_destino: codigoPostal }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, nacexData.localizador); }
         } catch (e) { console.error("Error NACEX:", e); }
       }
       if (transporte === "SEUR" && pedidoInsertado?.id) {
@@ -567,14 +616,14 @@ export default function CheckoutPage() {
           const provDireccionSolo = provDireccionParts.slice(0, -1).join(",").trim() || proveedorDireccion;
           const seurRes = await fetch("/api/seur/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id, pedidoCodigo: codigo, remitenteNombre: nombreProveedor, remitenteCif: proveedorCif, remitenteDireccion: provDireccionSolo, remitenteCodigoPostal: proveedorCodigoPostal, remitentePoblacion: provCiudad, remitenteTelefono: proveedorTelefono, remitenteEmail: emailProveedor, destinatarioNombre: empresa || user.email, destinatarioDireccion: direccion, destinatarioCodigoPostal: codigoPostal, destinatarioPoblacion: ciudad, destinatarioTelefono: telefono, destinatarioEmail: user.email, pesoKg: Math.max(1, grupo.productos.length * 2) }) });
           const seurData = await seurRes.json();
-          if (seurData.ok && seurData.collectionRef) { await supabase.from("pedidos").update({ tracking_seur: seurData.tracking, collection_ref_seur: seurData.collectionRef }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, seurData.tracking); }
+          if (seurData.ok && seurData.collectionRef) { await supabase.from("pedidos").update({ tracking_seur: seurData.tracking, collection_ref_seur: seurData.collectionRef }).eq("id", pedidoInsertado.id); await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, seurData.tracking); }
         } catch (e) { console.error("Error SEUR:", e); }
       }
       if (transporte === "Correos Express" && pedidoInsertado?.id) {
         try {
           const cexRes = await fetch("/api/correos-express/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const cexData = await cexRes.json();
-          if (cexData.ok && cexData.numEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cexData.numEnvio);
+          if (cexData.ok && cexData.numEnvio) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, cexData.numEnvio);
         } catch (e) { console.error("Error CEX:", e); }
       }
       if (transporte === "CTT Express" && pedidoInsertado?.id) {
@@ -583,7 +632,7 @@ export default function CheckoutPage() {
           const cttData = await cttRes.json();
           if (cttData.ok && cttData.shippingCode) {
             await supabase.from("pedidos").update({ tracking_ctt: cttData.shippingCode }).eq("id", pedidoInsertado.id);
-            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, cttData.shippingCode);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, cttData.shippingCode);
           }
         } catch (e) { console.error("Error CTT:", e); }
       }
@@ -596,7 +645,7 @@ export default function CheckoutPage() {
           });
           const glsData = await glsRes.json();
           if (glsData.ok && glsData.codbarras) {
-            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, glsData.codbarras);
+            await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, glsData.codbarras);
           } else { console.error("GLS error:", glsData.error || glsData.glsError); }
         } catch (e) { console.error("Error GLS:", e); }
       }
@@ -606,7 +655,7 @@ export default function CheckoutPage() {
         try {
           const dhlRes = await fetch("/api/dhl/crear-envio", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pedidoId: pedidoInsertado.id }) });
           const dhlData = await dhlRes.json();
-          if (dhlData.ok && dhlData.trackingNumber) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, totalSinPorte, fecha, dhlData.trackingNumber);
+          if (dhlData.ok && dhlData.trackingNumber) await generarYGuardarPDFs(pedidoInsertado.id, codigo, nombreProveedor, emailProveedor, proveedorCif, proveedorTelefono, proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia, productosConCantidad, subtotalGrupo, ivaGrupo, impGrupo, totalSinPorte, fecha, dhlData.trackingNumber);
         } catch (e) { console.error("Error DHL:", e); }
       }
       if (emailProveedor) {
@@ -634,7 +683,7 @@ export default function CheckoutPage() {
     <div style={{ background: "rgba(15,23,42,0.98)", borderRadius: 16, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.08)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
         <span>{productos.length} artículo{productos.length !== 1 ? "s" : ""}</span>
-        <span>Sub: {subtotal.toFixed(2)}€{transporte && transporte !== "Mis Medios" ? ` + ${precioTransporte.toFixed(2)}€ porte` : ""} + IVA</span>
+        <span>Sub: {subtotal.toFixed(2)}€{transporte && transporte !== "Mis Medios" ? ` + ${precioTransporte.toFixed(2)}€ porte` : ""}{iva > 0 ? " + " + etiquetaImpuesto.split(" ")[0] : " · " + etiquetaImpuesto}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 13, color: "#94a3b8" }}>Total</span>
@@ -995,7 +1044,8 @@ export default function CheckoutPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#94a3b8" }}><span>Subtotal</span><span>{subtotal.toFixed(2)}€</span></div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#94a3b8" }}><span>Transporte</span><span>{!transporte ? "Pendiente" : transporte === "Mis Medios" ? "Sin coste" : `${precioTransporte.toFixed(2)}€`}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#94a3b8" }}><span>IVA (21%)</span><span>{iva.toFixed(2)}€</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#94a3b8" }}><span>{etiquetaImpuesto}</span><span>{iva.toFixed(2)}€</span></div>
+            {notaImpuesto && <p style={{ color: "#fbbf24", fontSize: 11, lineHeight: 1.5, margin: 0 }}>{notaImpuesto}</p>}
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

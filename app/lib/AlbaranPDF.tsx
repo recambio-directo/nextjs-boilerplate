@@ -89,7 +89,16 @@ export type AlbaranProps = {
   total: number;
   gastosGestion?: number;
   destinatario?: "proveedor" | "taller";
+  // Impuesto del pedido: IVA (por defecto), IGIC o EXENTO
+  impuestoTipo?: string;
+  impuestoEtiqueta?: string;
+  impuestoNota?: string;
 };
+
+// Las fuentes estándar del PDF no llevan tildes: se quitan para no romper el texto
+function sinTildes(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
   rd_pago: "RD Pago (credito plataforma)",
@@ -103,7 +112,15 @@ export function AlbaranPDF({
   proveedorDireccion, proveedorCiudad, proveedorCodigoPostal, proveedorProvincia,
   cliente, clienteEmail, telefono, cif, direccion, ciudad, codigoPostal, provincia,
   agencia, formaPago, productos, subtotal, iva, total, gastosGestion, destinatario,
+  impuestoTipo, impuestoEtiqueta, impuestoNota,
 }: AlbaranProps) {
+  // Solo cambia el albarán cuando el pedido no lleva IVA peninsular (IGIC o exento)
+  const esIva = !impuestoTipo || impuestoTipo === "IVA";
+  const etiquetaImpuestoPDF = esIva
+    ? "IVA piezas (21%)"
+    : impuestoTipo === "IGIC"
+      ? sinTildes(`IGIC piezas (${(impuestoEtiqueta || "IGIC (7%)").replace(/^IGIC\s*/, "").replace(/[()]/g, "") || "7%"})`)
+      : sinTildes(impuestoEtiqueta || "Exento de IVA");
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
     : new Date().toLocaleDateString("es-ES");
@@ -205,7 +222,7 @@ export function AlbaranPDF({
           <Text style={styles.totalValue}>{Number(subtotal).toFixed(2)} EUR</Text>
         </View>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>IVA piezas (21%)</Text>
+          <Text style={styles.totalLabel}>{etiquetaImpuestoPDF}</Text>
           <Text style={styles.totalValue}>{Number(iva).toFixed(2)} EUR</Text>
         </View>
 
@@ -220,6 +237,14 @@ export function AlbaranPDF({
           <Text style={styles.totalFinalLabel}>TOTAL</Text>
           <Text style={styles.totalFinalValue}>{Number(totalFinal).toFixed(2)} EUR</Text>
         </View>
+
+        {!esIva && !!impuestoNota && (
+          <View style={{ backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#93c5fd", padding: 8, marginTop: 6 }}>
+            <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: "#1e3a8a" }}>
+              {sinTildes(impuestoNota)}
+            </Text>
+          </View>
+        )}
 
         {tieneGastosGestion && (
           <View style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a", padding: 8, marginTop: 6 }}>
@@ -333,6 +358,7 @@ export type EtiquetaEnvioProps = {
   subtotal: number;
   iva: number;
   total: number;
+  impuestoTipo?: string;
   // MRW tracking
   numeroEnvio?: string;
   numeroSolicitud?: string;
@@ -352,7 +378,7 @@ export function EtiquetaEnvioPDF({
   cliente, clienteEmail, telefono,
   direccion, ciudad, codigoPostal, provincia,
   agencia, productos, total,
-  numeroEnvio, numeroSolicitud,
+  numeroEnvio, numeroSolicitud, impuestoTipo,
 }: EtiquetaEnvioProps) {
   const fechaFormateada = fecha
     ? new Date(fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -464,7 +490,7 @@ export function EtiquetaEnvioPDF({
           <Text style={etiquetaStyles.pedidoCodigo}>{codigo}</Text>
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Pedido:</Text><Text style={etiquetaStyles.pedidoVal}>{codigo}</Text></View>
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Referencias:</Text><Text style={etiquetaStyles.pedidoVal}>{refResumen}</Text></View>
-          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Importe:</Text><Text style={etiquetaStyles.pedidoVal}>{Number(total).toFixed(2)} EUR (IVA incl.)</Text></View>
+          <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Importe:</Text><Text style={etiquetaStyles.pedidoVal}>{Number(total).toFixed(2)} EUR {impuestoTipo === "IGIC" ? "(IGIC incl.)" : impuestoTipo === "EXENTO" ? "(exento)" : "(IVA incl.)"}</Text></View>
           <View style={etiquetaStyles.pedidoRow}><Text style={etiquetaStyles.pedidoLabel}>Gestionado por:</Text><Text style={etiquetaStyles.pedidoVal}>Recambio Directo — info@recambio-directo.com</Text></View>
         </View>
 
