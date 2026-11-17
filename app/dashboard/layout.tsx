@@ -159,7 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
         {/* Header proveedor con buscador, chat y notificaciones */}
         <header style={{ height: isMobile ? 56 : 72, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 12px" : "0 28px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 999 }}>
-          <Link href="/dashboard/proveedor" style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, textDecoration: "none", color: "white" }}>
+          <Link href="/dashboard/proveedor" scroll={false} onClick={() => window.scrollTo({ top: 0 })} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, textDecoration: "none", color: "white" }}>
             <div style={{ width: isMobile ? 32 : 44, height: isMobile ? 32 : 44, borderRadius: 10, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
               <Image src="/logo.svg" alt="Recambio Directo" width={isMobile ? 24 : 34} height={isMobile ? 24 : 34} priority />
             </div>
@@ -243,7 +243,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <header style={{ height: isMobile ? 60 : 90, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 34px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 999 }}>
 
-        <Link href={logoHref} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 16, textDecoration: "none", color: "white" }}>
+        <Link href={logoHref} scroll={false} onClick={() => window.scrollTo({ top: 0 })} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 16, textDecoration: "none", color: "white" }}>
           <div style={{ width: isMobile ? 36 : 54, height: isMobile ? 36 : 54, borderRadius: 12, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
             <Image src="/logo.svg" alt="Recambio Directo" width={isMobile ? 28 : 42} height={isMobile ? 28 : 42} priority />
           </div>
