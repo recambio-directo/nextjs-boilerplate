@@ -10,6 +10,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 type Producto = {
@@ -46,6 +47,8 @@ export default function AsistentePanel() {
   const [disponible, setDisponible] = useState(true);
   const [anadidos, setAnadidos] = useState<Record<string, "ok" | "error" | "cargando">>({});
   const [movil, setMovil] = useState(false);
+  const [cesta, setCesta] = useState<{ unidades: number; total: number }>({ unidades: 0, total: 0 });
+  const [recienAnadida, setRecienAnadida] = useState(false);
   const finRef = useRef<HTMLDivElement>(null);
   const entradaRef = useRef<HTMLTextAreaElement>(null);
   const cargadoRef = useRef(false);
@@ -91,8 +94,23 @@ export default function AsistentePanel() {
     return data.session?.access_token || null;
   }
 
+  // Resumen de la cesta del usuario (lo mismo que ve en /checkout)
+  async function cargarCesta() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("cesta").select("precio, impuesto, cantidad").eq("user_id", user.id);
+      const filas = data || [];
+      setCesta({
+        unidades: filas.reduce((n: number, f: any) => n + (Number(f.cantidad) || 1), 0),
+        total: filas.reduce((n: number, f: any) => n + (Number(f.precio || 0) + Number(f.impuesto || 0)) * (Number(f.cantidad) || 1), 0),
+      });
+    } catch {}
+  }
+
   async function abrir() {
     setAbierto(true);
+    cargarCesta();
     setTimeout(() => entradaRef.current?.focus(), 50);
     if (cargadoRef.current) return;
     cargadoRef.current = true;
@@ -164,6 +182,11 @@ export default function AsistentePanel() {
       proveedor_nombre: p.proveedor_nombre,
     });
     setAnadidos((a) => ({ ...a, [p.id]: error ? "error" : "ok" }));
+    if (!error) {
+      await cargarCesta();
+      setRecienAnadida(true);
+      setTimeout(() => setRecienAnadida(false), 2500);
+    }
   }
 
   // ── Botón flotante ────────────────────────────────────────────────
@@ -212,6 +235,13 @@ export default function AsistentePanel() {
             {restantes !== null ? `Te quedan ${restantes} consultas hoy` : "Solo stock real de la plataforma"}
           </p>
         </div>
+        <Link href="/checkout" onClick={() => setAbierto(false)} aria-label={`Ver la cesta (${cesta.unidades} piezas)`}
+          style={{ position: "relative", width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", textDecoration: "none" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 7H6" /></svg>
+          {cesta.unidades > 0 && (
+            <span style={{ position: "absolute", top: -6, right: -6, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 999, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{cesta.unidades}</span>
+          )}
+        </Link>
         {mensajes.length > 0 && (
           <button type="button" onClick={nuevaConsulta} style={{ background: "transparent", border: "1px solid #334155", color: "#cbd5e1", borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer", minHeight: 36 }}>
             Nueva consulta
@@ -288,6 +318,11 @@ export default function AsistentePanel() {
                           style={{ border: "none", borderRadius: 10, padding: "10px 12px", minHeight: 44, cursor: estado === "ok" ? "default" : "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", color: "#fff", background: estado === "ok" ? "#14532d" : estado === "error" ? "#7f1d1d" : "#16a34a" }}>
                           {estado === "ok" ? "Añadida a la cesta ✓" : estado === "cargando" ? "Añadiendo…" : estado === "error" ? "No se pudo añadir · reintentar" : "Añadir a la cesta"}
                         </button>
+                        {estado === "ok" && (
+                          <Link href="/checkout" onClick={() => setAbierto(false)} style={{ textAlign: "center", fontSize: 13, fontWeight: 700, color: "#86efac", textDecoration: "none", padding: "4px 0" }}>
+                            Ir a la cesta y tramitar el pedido →
+                          </Link>
+                        )}
                       </div>
                     );
                   })}
@@ -305,6 +340,22 @@ export default function AsistentePanel() {
         )}
         <div ref={finRef} />
       </div>
+
+      {/* Barra de cesta: siempre visible cuando hay piezas */}
+      {cesta.unidades > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: recienAnadida ? "#14532d" : "#052e1a", borderTop: "1px solid #166534", transition: "background 0.4s" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#fff" }}>
+              {recienAnadida ? "¡Añadida! " : ""}{cesta.unidades} {cesta.unidades === 1 ? "pieza" : "piezas"} en tu cesta
+            </p>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#86efac" }}>{euros(cesta.total)} sin IVA ni portes</p>
+          </div>
+          <Link href="/checkout" onClick={() => setAbierto(false)}
+            style={{ flexShrink: 0, background: "#16a34a", color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 13, borderRadius: 10, padding: "12px 14px", minHeight: 44, display: "flex", alignItems: "center" }}>
+            Ver cesta y pedir →
+          </Link>
+        </div>
+      )}
 
       {/* Entrada */}
       <div style={{ padding: 12, borderTop: "1px solid #1e293b", background: "#020617" }}>
