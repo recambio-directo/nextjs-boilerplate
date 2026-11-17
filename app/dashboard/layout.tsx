@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import AsistentePanel from "../asistente/AsistentePanel";
 
 const SONIDO_NOTIF = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=";
 
@@ -367,6 +368,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
       )}
+
+      {/* Asistente de recambios (módulo aislado en app/asistente) */}
+      <AsistentePanel />
     </div>
   );
 }
