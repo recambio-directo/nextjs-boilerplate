@@ -58,6 +58,14 @@ export default function AsistentePanel() {
     return () => window.removeEventListener("resize", comprobar);
   }, []);
 
+  // Otras pantallas (p. ej. el banner del inicio) pueden abrir el panel con este evento
+  useEffect(() => {
+    const alAbrir = () => { abrir(); };
+    window.addEventListener("rd-abrir-asistente", alAbrir);
+    return () => window.removeEventListener("rd-abrir-asistente", alAbrir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Recuperar la conversación de esta pestaña
   useEffect(() => {
     try {
@@ -319,7 +327,7 @@ export default function AsistentePanel() {
           </button>
         </form>
         <p style={{ margin: "8px 2px 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
-          Solo usa TecDoc y el stock publicado en Recambio Directo. Nada va a la cesta sin que lo pulses tú. Los diagnósticos son orientativos: verifica siempre en el vehículo.
+          Solo usa el catálogo de recambios y el stock publicado en Recambio Directo. Nada va a la cesta sin que lo pulses tú. Los diagnósticos son orientativos: verifica siempre en el vehículo.
         </p>
       </div>
     </div>

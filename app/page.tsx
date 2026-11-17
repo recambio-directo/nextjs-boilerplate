@@ -94,6 +94,51 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── ASISTENTE DE RECAMBIOS (novedad) ── */}
+      <section className="landing-section" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="landing-grid-2" style={{ alignItems: "center", gap: 40 }}>
+          <div>
+            <div style={{ ...badgeStyle, background: "rgba(22,163,74,0.18)", border: "1px solid rgba(22,163,74,0.35)", color: "#86efac" }}>NUEVO · ASISTENTE DE RECAMBIOS</div>
+            <h2 style={{ fontSize: 44, fontWeight: 900, marginBottom: 16, lineHeight: 1.1 }}>Tu recambista con IA, dentro de la plataforma</h2>
+            <p style={{ color: "#94a3b8", fontSize: 17, lineHeight: 1.7, marginBottom: 20 }}>
+              Escríbele como le hablarías al mostrador: la matrícula y lo que necesitas. Te enseña las piezas compatibles que hay en stock, con precio y proveedor, listas para añadir a la cesta.
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {["Busca por matrícula, bastidor o referencia OEM e IAM", "Encuentra equivalencias con stock real de proveedores", "Te orienta con averías y códigos de error (P0401, P0300…)", "Incluido gratis para talleres registrados"].map(item => (
+                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 16, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ color: "#cbd5e1", fontSize: 15 }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <a href="/registro" style={{ display: "inline-flex", alignItems: "center", padding: "16px 28px", background: "linear-gradient(135deg,#16a34a,#15803d)", color: "white", borderRadius: 14, fontSize: 16, fontWeight: 800, textDecoration: "none" }}>Crear cuenta y probarlo →</a>
+              <a href="#acceso" style={{ display: "inline-flex", alignItems: "center", padding: "16px 24px", border: "1px solid rgba(255,255,255,0.15)", color: "#e2e8f0", borderRadius: 14, fontSize: 16, fontWeight: 700, textDecoration: "none" }}>Ya tengo cuenta</a>
+            </div>
+          </div>
+
+          <div aria-label="Ejemplo de conversación con el asistente" style={{ background: "#0b1736", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 24, padding: 24, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(2,6,23,0.6)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 800, fontSize: 15 }}>Asistente de recambios</span>
+              <span style={{ fontSize: 11, color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "3px 10px" }}>Ejemplo</span>
+            </div>
+            <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "#1d4ed8", padding: "10px 14px", borderRadius: "16px 16px 4px 16px", fontSize: 14 }}>1234 ABC, pastillas de freno delanteras</div>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 12px" }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Volkswagen Golf VII 1.6 TDI</p>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Diésel · 110 CV</p>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "#cbd5e1" }}>Tengo pastillas delanteras compatibles en stock de varios proveedores. Te las ordeno por precio:</p>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Pastillas de freno · eje delantero</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Proveedor de tu zona · en stock</p>
+              </div>
+              <span style={{ background: "#16a34a", borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>Añadir a la cesta</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── PARA TALLERES Y PROVEEDORES ── */}
       <section className="landing-section">
         <div style={{ textAlign: "center", marginBottom: 56 }}>

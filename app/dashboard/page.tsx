@@ -22,7 +22,10 @@ export default function Dashboard() {
   const [telefono, setTelefono] = useState("");
   const [iban, setIban] = useState("");
   const [slideActual, setSlideActual] = useState(0);
-  const totalSlides = 3;
+  // Banner del asistente: se muestra hasta esta fecha (cámbiala para alargarlo o quitarlo)
+  const mostrarPromoAsistente = new Date() <= new Date("2026-12-31T23:59:59");
+  const totalSlides = mostrarPromoAsistente ? 4 : 3;
+  const abrirAsistente = (e: React.MouseEvent) => { e.preventDefault(); window.dispatchEvent(new Event("rd-abrir-asistente")); };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -305,11 +308,12 @@ export default function Dashboard() {
       {/* CARRUSEL MÓVIL */}
       <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
         {[
+          ...(mostrarPromoAsistente ? [{ bg: "linear-gradient(135deg,#0b1736 0%,#1d4ed8 100%)", badge: "🤖 NUEVO · ASISTENTE", badgeColor: "#86efac", titulo: "Tu recambista con IA", sub: "Matrícula → piezas en stock al momento", href: "#asistente" }] : []),
           { bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop') center/cover", badge: "MARKETPLACE PROFESIONAL", badgeColor: "#60a5fa", titulo: nombreEmpresa ? `Hola, ${nombreEmpresa.split(" ")[0]}` : "Bienvenido", sub: "Busca OEM, IAM y equivalencias", href: "/dashboard/buscar" },
           { bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=800&auto=format&fit=crop') center/cover", badge: "🆕 NUEVO", badgeColor: "#4ade80", titulo: "Catálogo Vehículos", sub: "Matrícula → piezas compatibles", href: "/dashboard/vehiculo" },
           { bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800&auto=format&fit=crop') center/cover", badge: "📚 CATÁLOGOS", badgeColor: "#fbbf24", titulo: "Catálogos Proveedores", sub: "Referencias y stock al instante", href: "/dashboard/catalogos" },
         ].map((s, i) => (
-          <Link key={i} href={s.href} style={{
+          <Link key={i} href={s.href} onClick={s.href === "#asistente" ? abrirAsistente : undefined} style={{
             position: "absolute", inset: 0, background: s.bg, display: "flex", alignItems: "flex-end", padding: "20px 16px",
             textDecoration: "none", color: "white",
             opacity: slideActual === i ? 1 : 0, transition: "opacity 0.8s ease-in-out",
@@ -324,8 +328,8 @@ export default function Dashboard() {
           </Link>
         ))}
         <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
-          {[0, 1, 2].map(i => (
-            <button key={i} onClick={() => setSlideActual(i)} style={{ width: slideActual === i ? 24 : 8, height: 8, borderRadius: 4, border: "none", background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "all 0.3s" }} />
+          {Array.from({ length: totalSlides }, (_, i) => i).map(i => (
+            <button key={i} aria-label={`Ver banner ${i + 1}`} onClick={() => setSlideActual(i)} style={{ width: slideActual === i ? 24 : 8, height: 8, borderRadius: 4, border: "none", background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "all 0.3s" }} />
           ))}
         </div>
       </div>
@@ -438,6 +442,19 @@ export default function Dashboard() {
         {/* ═══ CARRUSEL HERO ═══ */}
         <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
           {[
+            ...(mostrarPromoAsistente ? [{
+              bg: "linear-gradient(120deg,#020617 0%,#0b1736 45%,#1d4ed8 100%)",
+              overlay: "radial-gradient(circle at 85% 30%,rgba(34,197,94,0.18),transparent 45%)",
+              badge: "🤖 NUEVO · ASISTENTE DE RECAMBIOS",
+              badgeColor: "#86efac",
+              badgeBg: "rgba(22,163,74,0.18)",
+              badgeBorder: "rgba(22,163,74,0.35)",
+              titulo: "TU RECAMBISTA\nCON IA",
+              subtitulo: "Dile la matrícula y lo que necesitas: te enseña las piezas compatibles con stock y precio, listas para la cesta. También te orienta con averías y códigos de error.",
+              href: "#asistente",
+              boton: "Probar el asistente →",
+              botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
+            }] : []),
             {
               bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover",
               overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))",
@@ -481,6 +498,7 @@ export default function Dashboard() {
             <Link
               key={i}
               href={slide.href}
+              onClick={slide.href === "#asistente" ? abrirAsistente : undefined}
               style={{
                 position: "absolute", inset: 0,
                 background: slide.bg,
@@ -502,9 +520,10 @@ export default function Dashboard() {
           ))}
           {/* Dots de navegación */}
           <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10, zIndex: 10 }}>
-            {[0, 1, 2].map((i) => (
+            {Array.from({ length: totalSlides }, (_, i) => i).map((i) => (
               <button
                 key={i}
+                aria-label={`Ver banner ${i + 1}`}
                 onClick={(e) => { e.preventDefault(); setSlideActual(i); }}
                 style={{
                   width: slideActual === i ? 32 : 10, height: 10, borderRadius: 5, border: "none",
