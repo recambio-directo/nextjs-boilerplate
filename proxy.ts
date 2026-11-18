@@ -5,6 +5,12 @@
 //  · Todo lo demás: exige la sesión de Supabase del usuario (Authorization: Bearer <token>).
 // Las rutas reciben el usuario verificado en la cabecera x-rd-user-id (nunca la que mande el navegador).
 import { NextResponse, type NextRequest } from "next/server";
+import { createHmac } from "crypto";
+
+// Firma las cabeceras internas: aunque alguien se saltara este portero, no podría falsificarlas
+function firmar(valor: string): string {
+  return createHmac("sha256", process.env.CRON_SECRET || "").update(valor).digest("hex");
+}
 
 // Rutas que cualquiera puede llamar (tienen su propia protección o no exponen nada)
 const PUBLICAS = [
@@ -61,6 +67,7 @@ export async function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.delete("x-rd-user-id");
   headers.delete("x-rd-interno");
+  headers.delete("x-rd-firma");
 
   if (empiezaPor(path, PUBLICAS)) {
     return NextResponse.next({ request: { headers } });
@@ -72,6 +79,7 @@ export async function proxy(request: NextRequest) {
   // Crons de Vercel y llamadas internas entre rutas
   if (secreto && (auth === `Bearer ${secreto}` || request.headers.get("x-rd-key") === secreto)) {
     headers.set("x-rd-interno", "1");
+    headers.set("x-rd-firma", firmar("interno"));
     return NextResponse.next({ request: { headers } });
   }
 
@@ -80,6 +88,7 @@ export async function proxy(request: NextRequest) {
     const id = await usuarioDelToken(auth.slice(7).trim());
     if (id) {
       headers.set("x-rd-user-id", id);
+      headers.set("x-rd-firma", firmar(`user:${id}`));
       return NextResponse.next({ request: { headers } });
     }
   }

@@ -2,15 +2,23 @@
 // Comprobaciones de acceso para las rutas de la API (servidor).
 // El usuario lo verifica proxy.ts y llega en la cabecera x-rd-user-id.
 import { sbAdmin } from "@/app/lib/envios";
+import { createHmac, timingSafeEqual } from "crypto";
 
 export type Quien = { interno: boolean; userId: string | null };
 
 /** Quién hace la llamada: interna (cron / otra ruta) o un usuario con sesión. */
 export function quienLlama(request: Request): Quien {
-  return {
-    interno: request.headers.get("x-rd-interno") === "1",
-    userId: request.headers.get("x-rd-user-id"),
+  // Las cabeceras las pone proxy.ts firmadas con CRON_SECRET; si la firma no cuadra, no se aceptan
+  const secreto = process.env.CRON_SECRET || "";
+  const firma = request.headers.get("x-rd-firma") || "";
+  const valida = (valor: string) => {
+    if (!secreto || !firma) return false;
+    const esperada = createHmac("sha256", secreto).update(valor).digest("hex");
+    return esperada.length === firma.length && timingSafeEqual(Buffer.from(esperada), Buffer.from(firma));
   };
+  const interno = request.headers.get("x-rd-interno") === "1" && valida("interno");
+  const id = request.headers.get("x-rd-user-id");
+  return { interno, userId: id && valida(`user:${id}`) ? id : null };
 }
 
 /** Cabecera que hay que añadir cuando una ruta llama a otra ruta de /api. */
