@@ -855,7 +855,7 @@ export default function ProveedorDashboard() {
 
   /* Desktop */
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0a1a", color: "white" }}>
+    <div style={{ display: "flex", height: "calc(100dvh - 72px)", background: "#0a0a1a", color: "white", overflow: "hidden" }}>
       {/* Sidebar */}
       <aside style={S.sidebar}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
