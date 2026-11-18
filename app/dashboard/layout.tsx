@@ -3,9 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import AsistentePanel from "../asistente/AsistentePanel";
+
+// Guarda en la pestaña el tipo de usuario y los datos del menú lateral para que,
+// al cambiar de página, el marco se pinte al instante (sin pantallazo azul mientras carga).
+const CACHE_MARCO = "rd_marco_v1";
 
 const SONIDO_NOTIF = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhS0lrlrarlX9oYWBslqOqp5h6ZVZPVXOQoKSdj3tiU0lFTWmGmZ6bko9/cWZeW2B0i5uhoJqQfmpZTUVGVXCJm52YkY57bWVha3yPn6Cclol0X1FJSFhxipmcmJCLfm5oZmpzhJWdoJuSiXtpWU9KUGqDlpuamJGKfG9pampyhJOamJeUjYF1amFcXGVzmJqZmJWPh3tvaWdpb3iKmJmYlpGMg3lyb3BzeouYmpiVkYuFfHZ0dnx/iZSXl5WTj4mCfnx8fX+Bh5GWl5aUkY2Hg4GAfn1+goiOk5WVlJKPi4eDgH59fX+ChouPlJWUk5CMinZ=";
 
@@ -31,6 +35,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Antes de pintar: si ya conocemos al usuario de esta pestaña, mostramos el marco directamente
+  useLayoutEffect(() => {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CACHE_MARCO) || "null");
+      if (c?.tipo) {
+        setTipoUsuario(c.tipo);
+        setFacturacionTotal(Number(c.facturacion) || 0);
+        setPedidosTotales(Number(c.pedidos) || 0);
+        setPerfilCargado(true);
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -59,16 +76,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     userIdRef.current = user.id;
     cargarCesta(user.id);
     suscribirCesta(user.id);
-    await cargarNotificaciones(user.id);
+    // Primero el tipo de usuario (decide qué marco se pinta); las notificaciones después
     const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
-    if (perfil?.tipo) setTipoUsuario(perfil.tipo);
+    setTipoUsuario(perfil?.tipo || null);
     setPerfilCargado(true);
+    let facturacion = 0, numPedidos = 0;
     // Datos del menú lateral del taller (antes solo los calculaba el Inicio)
     if (perfil?.tipo === "taller" && user.email) {
       const { data: peds } = await supabase.from("pedidos").select("total").eq("cliente_email", user.email);
-      setPedidosTotales(peds?.length || 0);
-      setFacturacionTotal((peds || []).reduce((acc: number, p: any) => acc + (Number(p.total) || 0), 0));
+      numPedidos = peds?.length || 0;
+      facturacion = (peds || []).reduce((acc: number, p: any) => acc + (Number(p.total) || 0), 0);
+      setPedidosTotales(numPedidos);
+      setFacturacionTotal(facturacion);
     }
+    try { sessionStorage.setItem(CACHE_MARCO, JSON.stringify({ tipo: perfil?.tipo || null, facturacion, pedidos: numPedidos })); } catch {}
+    await cargarNotificaciones(user.id);
     suscribirRealtime(user.id);
   }
 
@@ -152,6 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   async function cerrarSesion() {
+    try { sessionStorage.removeItem(CACHE_MARCO); } catch {}
     await supabase.auth.signOut();
     location.href = "/";
   }
