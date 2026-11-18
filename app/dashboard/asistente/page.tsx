@@ -302,7 +302,7 @@ export default function AsistentePage() {
   /*  RENDER                                                       */
   /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit" }}>
+    <div style={{ display: "flex", height: "calc(100dvh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit", overflow: "hidden" }}>
 
       {/* ── Sidebar: historial ────────────────────────────────── */}
       {(!isMobile || sidebarAbierta) && (
@@ -313,12 +313,9 @@ export default function AsistentePage() {
           borderRight: "1px solid #1e293b",
           display: "flex",
           flexDirection: "column",
-          position: isMobile ? "fixed" : "sticky",
-          top: isMobile ? 72 : 90,
-          height: isMobile ? undefined : "calc(100vh - 90px)",
+          position: isMobile ? "fixed" : "relative",
           inset: isMobile ? "72px 0 0 0" : undefined,
           zIndex: isMobile ? 100 : undefined,
-          alignSelf: "flex-start",
         }}>
           <div style={{ padding: "16px 14px", borderBottom: "1px solid #1e293b" }}>
             <button
