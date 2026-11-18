@@ -399,7 +399,7 @@ function ChatPageInner() {
 
   /* ── DESKTOP ── */
   return (
-    <div style={{ height: "100vh", background: "#020b2d", color: "white", overflow: "hidden", display: "flex" }}>
+    <div style={{ height: "calc(100dvh - var(--rd-alto-cabecera, 0px))", background: "#020b2d", color: "white", overflow: "hidden", display: "flex" }}>
       {modalVisor}
       {/* SIDEBAR */}
       <aside style={{ width: 360, background: "#0a1628", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
@@ -537,4 +537,4 @@ export default function ChatPage() {
       <ChatPageInner />
     </Suspense>
   );
-}
+}

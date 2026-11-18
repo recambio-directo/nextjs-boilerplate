@@ -292,19 +292,21 @@ export default function Devoluciones() {
   }
 
   return (
-    <main style={{ padding: isMobile ? "12px" : "clamp(16px,4vw,40px)", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
-      <div style={{ marginBottom: isMobile ? 16 : 24 }}>
-        <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>PANEL TALLER</div>
+    <main style={{ padding: isMobile ? "12px" : "20px 28px", minHeight: isMobile ? "100vh" : "calc(100dvh - 90px)", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
+      {/* Título, pestañas y filtros: fijos arriba en escritorio; solo baja la lista */}
+      <div style={isMobile ? undefined : { position: "sticky", top: 90, zIndex: 40, background: "#020617", margin: "-20px -28px 0", padding: "16px 28px 4px", boxShadow: "0 10px 20px -12px rgba(0,0,0,0.8)" }}>
+      <div style={{ marginBottom: isMobile ? 16 : 14 }}>
+        <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "4px 12px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>PANEL TALLER</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 style={{ fontSize: isMobile ? 28 : "clamp(28px,6vw,52px)", fontWeight: 900, lineHeight: 1 }}>DEVOLUCIONES</h1>
+          <h1 style={{ fontSize: isMobile ? 28 : 34, fontWeight: 900, lineHeight: 1 }}>DEVOLUCIONES</h1>
           <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "14px 20px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "8px 18px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
               <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 2 }}>ENVIADAS</p>
-              <h2 style={{ fontSize: isMobile ? 20 : 32, fontWeight: 900, margin: 0 }}>{enviadas.length}</h2>
+              <h2 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, margin: 0 }}>{enviadas.length}</h2>
             </div>
-            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "14px 20px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+            <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 14, padding: isMobile ? "10px 14px" : "8px 18px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
               <p style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 2 }}>RECIBIDAS</p>
-              <h2 style={{ fontSize: isMobile ? 20 : 32, fontWeight: 900, margin: 0, color: recibidas.length > 0 ? "#22c55e" : "white" }}>{recibidas.length}</h2>
+              <h2 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, margin: 0, color: recibidas.length > 0 ? "#22c55e" : "white" }}>{recibidas.length}</h2>
             </div>
           </div>
         </div>
@@ -320,7 +322,7 @@ export default function Devoluciones() {
         {pendientesAccion > 0 && <strong style={{ marginLeft: 8, color: "#fbbf24" }}>⚡ {pendientesAccion} pendiente{pendientesAccion !== 1 ? "s" : ""} de acción</strong>}
       </div>
 
-      <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 14 : 20, padding: isMobile ? "14px" : "20px 24px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: isMobile ? 14 : 16, padding: isMobile ? "14px" : "12px 16px", marginBottom: isMobile ? 16 : 12, border: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 8 }}>
         <div style={{ display: "flex", alignItems: "center", background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "0 12px", height: 42 }}>
           <span style={{ marginRight: 8 }}>🔍</span>
           <input placeholder="Buscar devolución, pedido o referencia..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ flex: 1, background: "transparent", border: "none", color: "white", fontSize: 14, outline: "none" }} />
@@ -332,6 +334,8 @@ export default function Devoluciones() {
             <button key={key} onClick={() => setFiltroEstado(key)} style={{ padding: "6px 12px", borderRadius: 999, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", flexShrink: 0, background: filtroEstado === key ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.05)", border: filtroEstado === key ? "none" : "1px solid rgba(255,255,255,0.08)", color: filtroEstado === key ? "white" : "#94a3b8" }}>{info.emoji} ({contadores[key]})</button>
           ))}
         </div>
+      </div>
+
       </div>
 
       {devoluciones.length === 0 && (
@@ -459,4 +463,4 @@ export default function Devoluciones() {
       )}
     </main>
   );
-}
+}

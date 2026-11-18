@@ -7,6 +7,13 @@ export default function MisPiezasPage() {
   const [piezas, setPiezas] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreEmpresa, setNombreEmpresa] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [cargando, setCargando] = useState(true);
   const [seccion, setSeccion] = useState<"lista" | "publicar">("lista");
   const [guardando, setGuardando] = useState(false);
@@ -134,8 +141,10 @@ export default function MisPiezasPage() {
   });
 
   return (
-    <main style={mainStyle}>
+    <main style={isMobile ? { ...mainStyle, padding: "16px 12px", minHeight: "100vh" } : mainStyle}>
 
+      {/* Título, aviso y pestañas: fijos arriba; solo baja la lista o el formulario */}
+      <div style={isMobile ? undefined : cabeceraFija}>
       <div style={topHeader}>
         <div>
           <div style={badgeStyle}>MI TALLER</div>
@@ -163,6 +172,7 @@ export default function MisPiezasPage() {
         <button onClick={() => setSeccion("publicar")} style={seccion === "publicar" ? tabActive : tabInactive}>
           ➕ Publicar pieza
         </button>
+      </div>
       </div>
 
       {/* ===== LISTA ===== */}
@@ -372,38 +382,39 @@ export default function MisPiezasPage() {
 }
 
 /* STYLES */
-const mainStyle = { padding: "50px", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" };
-const topHeader = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 };
-const badgeStyle = { display: "inline-block", padding: "10px 18px", borderRadius: "999px", background: "rgba(139,92,246,0.18)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.3)", marginBottom: "16px", fontWeight: 700 };
-const titleStyle = { fontSize: "60px", fontWeight: 900, lineHeight: 1, marginBottom: "16px" };
-const subtitleStyle = { color: "#94a3b8", fontSize: "18px", maxWidth: "600px", lineHeight: 1.7 };
-const statsBox = { background: "rgba(15,23,42,0.92)", borderRadius: "24px", padding: "24px 32px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const };
-const statsLabel = { color: "#94a3b8", marginBottom: "10px", fontSize: 13, fontWeight: 700 };
-const statsValue = { fontSize: "48px", fontWeight: 900 };
-const avisoBox = { display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 16, padding: "16px 20px", marginBottom: 28, color: "#c4b5fd" };
-const tabsContainer = { display: "flex", gap: 0, marginBottom: 28, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" };
-const tabActive = { padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", fontWeight: 800, cursor: "pointer", fontSize: 15 };
-const tabInactive = { padding: "12px 28px", borderRadius: 10, background: "transparent", border: "none", color: "#94a3b8", fontWeight: 700, cursor: "pointer", fontSize: 15 };
+const mainStyle = { padding: "20px 28px", minHeight: "calc(100dvh - 90px)", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" };
+const cabeceraFija = { position: "sticky" as const, top: 90, zIndex: 40, background: "#020617", margin: "-20px -28px 0", padding: "16px 28px 4px", boxShadow: "0 10px 20px -12px rgba(0,0,0,0.8)" };
+const topHeader = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 };
+const badgeStyle = { display: "inline-block", padding: "4px 12px", borderRadius: "999px", background: "rgba(139,92,246,0.18)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.3)", marginBottom: "8px", fontWeight: 700, fontSize: 11 };
+const titleStyle = { fontSize: "34px", fontWeight: 900, lineHeight: 1, marginBottom: "6px" };
+const subtitleStyle = { color: "#94a3b8", fontSize: "14px", maxWidth: "600px", lineHeight: 1.5 };
+const statsBox = { background: "rgba(15,23,42,0.92)", borderRadius: "14px", padding: "8px 18px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" as const };
+const statsLabel = { color: "#94a3b8", marginBottom: "2px", fontSize: 10, fontWeight: 700 };
+const statsValue = { fontSize: "24px", fontWeight: 900 };
+const avisoBox = { display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 14, padding: "10px 16px", marginBottom: 12, color: "#c4b5fd" };
+const tabsContainer = { display: "flex", gap: 0, marginBottom: 12, background: "rgba(15,23,42,0.95)", borderRadius: 14, padding: 5, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" };
+const tabActive = { padding: "9px 20px", borderRadius: 10, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", color: "white", fontWeight: 800, cursor: "pointer", fontSize: 14 };
+const tabInactive = { padding: "9px 20px", borderRadius: 10, background: "transparent", border: "none", color: "#94a3b8", fontWeight: 700, cursor: "pointer", fontSize: 14 };
 const successBanner = { background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#4ade80", padding: "16px 24px", borderRadius: 16, marginBottom: 24, fontWeight: 700 };
-const emptyState = { textAlign: "center" as const, padding: "80px 0" };
-const searchBox = { display: "flex", alignItems: "center", background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "0 16px", height: 52, marginBottom: 20, maxWidth: 500 };
+const emptyState = { textAlign: "center" as const, padding: "40px 0" };
+const searchBox = { display: "flex", alignItems: "center", background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "0 14px", height: 42, marginBottom: 12, maxWidth: 500 };
 const searchInput = { flex: 1, background: "transparent", border: "none", color: "white", fontSize: 15, outline: "none" };
 const btnLimpiar = { background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 };
-const tableContainer = { background: "rgba(15,23,42,0.95)", borderRadius: 24, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" };
+const tableContainer = { background: "rgba(15,23,42,0.95)", borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" };
 const tableStyle = { width: "100%", borderCollapse: "collapse" as const };
-const thStyle = { padding: "16px 20px", textAlign: "left" as const, color: "#94a3b8", fontSize: 12, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" };
+const thStyle = { padding: "10px 16px", textAlign: "left" as const, color: "#94a3b8", fontSize: 12, fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" };
 const trStyle = { borderBottom: "1px solid rgba(255,255,255,0.04)" };
-const tdStyle = { padding: "16px 20px", fontSize: 15 };
+const tdStyle = { padding: "10px 16px", fontSize: 14 };
 const stockBadge = { background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontWeight: 700, fontSize: 13 };
 const miniInput = { background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "6px 10px", width: 80, fontSize: 14, outline: "none" };
 const btnEditar = { background: "rgba(37,99,235,0.2)", color: "#60a5fa", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, marginRight: 8 };
 const btnGuardar = { background: "rgba(22,163,74,0.2)", color: "#4ade80", border: "none", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, marginRight: 8 };
 const btnEliminar = { background: "rgba(239,68,68,0.15)", color: "#f87171", border: "none", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontSize: 13 };
-const formCard = { background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 28, padding: "40px", maxWidth: 800 };
-const formGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 };
-const formLabel = { color: "#94a3b8", fontSize: 14, marginBottom: 10 };
-const formInput = { width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "16px 18px", fontSize: 15, outline: "none", boxSizing: "border-box" as const };
-const selectInput = { width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "16px 18px", fontSize: 15, outline: "none", boxSizing: "border-box" as const, cursor: "pointer" };
+const formCard = { background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, padding: "24px", maxWidth: 800 };
+const formGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 };
+const formLabel = { color: "#94a3b8", fontSize: 13, marginBottom: 6 };
+const formInput = { width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" as const };
+const selectInput = { width: "100%", background: "#020617", color: "white", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "12px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" as const, cursor: "pointer" };
 const motivoBtn = { padding: "12px 20px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14 };
-const btnPublicar = { background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "18px 32px", borderRadius: 16, fontWeight: 900, cursor: "pointer", fontSize: 16 };
-const btnCancelar = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "18px 28px", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15 };
+const btnPublicar = { background: "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: "14px 26px", borderRadius: 14, fontWeight: 900, cursor: "pointer", fontSize: 15 };
+const btnCancelar = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", padding: "18px 28px", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: 15 };

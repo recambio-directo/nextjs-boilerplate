@@ -414,7 +414,7 @@ function BuscarPageInner() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: isMobile ? "16px 12px" : "clamp(16px,4vw,40px)" }}>
+    <main style={{ minHeight: isMobile ? "100vh" : "calc(100dvh - 90px)", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: isMobile ? "16px 12px" : "20px 28px" }}>
 
       {contactoModal && (
         <div onClick={() => setContactoModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -463,8 +463,8 @@ function BuscarPageInner() {
 
       <div style={{ maxWidth: 1700, margin: "0 auto" }}>
         <div style={{ marginBottom: isMobile ? 14 : 20 }}>
-          <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "8px 16px", borderRadius: 999, background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: 8, fontSize: isMobile ? 11 : 13 }}>MARKETPLACE B2B</div>
-          <h1 style={{ fontSize: isMobile ? "18px" : "clamp(18px,3vw,32px)", fontWeight: 900, marginBottom: 4, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
+          <div style={{ display: "inline-block", padding: isMobile ? "6px 14px" : "4px 12px", borderRadius: 999, background: "rgba(37,99,235,0.15)", color: "#60a5fa", fontWeight: 700, marginBottom: 8, fontSize: isMobile ? 11 : 11 }}>MARKETPLACE B2B</div>
+          <h1 style={{ fontSize: isMobile ? "18px" : 34, fontWeight: 900, marginBottom: 4, lineHeight: 1 }}>{q || "BUSCAR"}</h1>
         </div>
 
         {renderTabs()}

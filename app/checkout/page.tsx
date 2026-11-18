@@ -870,14 +870,14 @@ export default function CheckoutPage() {
 
   /* ── DESKTOP ── */
   return (
-    <main style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 400px", gap: 32, padding: 40, background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", alignItems: "start" }}>
+    <main style={{ minHeight: "calc(100dvh - var(--rd-alto-cabecera, 0px))", display: "grid", gridTemplateColumns: "1fr 400px", gap: 20, padding: "20px 28px", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", alignItems: "start" }}>
       {mostrarModalRD && <ModalRDPago />}
 
       <section>
-        <h1 style={{ fontSize: 56, fontWeight: 900, lineHeight: 1, marginBottom: 32 }}>FINALIZAR PEDIDO</h1>
+        <h1 style={{ fontSize: 34, fontWeight: 900, lineHeight: 1, marginBottom: 16 }}>FINALIZAR PEDIDO</h1>
 
         {/* Stepper desktop */}
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 32, gap: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 0 }}>
           {[{ n: 1, label: "Datos de entrega" }, { n: 2, label: "Peso" }, { n: 3, label: "Transporte" }, { n: 4, label: "Forma de pago" }].map(({ n, label }, i) => (
             <React.Fragment key={n}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
@@ -1001,7 +1001,7 @@ export default function CheckoutPage() {
       </section>
 
       {/* ASIDE DERECHO desktop */}
-      <aside style={{ position: "sticky", top: 40 }}>
+      <aside style={{ position: "sticky", top: "calc(var(--rd-alto-cabecera, 0px) + 20px)" }}>
         <div style={{ background: "rgba(15,23,42,0.95)", borderRadius: 28, padding: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
           <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 20 }}>RESUMEN</h2>
           {productos.length === 0 ? (

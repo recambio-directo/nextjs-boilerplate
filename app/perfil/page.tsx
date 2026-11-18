@@ -132,12 +132,12 @@ export default function PerfilPage() {
   const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: m ? 10 : 16 };
 
   return (
-    <main style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: m ? "12px 12px 80px" : "clamp(16px,4vw,40px)" }}>
+    <main style={{ minHeight: m ? "100vh" : "calc(100dvh - var(--rd-alto-cabecera, 0px))", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: m ? "12px 12px 80px" : "20px 28px" }}>
 
-      <div style={{ marginBottom: m ? 16 : 24 }}>
-        <div style={{ display: "inline-block", padding: "6px 14px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>CONFIGURACION</div>
+      <div style={{ marginBottom: m ? 16 : 16 }}>
+        <div style={{ display: "inline-block", padding: m ? "6px 14px" : "4px 12px", borderRadius: 999, background: "rgba(37,99,235,0.18)", color: "#60a5fa", marginBottom: 10, fontWeight: 700, fontSize: 12 }}>CONFIGURACION</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 style={{ fontSize: m ? 28 : "clamp(28px,5vw,48px)", fontWeight: 900, lineHeight: 1 }}>MI CUENTA</h1>
+          <h1 style={{ fontSize: m ? 28 : 34, fontWeight: 900, lineHeight: 1 }}>MI CUENTA</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: m ? 40 : 48, height: m ? 40 : 48, borderRadius: 12, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: m ? 18 : 22, fontWeight: 900 }}>
               {empresa?.charAt(0)?.toUpperCase() || "R"}
@@ -356,4 +356,4 @@ export default function PerfilPage() {
       </div>
     </main>
   );
-}
+}

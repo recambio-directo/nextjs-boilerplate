@@ -490,7 +490,7 @@ export default function VehiculoPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#020617", padding: "24px" }}>
+    <div style={{ minHeight: "calc(100dvh - 90px)", background: "#020617", padding: "20px 28px" }}>
 
       {fotoVisor && (
         <div onClick={() => setFotoVisor(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>

@@ -19,6 +19,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userId, setUserId] = useState<string | null>(null);
   const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [perfilCargado, setPerfilCargado] = useState(false);
+  const [facturacionTotal, setFacturacionTotal] = useState(0);
+  const [pedidosTotales, setPedidosTotales] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
   const userIdRef = useRef<string | null>(null);
@@ -59,6 +62,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     await cargarNotificaciones(user.id);
     const { data: perfil } = await supabase.from("usuarios").select("tipo").eq("id", user.id).single();
     if (perfil?.tipo) setTipoUsuario(perfil.tipo);
+    setPerfilCargado(true);
+    // Datos del menú lateral del taller (antes solo los calculaba el Inicio)
+    if (perfil?.tipo === "taller" && user.email) {
+      const { data: peds } = await supabase.from("pedidos").select("total").eq("cliente_email", user.email);
+      setPedidosTotales(peds?.length || 0);
+      setFacturacionTotal((peds || []).reduce((acc: number, p: any) => acc + (Number(p.total) || 0), 0));
+    }
     suscribirRealtime(user.id);
   }
 
@@ -141,7 +151,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (e.key === "Enter") buscarAhora();
   }
 
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+    location.href = "/";
+  }
+
   const noLeidas = notifs.filter(n => !n.leido).length;
+  // Cesta, Mi Cuenta y Chat viven fuera de /dashboard: solo los talleres los ven dentro del marco
+  const fueraDelPanel = !pathname.startsWith("/dashboard");
   const esProveedor = pathname.includes("/proveedor");
   const logoHref = tipoUsuario === "proveedor" ? "/dashboard/proveedor" : "/dashboard";
 
@@ -151,6 +168,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/catalogos", icon: "📚", label: "Catálogos" },
     { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
     { href: "/perfil",            icon: "👤", label: "Cuenta" },
+  ];
+
+  if (fueraDelPanel) {
+    if (!perfilCargado) return <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)" }} />;
+    // En el móvil estas páginas se quedan exactamente como estaban
+    if (isMobile || tipoUsuario !== "taller") return <>{children}</>;
+  }
+
+  const menuLateral = [
+    { href: "/dashboard", label: "🏠 Inicio" },
+    { href: "/dashboard/catalogos", label: "📚 Catálogos" },
+    { href: "/dashboard/pedidos", label: "📦 Pedidos" },
+    { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
+    { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
+    { href: "/checkout", label: "🛒 Cesta", badge: totalCesta },
+    { href: "/perfil", label: "👤 Mi Cuenta" },
+    { href: "/chat", label: "💬 Chat" },
   ];
 
   if (esProveedor) {
@@ -239,7 +273,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white" }}>
+    // --rd-alto-cabecera: lo usan Cesta, Mi Cuenta y Chat para ajustarse a la cabecera cuando van dentro del marco
+    <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#020617 0%,#020817 100%)", color: "white", ...(isMobile ? {} : { "--rd-alto-cabecera": "90px" }) } as React.CSSProperties}>
 
       <header style={{ height: isMobile ? 60 : 90, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 34px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(2,6,23,0.95)", backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 999 }}>
 
@@ -349,7 +384,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <main style={{ paddingBottom: isMobile ? 80 : (pathname === "/dashboard" ? 0 : 60) }}>{children}</main>
+      {isMobile ? (
+        <main style={{ paddingBottom: 80 }}>{children}</main>
+      ) : (
+        <div style={{ display: "flex", alignItems: "flex-start" }}>
+          {/* Menú lateral común a todas las páginas del taller (los proveedores que entran a Catálogos no lo ven) */}
+          {tipoUsuario === "taller" && (
+          <aside style={{ position: "sticky", top: 90, height: "calc(100dvh - 90px)", width: 240, flexShrink: 0, boxSizing: "border-box", background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", zIndex: 50 }}>
+            {menuLateral.map(({ href, label, badge }) => {
+              const activo = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+              return (
+                <Link key={href} href={href} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 12, background: activo ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: activo ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>
+                  <span>{label}</span>
+                  {!!badge && badge > 0 && <span style={{ minWidth: 20, height: 20, borderRadius: 999, background: "#22c55e", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{badge}</span>}
+                </Link>
+              );
+            })}
+            <div style={{ marginTop: "auto", background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 16, padding: 16 }}>
+              <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11, fontWeight: 700 }}>FACTURACIÓN TOTAL</p>
+              <h2 style={{ fontSize: 28, fontWeight: 900 }}>{facturacionTotal.toFixed(0)}€</h2>
+              <p style={{ color: "#22c55e", marginTop: 4, fontWeight: 700, fontSize: 12 }}>{pedidosTotales} pedidos totales</p>
+            </div>
+            <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", padding: "10px", borderRadius: 12, cursor: "pointer", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>Cerrar sesión</button>
+          </aside>
+          )}
+          <main style={{ flex: 1, minWidth: 0, paddingBottom: pathname === "/dashboard" ? 0 : 40 }}>{children}</main>
+        </div>
+      )}
 
       {isMobile && (
         <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999, background: "rgba(2,6,23,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "stretch", height: 64, paddingBottom: "env(safe-area-inset-bottom)" }}>

@@ -10607,6 +10607,17 @@ export default function CatalogosPage() {
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
   const [slideActual, setSlideActual] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // En escritorio la cabecera (título y buscador) queda fija bajo la barra superior
+  const cabeceraFija: React.CSSProperties = isMobile ? {} : { position: "sticky", top: 90, zIndex: 40 };
 
   useEffect(() => {
     const fetchTipo = async () => {
@@ -10658,11 +10669,11 @@ export default function CatalogosPage() {
   // ═══════════════════════════════════════
   if (catalogoSeleccionado) {
     return (
-      <div style={{ minHeight: "100vh", background: "#020617", color: "#f8fafc" }}>
+      <div style={{ minHeight: isMobile ? "100vh" : "calc(100dvh - 90px)", background: "#020617", color: "#f8fafc" }}>
 
 
         {/* Cabecera */}
-        <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "20px 24px" }}>
+        <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: isMobile ? "20px 24px" : "14px 24px", ...cabeceraFija }}>
           <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
             <button
               onClick={() => { setCatalogoSeleccionado(null); setBusquedaCatalogo(""); }}
@@ -10820,10 +10831,10 @@ export default function CatalogosPage() {
   // VISTA MARKETPLACE (LISTA DE CATÁLOGOS)
   // ═══════════════════════════════════════
   return (
-    <div style={{ minHeight: "100vh", background: "#020617", color: "#f8fafc" }}>
+    <div style={{ minHeight: isMobile ? "100vh" : "calc(100dvh - 90px)", background: "#020617", color: "#f8fafc" }}>
 
       {/* Cabecera */}
-      <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: "24px" }}>
+      <div style={{ background: "#0f172a", borderBottom: "1px solid #1e293b", padding: isMobile ? "24px" : "16px 24px", ...cabeceraFija }}>
         <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
           <h1 style={{ fontSize: "26px", fontWeight: 800, margin: "0 0 6px 0" }}>
             📚 Catálogos de Proveedores

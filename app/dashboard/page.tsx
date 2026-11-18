@@ -410,37 +410,12 @@ export default function Dashboard() {
   );
 
   /* ── DESKTOP ── */
-  // Todo el inicio cabe en una pantalla normal (cabecera de 90px del layout).
+  // Todo el inicio cabe en una pantalla normal (cabecera de 90px y menú lateral del layout).
   // En pantallas bajas (<~800px de alto) se mantiene un mínimo y aparece un poco de scroll.
   const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20 };
   return (
     <main style={{ display: "flex", height: "max(calc(100dvh - 90px), 700px)", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", overflow: "hidden" }}>
-      <aside style={{ width: 240, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 12, backdropFilter: "blur(18px)", flexShrink: 0, overflowY: "auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>RD</div>
-          <div><h2 style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.1 }}>RECAMBIO DIRECTO</h2><p style={{ color: "#94a3b8", marginTop: 2, fontSize: 12 }}>Marketplace B2B</p></div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {[
-            { href: "/dashboard", label: "🏠 Inicio" },
-            { href: "/dashboard/catalogos", label: "📚 Catálogos" },
-            { href: "/dashboard/pedidos", label: "📦 Pedidos" },
-            { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
-            { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
-            { href: "/checkout", label: "🛒 Cesta" },
-            { href: "/perfil", label: "👤 Mi Cuenta" },
-            { href: "/chat", label: "💬 Chat" },
-          ].map(({ href, label }) => (
-            <Link key={href} href={href} style={{ padding: "10px 14px", borderRadius: 12, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>{label}</Link>
-          ))}
-        </div>
-        <div style={{ marginTop: "auto", background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 16, padding: 16 }}>
-          <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11, fontWeight: 700 }}>FACTURACIÓN TOTAL</p>
-          <h2 style={{ fontSize: 28, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
-          <p style={{ color: "#22c55e", marginTop: 4, fontWeight: 700, fontSize: 12 }}>{pedidos.length} pedidos totales</p>
-        </div>
-        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", padding: "10px", borderRadius: 12, cursor: "pointer", fontWeight: 800, fontSize: 13 }}>Cerrar sesión</button>
-      </aside>
+      {/* El menú lateral (con facturación y cerrar sesión) lo pinta ahora el layout común */}
       <section style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
         {barraBusqueda}
         <div style={{ flex: 1, minHeight: 560, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gridTemplateRows: "minmax(230px, 1.35fr) minmax(140px, 0.8fr) minmax(170px, 1fr)", gap: 16, padding: "16px 24px 20px" }}>
