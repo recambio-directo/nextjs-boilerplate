@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const GLS_URL  = "https://ws-customer.gls-spain.es/b2b.asmx";
-const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
+const GLS_GUID = process.env.GLS_GUID || "";
 
 // Mapear codEstado GLS a estado interno RD
 // GLS Spain: 0=sin info, 1=grabado, 2=en tránsito, 3=en reparto, 7=entregado, 8=incidencia

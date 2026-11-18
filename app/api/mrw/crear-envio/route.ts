@@ -10,8 +10,8 @@ const supabase = sbAdmin();
 
 // Proxy VPS con IP fija para evitar bloqueo de SAGEC.
 // Se puede cambiar desde Vercel (MRW_PROXY_URL / MRW_PROXY_SECRET) sin tocar código.
-const PROXY_URL    = process.env.MRW_PROXY_URL    || "http://168.231.83.226:3000";
-const PROXY_SECRET = process.env.MRW_PROXY_SECRET || "rd-mrw-proxy-2026";
+const PROXY_URL    = process.env.MRW_PROXY_URL || "";
+const PROXY_SECRET = process.env.MRW_PROXY_SECRET || "";
 
 function credencialesMRW() {
   return {

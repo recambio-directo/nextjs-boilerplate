@@ -51,7 +51,7 @@ async function crearEnvioMRW(dev: any, remitente: any, destinatario: any): Promi
   const departamento = process.env.MRW_DEPARTAMENTO || "";
   const username = process.env.MRW_USERNAME || "";
   const password = process.env.MRW_PASSWORD || "";
-  const proxyUrl = "http://168.231.83.226:3000";
+  const proxyUrl = process.env.MRW_PROXY_URL || "";
 
   function limpiarTel(tel: string) { return (tel || "").replace(/[\s\-\+]/g, "").replace(/^(0034|34|\+34)/, "").slice(0, 9); }
 
@@ -90,7 +90,7 @@ async function crearEnvioMRW(dev: any, remitente: any, destinatario: any): Promi
 
   const response = await fetch(proxyUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/soap+xml; charset=utf-8", "x-proxy-secret": "rd-mrw-proxy-2026", "x-target-url": entorno },
+    headers: { "Content-Type": "application/soap+xml; charset=utf-8", "x-proxy-secret": process.env.MRW_PROXY_SECRET || "", "x-target-url": entorno },
     body: soapBody,
   });
   const xmlText = await response.text();
@@ -105,7 +105,7 @@ async function crearEnvioMRW(dev: any, remitente: any, destinatario: any): Promi
   <Header><AuthInfo xmlns="http://www.mrw.es/"><CodigoFranquicia>${franquicia}</CodigoFranquicia><CodigoAbonado>${abonado}</CodigoAbonado><CodigoDepartamento>${departamento}</CodigoDepartamento><UserName>${username}</UserName><Password>${password}</Password></AuthInfo></Header>
   <Body><GetEtiquetaEnvio xmlns="http://www.mrw.es/"><request><NumeroEnvio>${numeroEnvio}</NumeroEnvio><TipoEtiquetaEnvio>0</TipoEtiquetaEnvio></request></GetEtiquetaEnvio></Body>
 </Envelope>`;
-    const etRes = await fetch(proxyUrl, { method: "POST", headers: { "Content-Type": "application/soap+xml; charset=utf-8", "x-proxy-secret": "rd-mrw-proxy-2026", "x-target-url": entorno }, body: etiquetaXml });
+    const etRes = await fetch(proxyUrl, { method: "POST", headers: { "Content-Type": "application/soap+xml; charset=utf-8", "x-proxy-secret": process.env.MRW_PROXY_SECRET || "", "x-target-url": entorno }, body: etiquetaXml });
     const etText = await etRes.text();
     const base64 = etText.match(/<EtiquetaFile>([\s\S]*?)<\/EtiquetaFile>/)?.[1]?.trim();
     if (base64) {
@@ -171,7 +171,7 @@ async function crearEnvioNACEX(dev: any, remitente: any, destinatario: any): Pro
 // ── GLS ───────────────────────────────────────────────────────────────────────
 async function crearEnvioGLS(dev: any, remitente: any, destinatario: any): Promise<ResultadoEnvio> {
   const GLS_URL = "https://ws-customer.gls-spain.es/b2b.asmx";
-  const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
+  const GLS_GUID = process.env.GLS_GUID || "";
 
   const nom = (s: string) => (s || "").toUpperCase().substring(0, 40);
   const dir = (s: string) => (s || "").toUpperCase().substring(0, 100);

@@ -18,11 +18,11 @@ export async function POST(request: Request) {
     }
 
     // 1. Crear usuario FTP en el servidor
-    const resFtp = await fetch("http://168.231.83.226:3000/ftp/crear", {
+    const resFtp = await fetch(`${process.env.MRW_PROXY_URL}/ftp/crear`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-proxy-secret": "rd-mrw-proxy-2026",
+        "x-proxy-secret": process.env.MRW_PROXY_SECRET || "",
       },
       body: JSON.stringify({ usuario: nombreUsuario, password }),
     });
@@ -35,11 +35,11 @@ export async function POST(request: Request) {
     const dataFtp = await resFtp.json();
 
     // 2. Añadir proveedor al cron script
-    await fetch("http://168.231.83.226:3000/ftp/anadir-cron", {
+    await fetch(`${process.env.MRW_PROXY_URL}/ftp/anadir-cron`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-proxy-secret": "rd-mrw-proxy-2026",
+        "x-proxy-secret": process.env.MRW_PROXY_SECRET || "",
       },
       body: JSON.stringify({
         usuario: nombreUsuario,

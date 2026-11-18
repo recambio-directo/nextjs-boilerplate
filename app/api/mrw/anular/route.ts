@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       ? "https://sagec-test.mrw.es/MRWEnvio.asmx"
       : "https://sagec.mrw.es/MRWEnvio.asmx";
 
-    const proxyUrl = "http://168.231.83.226:3000";
+    const proxyUrl = process.env.MRW_PROXY_URL || "";
 
     const soap = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type":   "text/xml; charset=utf-8",
         "SOAPAction":     "http://www.mrw.es/CancelarEnvio",
-        "x-proxy-secret": "rd-mrw-proxy-2026",
+        "x-proxy-secret": process.env.MRW_PROXY_SECRET || "",
         "x-target-url":   targetUrl,
       },
       body: soap,
