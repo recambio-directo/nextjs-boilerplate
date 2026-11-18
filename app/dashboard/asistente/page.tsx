@@ -302,7 +302,7 @@ export default function AsistentePage() {
   /*  RENDER                                                       */
   /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit", paddingTop: 8 }}>
+    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit" }}>
 
       {/* ── Sidebar: historial ────────────────────────────────── */}
       {(!isMobile || sidebarAbierta) && (
@@ -372,22 +372,17 @@ export default function AsistentePage() {
       )}
 
       {/* ── Área principal ────────────────────────────────────── */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-        {/* Cabecera inline del asistente */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px 10px", flexShrink: 0 }}>
-          {isMobile && (
+        {/* Botón menú móvil */}
+        {isMobile && (
+          <div style={{ padding: "10px 16px 0", flexShrink: 0 }}>
             <button type="button" onClick={() => setSidebarAbierta(!sidebarAbierta)}
               style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 20, padding: 4 }}>
               ☰
             </button>
-          )}
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" />
-          </svg>
-          <p style={{ margin: 0, fontWeight: 800, fontSize: 18, color: "#fff" }}>Asistente de recambios</p>
-          <span style={{ fontSize: 12, color: "#64748b" }}>Solo stock real de la plataforma</span>
-        </div>
+          </div>
+        )}
 
         {/* Contenido con scroll */}
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
