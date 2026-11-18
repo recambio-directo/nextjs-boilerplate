@@ -302,7 +302,7 @@ export default function AsistentePage() {
   /*  RENDER                                                       */
   /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 72px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit", overflow: "hidden" }}>
+    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit" }}>
 
       {/* ── Sidebar: historial ────────────────────────────────── */}
       {(!isMobile || sidebarAbierta) && (
@@ -374,11 +374,8 @@ export default function AsistentePage() {
       {/* ── Área principal ────────────────────────────────────── */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
 
-        {/* Cabecera */}
-        <header style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "14px 20px",
-          borderBottom: "1px solid #1e293b", background: "#0b1736", flexShrink: 0,
-        }}>
+        {/* Cabecera inline del asistente */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px 10px", flexShrink: 0 }}>
           {isMobile && (
             <button type="button" onClick={() => setSidebarAbierta(!sidebarAbierta)}
               style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 20, padding: 4 }}>
@@ -388,18 +385,9 @@ export default function AsistentePage() {
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" />
           </svg>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: "#fff" }}>Asistente de recambios</p>
-            <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>Solo stock real de la plataforma</p>
-          </div>
-          <Link href="/checkout" aria-label="Ver cesta"
-            style={{ position: "relative", width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", textDecoration: "none" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 7H6" /></svg>
-            {cesta.unidades > 0 && (
-              <span style={{ position: "absolute", top: -6, right: -6, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 999, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{cesta.unidades}</span>
-            )}
-          </Link>
-        </header>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 18, color: "#fff" }}>Asistente de recambios</p>
+          <span style={{ fontSize: 12, color: "#64748b" }}>Solo stock real de la plataforma</span>
+        </div>
 
         {/* Contenido con scroll */}
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
