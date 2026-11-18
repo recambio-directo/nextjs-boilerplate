@@ -302,7 +302,7 @@ export default function AsistentePage() {
   /*  RENDER                                                       */
   /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit" }}>
+    <div style={{ display: "flex", minHeight: "calc(100vh - 90px)", background: "#020617", color: "#e2e8f0", fontFamily: "inherit", paddingTop: 8 }}>
 
       {/* ── Sidebar: historial ────────────────────────────────── */}
       {(!isMobile || sidebarAbierta) && (
