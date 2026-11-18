@@ -1,7 +1,9 @@
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 // app/api/mrw/tracking/route.ts
 // Consulta el estado de un envío MRW por número de envío
 
 export async function POST(request: Request) {
+  { const sinAcceso = await soloInternoOAdmin(request); if (sinAcceso) return sinAcceso; }
   try {
     const { numeroEnvio } = await request.json();
     if (!numeroEnvio) return Response.json({ ok: false, error: "Falta numeroEnvio" }, { status: 400 });

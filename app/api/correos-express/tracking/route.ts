@@ -1,5 +1,6 @@
 // app/api/correos-express/tracking/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const CEX_TRACKING_URL = "https://www.cexpr.es/wspsc/apiRestSeguimientoEnviosk8s/json/seguimientoEnvio";
 const CEX_USER = process.env.CEX_USUARIO!;
@@ -31,6 +32,7 @@ function mapearEstado(codEstado: string | null, descEstado: string | null): stri
 }
 
 export async function POST(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const { numEnvio } = await req.json();
     if (!numEnvio) return NextResponse.json({ error: "numEnvio requerido" }, { status: 400 });

@@ -2,6 +2,7 @@
 import { Resend } from "resend";
 import { sbAdmin, incidencia } from "@/app/lib/envios";
 import { generarAlbaranes } from "@/app/lib/albaranServidor";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const supabase = sbAdmin();
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
       agencia, formaPago, subtotal, iva, total,
       codigo, fecha, pedidoId,
     } = body;
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     let proveedorCif = "", proveedorTelefono = "", proveedorDireccion = "";
     let proveedorCiudad = "", proveedorCodigoPostal = "", proveedorProvincia = "";
@@ -494,4 +496,4 @@ export async function POST(request: Request) {
     console.error("Error enviando emails:", error);
     return Response.json({ ok: false, error: String(error) }, { status: 500 });
   }
-}
+}

@@ -1,3 +1,4 @@
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 // app/api/seur/tracking/route.ts
 // Consulta el estado de una recogida/envío SEUR
 
@@ -49,6 +50,7 @@ function mapearEstado(situaciones: any[]): string {
 }
 
 export async function POST(request: Request) {
+  { const sinAcceso = await soloInternoOAdmin(request); if (sinAcceso) return sinAcceso; }
   try {
     const { collectionRef, referencia } = await request.json();
 

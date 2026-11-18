@@ -9,10 +9,10 @@ const CRONS = [
   { agencia: "GLS",              endpoint: "/api/gls/cron",              trackingEndpoint: "/api/gls/tracking" },
   { agencia: "Correos Express",  endpoint: "/api/correos-express/cron",  trackingEndpoint: "/api/correos-express/tracking" },
   { agencia: "DHL",              endpoint: "/api/dhl/cron",              trackingEndpoint: "/api/dhl/tracking" },
-  { agencia: "Devoluciones",     endpoint: "/api/devolucion/cron",       trackingEndpoint: null },
+  { agencia: "Devoluciones",     endpoint: "/api/devolucion/crear-envio/cron",       trackingEndpoint: null },
 ];
 
-const FTP_ENDPOINT = "/api/ftp/procesar?admin=1";
+const FTP_ENDPOINT = "/api/ftp/procesar";
 
 type CronResult = { agencia: string; status: "ok" | "error" | "running"; message: string; time?: number };
 

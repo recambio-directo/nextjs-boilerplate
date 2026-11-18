@@ -1,5 +1,6 @@
 // app/api/ctt/anular/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const CTT_CLIENT_ID     = process.env.CTT_CLIENT_ID!;
 const CTT_CLIENT_SECRET = process.env.CTT_CLIENT_SECRET!;
@@ -35,6 +36,7 @@ async function getCTTToken(): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const { shippingCode } = await req.json();
     if (!shippingCode) return NextResponse.json({ error: "shippingCode requerido" }, { status: 400 });

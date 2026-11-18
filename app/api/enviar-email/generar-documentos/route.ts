@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { AlbaranPDF, EtiquetaEnvioPDF } from "@/app/lib/AlbaranPDF";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
     if (!pedidoId) {
       return Response.json({ error: "pedidoId requerido" }, { status: 400 });
     }
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

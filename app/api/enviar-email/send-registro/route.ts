@@ -1,11 +1,25 @@
 import { Resend } from "resend";
+import { sbAdmin } from "@/app/lib/envios";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nombreEmpresa, cif, email, telefono, direccion, ciudad, codigoPostal, tipo } = body;
+    const emailPedido = String(body?.email || "").trim().toLowerCase();
+    if (!emailPedido) return Response.json({ ok: false, error: "Falta email" }, { status: 400 });
+
+    // Seguridad: los datos NO se toman de la petición, sino del alta real en la base de datos,
+    // y solo si el alta se ha hecho en los últimos 30 minutos. Así nadie puede usar esta ruta
+    // para mandar emails a quien quiera desde nuestro dominio.
+    const { data: u } = await sbAdmin().from("usuarios").select("*").eq("email", emailPedido).maybeSingle();
+    const alta = u ? new Date(u.fecha_registro || u.created_at || 0).getTime() : 0;
+    if (!u || !alta || Date.now() - alta > 30 * 60 * 1000) {
+      return Response.json({ ok: false, error: "Alta no encontrada" }, { status: 403 });
+    }
+    const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+    const nombreEmpresa = esc(u.nombre_empresa), cif = esc(u.cif), email = esc(u.email), telefono = esc(u.telefono);
+    const direccion = esc(u.direccion), ciudad = esc(u.ciudad), codigoPostal = esc(u.codigo_postal), tipo = u.tipo;
 
     const fechaFormateada = new Date().toLocaleDateString("es-ES", {
       day: "2-digit", month: "2-digit", year: "numeric",

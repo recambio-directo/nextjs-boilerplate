@@ -33,7 +33,7 @@
       "schedule": "0 5 * * *"
     },
     {
-      "path": "/api/devolucion/cron",
+      "path": "/api/devolucion/crear-envio/cron",
       "schedule": "0 9 * * *"
     },
     {

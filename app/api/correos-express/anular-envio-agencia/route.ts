@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { cabeceraInterna, accesoPedido } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { pedidoId } = await req.json();
     if (!pedidoId) return NextResponse.json({ error: "pedidoId requerido" }, { status: 400 });
+    { const sinAcceso = await accesoPedido(req, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const { data: pedido, error } = await supabase
       .from("pedidos")
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
       }
       const r = await fetch(`${baseUrl}/api/seur/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ collectionRef: pedido.collection_ref_seur }),
       });
       const d = await r.json();
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
       }
       const r = await fetch(`${baseUrl}/api/nacex/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ localizador: pedido.tracking_nacex }),
       });
       const d = await r.json();
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
       const r = await fetch(`${baseUrl}/api/mrw/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ numeroEnvio: pedido.tracking }),
       });
       const d = await r.json();
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
       }
       const r = await fetch(`${baseUrl}/api/correos-express/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ keyRecogida: pedido.collection_ref_correos_express }),
       });
       const d = await r.json();

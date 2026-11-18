@@ -4,6 +4,7 @@ import {
   sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
   anotar, incidencia, fetchT, esperar, txt, escXml, hoyMadrid,
 } from "@/app/lib/envios";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = sbAdmin();
 
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     pedidoId = body?.pedidoId;
     if (!pedidoId) return Response.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const r = await cargarDatosEnvio(supabase, pedidoId, body);
     if (!r.ok) {

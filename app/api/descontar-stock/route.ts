@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { pedidoId } = await req.json();
     if (!pedidoId) return NextResponse.json({ ok: false }, { status: 400 });
+    { const sinAcceso = await accesoPedido(req, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const { data: pedido } = await supabase.from("pedidos").select("productos").eq("id", pedidoId).single();
     if (!pedido?.productos) return NextResponse.json({ ok: false });

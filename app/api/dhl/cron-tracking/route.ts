@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
         // DHL tracking usa GET con query param
         const trackingRes = await fetch(`${baseUrl}/api/dhl/tracking?tracking=${pedido.tracking}`, {
           method: "GET",
+          headers: cabeceraInterna(),
         });
         const trackingData = await trackingRes.json();
         if (!trackingData.ok) continue;

@@ -2,6 +2,7 @@
 // Genera el albarán PDF en servidor para un pedido existente y lo guarda en Storage
 import { sbAdmin } from "@/app/lib/envios";
 import { generarAlbaranes } from "@/app/lib/albaranServidor";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = sbAdmin();
 
@@ -9,6 +10,7 @@ export async function POST(request: Request) {
   try {
     const { pedidoId } = await request.json();
     if (!pedidoId) return Response.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const r = await generarAlbaranes(supabase, pedidoId);
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: r.status });

@@ -5,6 +5,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
         // Consultar estado en MRW
         const trackingRes = await fetch(`${baseUrl}/api/mrw/tracking`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...cabeceraInterna() },
           body: JSON.stringify({ numeroEnvio: pedido.tracking }),
         });
         const trackingData = await trackingRes.json();

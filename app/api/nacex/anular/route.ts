@@ -1,5 +1,7 @@
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 // app/api/nacex/anular/route.ts
 export async function POST(request: Request) {
+  { const sinAcceso = await soloInternoOAdmin(request); if (sinAcceso) return sinAcceso; }
   try {
     const { localizador } = await request.json();
     if (!localizador) {

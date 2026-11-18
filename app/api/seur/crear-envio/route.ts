@@ -6,6 +6,7 @@ import {
   sbAdmin, cargarDatosEnvio, tieneEnvio, guardarPedido, subirEtiqueta,
   anotar, incidencia, fetchT, esperar, txt, telefono9, cp5,
 } from "@/app/lib/envios";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = sbAdmin();
 
@@ -81,6 +82,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     pedidoId = body?.pedidoId || null;
+    // Con pedido: hay que tener acceso a él. Sin pedido (devoluciones): solo desde el servidor.
+    { const sinAcceso = pedidoId ? await accesoPedido(request, pedidoId) : soloInterno(request); if (sinAcceso) return sinAcceso; }
     const numBultos = Number(body?.numBultos) > 0 ? Math.floor(Number(body.numBultos)) : 1;
     const observaciones = txt(body?.observaciones);
 

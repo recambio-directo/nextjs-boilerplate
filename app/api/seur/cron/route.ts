@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       try {
         const trackingRes = await fetch(`${baseUrl}/api/seur/tracking`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...cabeceraInterna() },
           body: JSON.stringify({
             collectionRef: pedido.collection_ref_seur,
             referencia: pedido.codigo,

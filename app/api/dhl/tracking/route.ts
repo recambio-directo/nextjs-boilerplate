@@ -1,5 +1,6 @@
 // app/api/dhl/tracking/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const DHL_USER = process.env.DHL_USER!;
 const DHL_KEY = process.env.DHL_KEY!;
@@ -50,6 +51,7 @@ function mapearEstado(data: any): string {
 }
 
 export async function GET(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const tracking = req.nextUrl.searchParams.get("tracking");
     if (!tracking) return NextResponse.json({ ok: false, error: "tracking requerido" }, { status: 400 });

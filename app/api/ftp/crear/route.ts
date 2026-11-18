@@ -1,5 +1,7 @@
 // app/api/ftp/crear/route.ts
 import { createClient } from "@supabase/supabase-js";
+import { verificarAdmin } from "@/app/lib/adminAuth";
+import { randomBytes } from "crypto";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +9,8 @@ const supabase = createClient(
 );
 
 export async function POST(request: Request) {
+  const admin = await verificarAdmin(request);
+  if (!admin.ok) return Response.json({ ok: false, error: admin.error }, { status: admin.status });
   try {
     const { proveedorId, nombreUsuario, password, proveedorNombre, tipoReferencias } = await request.json();
     if (!proveedorId || !nombreUsuario || !password) {
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
     await supabase.from("usuarios").update({
       ftp_activo: true,
       ftp_usuario: nombreUsuario,
-      ftp_api_key: `rd-ftp-${proveedorId.substring(0, 8)}`,
+      ftp_api_key: `rd-ftp-${randomBytes(24).toString("hex")}`, // clave aleatoria, imposible de adivinar
       tipo_referencias_ftp: tipoReferencias || "IAM",
     }).eq("id", proveedorId);
 

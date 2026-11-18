@@ -1,6 +1,7 @@
 // app/api/send-devolucion/route.ts
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const supabase = createClient(
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
     }
 
     const dev = devolucion;
+    { const sinAcceso = dev?.id ? await accesoDevolucion(request, dev.id) : soloInterno(request); if (sinAcceso) return sinAcceso; }
     const codigo = dev.codigo || "DEV-???";
     const pedidoCodigo = dev.pedido_codigo || `#${dev.pedido_id}`;
     const tipoLabel = TIPO_LABEL[dev.tipo] || dev.tipo || "-";

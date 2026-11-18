@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const CEX_ANULAR_URL = "https://www.cexpr.es/wspsc/apiRestGrabacionRecogidaEnviok8s/json/anularRecogida";
 const CEX_USER = process.env.CEX_USUARIO!;
@@ -6,6 +7,7 @@ const CEX_PASS = process.env.CEX_PASSWORD!;
 const CEX_SOLICITANTE = process.env.CEX_CODIGO_CLIENTE!;
 
 export async function POST(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const { keyRecogida } = await req.json();
     if (!keyRecogida) return NextResponse.json({ error: "keyRecogida requerido" }, { status: 400 });

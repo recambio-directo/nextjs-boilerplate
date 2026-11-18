@@ -1,3 +1,4 @@
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 // app/api/seur/anular/route.ts
 // Anula una recogida SEUR por su collectionRef
 
@@ -27,6 +28,7 @@ async function getSeurToken(): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  { const sinAcceso = await soloInternoOAdmin(request); if (sinAcceso) return sinAcceso; }
   try {
     const { collectionRef } = await request.json();
     if (!collectionRef) {

@@ -5,6 +5,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
         // Consultar estado en NACEX
         const trackingRes = await fetch(`${baseUrl}/api/nacex/tracking`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...cabeceraInterna() },
           body: JSON.stringify({
             localizador: pedido.tracking_nacex,
             codigoPostalDestino: pedido.codigo_postal_destino,

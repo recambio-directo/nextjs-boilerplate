@@ -1,5 +1,6 @@
 // app/api/anular-envio-agencia/route.ts
 import { createClient } from "@supabase/supabase-js";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
     if (!pedidoId) {
       return Response.json({ ok: false, error: "Falta pedidoId" }, { status: 400 });
     }
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const { data: pedido } = await supabase
       .from("pedidos")
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     if (agencia.includes("mrw") && pedido.tracking) {
       const res = await fetch(`${baseUrl}/api/mrw/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ numeroEnvio: pedido.tracking }),
       });
       const data = await res.json();
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     if (agencia.includes("nacex") && pedido.tracking_nacex) {
       const res = await fetch(`${baseUrl}/api/nacex/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ localizador: pedido.tracking_nacex }),
       });
       const data = await res.json();
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
     if (agencia.includes("seur") && pedido.collection_ref_seur) {
       const res = await fetch(`${baseUrl}/api/seur/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ collectionRef: pedido.collection_ref_seur }),
       });
       const data = await res.json();
@@ -89,7 +91,7 @@ export async function POST(request: Request) {
     if (agencia.includes("correos") && pedido.collection_ref_correos_express) {
       const res = await fetch(`${baseUrl}/api/correos-express/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ keyRecogida: pedido.collection_ref_correos_express }),
       });
       const data = await res.json();
@@ -106,7 +108,7 @@ export async function POST(request: Request) {
     if (agencia.includes("ctt") && pedido.tracking_ctt) {
       const res = await fetch(`${baseUrl}/api/ctt/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ shippingCode: pedido.tracking_ctt }),
       });
       const data = await res.json();
@@ -123,7 +125,7 @@ export async function POST(request: Request) {
     if (agencia.includes("gls") && pedido.tracking_gls) {
       const res = await fetch(`${baseUrl}/api/gls/anular`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ codbarras: pedido.tracking_gls }),
       });
       const data = await res.json();
@@ -140,7 +142,7 @@ export async function POST(request: Request) {
     if (agencia.includes("dhl") && pedido.tracking_dhl) {
       const res = await fetch(`${baseUrl}/api/dhl/anular-envio`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ pedidoId }),
       });
       const data = await res.json();

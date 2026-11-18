@@ -1,9 +1,11 @@
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 // app/api/nacex/tracking/route.ts
 // Consulta el estado de un envío NACEX usando getEstadoExpedicion3
 // (origen + albarán + código postal destino). Documentación:
 // https://pda.nacex.com/nacex_ws
 
 export async function POST(request: Request) {
+  { const sinAcceso = await soloInternoOAdmin(request); if (sinAcceso) return sinAcceso; }
   try {
     const { localizador, codigoPostalDestino } = await request.json();
 

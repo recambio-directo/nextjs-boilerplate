@@ -1,6 +1,7 @@
 // app/api/ftp/procesar/route.ts
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import { verificarAdmin } from "@/app/lib/adminAuth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,8 +69,11 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const proveedorId = searchParams.get("proveedor_id");
 
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && !searchParams.get("admin")) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const esCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  if (!esCron) {
+    // Lanzado a mano desde el panel: solo administradores
+    const admin = await verificarAdmin(request);
+    if (!admin.ok) return Response.json({ error: admin.error }, { status: admin.status });
   }
 
   try {

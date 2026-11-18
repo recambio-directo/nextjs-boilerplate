@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,6 +27,7 @@ async function getToken(): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const { pedidoId } = await req.json();
     if (!pedidoId) return NextResponse.json({ ok: false, error: "pedidoId requerido" }, { status: 400 });

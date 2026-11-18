@@ -4,6 +4,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +23,7 @@ async function consultarTracking(agencia: string, tracking: string): Promise<{ e
     if (ag.includes("mrw")) {
       const res = await fetch(`${BASE_URL}/api/mrw/tracking`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ numeroEnvio: tracking }),
       });
       const data = await res.json();
@@ -48,7 +49,7 @@ async function consultarTracking(agencia: string, tracking: string): Promise<{ e
     if (ag.includes("gls")) {
       const res = await fetch(`${BASE_URL}/api/gls/tracking`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ codbarras: tracking }),
       });
       const data = await res.json();
@@ -62,7 +63,7 @@ async function consultarTracking(agencia: string, tracking: string): Promise<{ e
     if (ag.includes("correos")) {
       const res = await fetch(`${BASE_URL}/api/correos-express/tracking`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ numEnvio: tracking }),
       });
       const data = await res.json();
@@ -75,7 +76,7 @@ async function consultarTracking(agencia: string, tracking: string): Promise<{ e
     if (ag.includes("ctt")) {
       const res = await fetch(`${BASE_URL}/api/ctt/tracking`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ shippingCode: tracking }),
       });
       const data = await res.json();
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
           try {
             await fetch(`${BASE_URL}/api/send-devolucion`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...cabeceraInterna() },
               body: JSON.stringify({ evento: "recibida", devolucion: { ...dev, estado: "recibida" } }),
             });
           } catch (e) {

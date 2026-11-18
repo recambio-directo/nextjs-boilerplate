@@ -1,10 +1,12 @@
 // app/api/gls/anular/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { soloInternoOAdmin, accesoPedido } from "@/app/lib/seguridad";
 
 const GLS_URL  = "https://ws-customer.gls-spain.es/b2b.asmx";
 const GLS_GUID = process.env.GLS_GUID || "fd2252c2-f36a-4e26-a2d7-b7ec0167fce7";
 
 export async function POST(req: NextRequest) {
+  { const sinAcceso = await soloInternoOAdmin(req); if (sinAcceso) return sinAcceso; }
   try {
     const { codbarras } = await req.json();
     if (!codbarras) return NextResponse.json({ error: "codbarras requerido" }, { status: 400 });

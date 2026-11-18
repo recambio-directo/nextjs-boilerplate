@@ -1,6 +1,7 @@
 // app/api/send-solicitud-factura/route.ts
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const supabase = createClient(
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
       clienteEmail, clienteNombre, clienteCif, clienteTelefono, clienteDireccion,
       proveedorNombre, emailProveedor, productos, emailFacturasCliente,
     } = body;
+    { const sinAcceso = await accesoPedido(request, pedidoId); if (sinAcceso) return sinAcceso; }
 
     const fechaFormateada = pedidoFecha
       ? new Date(pedidoFecha).toLocaleDateString("es-ES")

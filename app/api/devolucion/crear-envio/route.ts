@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { accesoPedido, quienLlama, soloInterno, accesoDevolucion, cabeceraInterna } from "@/app/lib/seguridad";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -354,7 +355,7 @@ async function crearEnvioSEUR(dev: any, remitente: any, destinatario: any): Prom
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "https://www.recambio-directo.com"}/api/seur/crear-envio`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...cabeceraInterna() },
       body: JSON.stringify({
         pedidoId: 0,
         pedidoCodigo: dev.codigo,
@@ -402,6 +403,7 @@ export async function POST(req: NextRequest) {
   try {
     const { devolucionId, agencia } = await req.json();
     if (!devolucionId || !agencia) return NextResponse.json({ error: "devolucionId y agencia requeridos" }, { status: 400 });
+    { const sinAcceso = await accesoDevolucion(req, devolucionId); if (sinAcceso) return sinAcceso; }
 
     const { data: dev, error } = await supabase.from("devoluciones").select("*").eq("id", devolucionId).single();
     if (error || !dev) return NextResponse.json({ error: "Devolución no encontrada" }, { status: 404 });
@@ -499,7 +501,7 @@ export async function POST(req: NextRequest) {
     try {
       await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "https://www.recambio-directo.com"}/api/send-devolucion`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({ evento: "enviada", devolucion: { ...dev, agencia_devolucion: agencia, codigo_transporte: resultado.tracking } }),
       });
     } catch (e) { console.error("Error notificando envío devolución:", e); }

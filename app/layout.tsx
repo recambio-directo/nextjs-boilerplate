@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import CookieBanner from "./components/CookieBanner";
+import AuthFetch from "./components/AuthFetch";
 import SiteHeader from "./components/SiteHeader";
 import SiteFooter from "./components/SiteFooter";
 import "./globals.css";
@@ -164,6 +165,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         `}</style>
       </head>
       <body style={bodyStyle}>
+        <AuthFetch />
         <SiteHeader />
         {children}
         <SiteFooter />
@@ -180,4 +182,4 @@ const bodyStyle: React.CSSProperties = {
   color: "white",
   background: "linear-gradient(180deg,#020617 0%,#0f172a 100%)",
   fontFamily: "var(--font-geist-sans)",
-};
+};
