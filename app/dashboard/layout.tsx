@@ -349,7 +349,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <main style={{ paddingBottom: isMobile ? 80 : 60 }}>{children}</main>
+      <main style={{ paddingBottom: isMobile ? 80 : (pathname === "/dashboard" ? 0 : 60) }}>{children}</main>
 
       {isMobile && (
         <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999, background: "rgba(2,6,23,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "stretch", height: 64, paddingBottom: "env(safe-area-inset-bottom)" }}>

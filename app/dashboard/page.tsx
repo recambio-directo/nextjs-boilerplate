@@ -124,18 +124,20 @@ export default function Dashboard() {
   const req = calcularRequisitos();
 
   // Bloque RD Pago
+  // En escritorio la caja ocupa su celda del panel sin scroll
+  const cajaRD: React.CSSProperties = isMobile ? {} : { height: "100%", boxSizing: "border-box", overflow: "auto" };
   function BloqueRDPago() {
     if (rdPagoActivo) {
       return (
-        <div style={{ background: "linear-gradient(135deg,rgba(37,99,235,0.15),rgba(37,99,235,0.05))", border: "1px solid rgba(37,99,235,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+        <div style={{ background: "linear-gradient(135deg,rgba(37,99,235,0.15),rgba(37,99,235,0.05))", border: "1px solid rgba(37,99,235,0.3)", borderRadius: isMobile ? 16 : 20, padding: isMobile ? 20 : 20, ...cajaRD }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={{ display: "inline-block", background: "rgba(37,99,235,0.2)", color: "#60a5fa", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>💳 RD PAGO ACTIVO</div>
-              <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 6 }}>Crédito disponible</h3>
+              <h3 style={{ fontSize: isMobile ? 22 : 22, fontWeight: 900, marginBottom: 6 }}>Crédito disponible</h3>
               <p style={{ color: "#94a3b8", fontSize: 14 }}>Compra ahora y paga en 15 días sin recargos</p>
             </div>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: isMobile ? 36 : 52, fontWeight: 900, color: creditoRD > 0 ? "#22c55e" : "#f87171", lineHeight: 1 }}>{creditoRD.toFixed(2)}€</p>
+              <p style={{ fontSize: isMobile ? 36 : 38, fontWeight: 900, color: creditoRD > 0 ? "#22c55e" : "#f87171", lineHeight: 1 }}>{creditoRD.toFixed(2)}€</p>
               <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>disponibles</p>
             </div>
           </div>
@@ -150,9 +152,9 @@ export default function Dashboard() {
 
     if (rdPagoSolicitado || rdSolicitadoOk) {
       return (
-        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: isMobile ? 16 : 20, padding: isMobile ? 20 : 20, ...cajaRD }}>
           <div style={{ display: "inline-block", background: "rgba(245,158,11,0.2)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>⏳ SOLICITUD EN REVISIÓN</div>
-          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>RD Pago — Pendiente de activación</h3>
+          <h3 style={{ fontSize: isMobile ? 20 : 20, fontWeight: 900, marginBottom: 8 }}>RD Pago — Pendiente de activación</h3>
           <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6 }}>Tu solicitud ha sido recibida. Revisaremos tu cuenta y te notificaremos por email cuando esté activada.</p>
         </div>
       );
@@ -160,19 +162,19 @@ export default function Dashboard() {
 
     if (!req.cumpleTodo) {
       return (
-        <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+        <div style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: isMobile ? 16 : 20, padding: isMobile ? 20 : 20, ...cajaRD }}>
           <div style={{ display: "inline-block", background: "rgba(255,255,255,0.05)", color: "#94a3b8", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>💳 RD PAGO</div>
-          <h3 style={{ fontSize: isMobile ? 20 : 28, fontWeight: 900, marginBottom: 8 }}>Paga en 15 días sin recargos</h3>
-          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 18 }}>Completa los siguientes requisitos para solicitar RD Pago:</p>
+          <h3 style={{ fontSize: isMobile ? 20 : 20, fontWeight: 900, marginBottom: 8 }}>Paga en 15 días sin recargos</h3>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: isMobile ? 18 : 10 }}>Completa los siguientes requisitos para solicitar RD Pago:</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumpleMes ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumpleMes ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumpleMes ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumpleMes ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: isMobile ? "12px 16px" : "8px 12px" }}>
               <span style={{ fontSize: 20 }}>{req.cumpleMes ? "✅" : "⏳"}</span>
               <div>
                 <p style={{ fontWeight: 700, fontSize: 14, color: req.cumpleMes ? "#4ade80" : "white" }}>1 mes activo en la plataforma</p>
                 <p style={{ color: "#94a3b8", fontSize: 12 }}>{req.cumpleMes ? "Completado" : `${req.diasActivo} de 30 días`}</p>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumplePedido ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumplePedido ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: req.cumplePedido ? "rgba(22,163,74,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${req.cumplePedido ? "rgba(22,163,74,0.3)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: isMobile ? "12px 16px" : "8px 12px" }}>
               <span style={{ fontSize: 20 }}>{req.cumplePedido ? "✅" : "🛒"}</span>
               <div>
                 <p style={{ fontWeight: 700, fontSize: 14, color: req.cumplePedido ? "#4ade80" : "white" }}>Al menos 1 pedido pagado con tarjeta</p>
@@ -185,11 +187,11 @@ export default function Dashboard() {
     }
 
     return (
-      <div style={{ background: "linear-gradient(135deg,rgba(22,163,74,0.1),rgba(22,163,74,0.03))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: isMobile ? 16 : 28, padding: isMobile ? 20 : 32 }}>
+      <div style={{ background: "linear-gradient(135deg,rgba(22,163,74,0.1),rgba(22,163,74,0.03))", border: "1px solid rgba(22,163,74,0.3)", borderRadius: isMobile ? 16 : 20, padding: isMobile ? 20 : 20, ...cajaRD }}>
         <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>✅ REQUISITOS CUMPLIDOS</div>
-        <h3 style={{ fontSize: isMobile ? 22 : 32, fontWeight: 900, marginBottom: 8 }}>Solicitar RD Pago</h3>
-        <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>Ya puedes solicitar RD Pago. Con un crédito inicial de hasta <strong style={{ color: "white" }}>200€</strong>, compra ahora y paga en 15 días sin recargos.</p>
-        <button onClick={solicitarRDPago} disabled={solicitandoRD} style={{ background: solicitandoRD ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "16px 32px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: solicitandoRD ? "not-allowed" : "pointer", opacity: solicitandoRD ? 0.7 : 1 }}>
+        <h3 style={{ fontSize: isMobile ? 22 : 22, fontWeight: 900, marginBottom: 8 }}>Solicitar RD Pago</h3>
+        <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: isMobile ? 20 : 12, lineHeight: 1.5 }}>Ya puedes solicitar RD Pago. Con un crédito inicial de hasta <strong style={{ color: "white" }}>200€</strong>, compra ahora y paga en 15 días sin recargos.</p>
+        <button onClick={solicitarRDPago} disabled={solicitandoRD} style={{ background: solicitandoRD ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "12px 22px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: solicitandoRD ? "not-allowed" : "pointer", opacity: solicitandoRD ? 0.7 : 1 }}>
           {solicitandoRD ? "Enviando solicitud..." : "💳 Solicitar RD Pago"}
         </button>
       </div>
@@ -408,233 +410,225 @@ export default function Dashboard() {
   );
 
   /* ── DESKTOP ── */
+  // Todo el inicio cabe en una pantalla normal (cabecera de 90px del layout).
+  // En pantallas bajas (<~800px de alto) se mantiene un mínimo y aparece un poco de scroll.
+  const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20 };
   return (
-    <main style={{ display: "flex", minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white" }}>
-      <aside style={{ width: 280, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "30px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between", backdropFilter: "blur(18px)", flexShrink: 0 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 40 }}>
-            <div style={{ width: 60, height: 60, borderRadius: 18, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20 }}>RD</div>
-            <div><h2 style={{ fontSize: 22, fontWeight: 900 }}>RECAMBIO DIRECTO</h2><p style={{ color: "#94a3b8", marginTop: 4, fontSize: 13 }}>Marketplace B2B</p></div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { href: "/dashboard", label: "🏠 Inicio" },
-              { href: "/dashboard/catalogos", label: "📚 Catálogos" },
-              { href: "/dashboard/pedidos", label: "📦 Pedidos" },
-              { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
-              { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
-              { href: "/checkout", label: "🛒 Cesta" },
-              { href: "/perfil", label: "👤 Mi Cuenta" },
-              { href: "/chat", label: "💬 Chat" },
-            ].map(({ href, label }) => (
-              <Link key={href} href={href} style={{ padding: "14px 18px", borderRadius: 14, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>{label}</Link>
-            ))}
-          </div>
+    <main style={{ display: "flex", height: "max(calc(100dvh - 90px), 700px)", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", overflow: "hidden" }}>
+      <aside style={{ width: 240, background: "rgba(15,23,42,0.92)", borderRight: "1px solid rgba(255,255,255,0.06)", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 12, backdropFilter: "blur(18px)", flexShrink: 0, overflowY: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>RD</div>
+          <div><h2 style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.1 }}>RECAMBIO DIRECTO</h2><p style={{ color: "#94a3b8", marginTop: 2, fontSize: 12 }}>Marketplace B2B</p></div>
         </div>
-        <div style={{ background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 24, padding: 24 }}>
-          <p style={{ color: "#94a3b8", marginBottom: 10, fontSize: 12 }}>FACTURACIÓN TOTAL</p>
-          <h2 style={{ fontSize: 42, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
-          <p style={{ color: "#22c55e", marginTop: 8, fontWeight: 700, fontSize: 13 }}>{pedidos.length} pedidos totales</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {[
+            { href: "/dashboard", label: "🏠 Inicio" },
+            { href: "/dashboard/catalogos", label: "📚 Catálogos" },
+            { href: "/dashboard/pedidos", label: "📦 Pedidos" },
+            { href: "/dashboard/devoluciones", label: "🔄 Devoluciones" },
+            { href: "/dashboard/mis-piezas", label: "🔩 Mis Piezas" },
+            { href: "/checkout", label: "🛒 Cesta" },
+            { href: "/perfil", label: "👤 Mi Cuenta" },
+            { href: "/chat", label: "💬 Chat" },
+          ].map(({ href, label }) => (
+            <Link key={href} href={href} style={{ padding: "10px 14px", borderRadius: 12, background: href === "/dashboard" ? "linear-gradient(135deg,#2563eb,#1d4ed8)" : "rgba(255,255,255,0.04)", color: href === "/dashboard" ? "white" : "#cbd5e1", textDecoration: "none", fontWeight: 700, fontSize: 14 }}>{label}</Link>
+          ))}
         </div>
+        <div style={{ marginTop: "auto", background: "linear-gradient(135deg,#1e293b,#0f172a)", borderRadius: 16, padding: 16 }}>
+          <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11, fontWeight: 700 }}>FACTURACIÓN TOTAL</p>
+          <h2 style={{ fontSize: 28, fontWeight: 900 }}>{facturacion.toFixed(0)}€</h2>
+          <p style={{ color: "#22c55e", marginTop: 4, fontWeight: 700, fontSize: 12 }}>{pedidos.length} pedidos totales</p>
+        </div>
+        <button onClick={cerrarSesion} style={{ width: "100%", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", padding: "10px", borderRadius: 12, cursor: "pointer", fontWeight: 800, fontSize: 13 }}>Cerrar sesión</button>
       </aside>
-      <section style={{ flex: 1, overflow: "auto" }}>
+      <section style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
         {barraBusqueda}
-        {/* ═══ CARRUSEL HERO ═══ */}
-        <div style={{ height: 420, position: "relative", overflow: "hidden" }}>
-          {[
-            ...(mostrarPromoAsistente ? [{
-              bg: "linear-gradient(120deg,#020617 0%,#0b1736 45%,#1d4ed8 100%)",
-              overlay: "radial-gradient(circle at 85% 30%,rgba(34,197,94,0.18),transparent 45%)",
-              badge: "🤖 NUEVO · ASISTENTE DE RECAMBIOS",
-              badgeColor: "#86efac",
-              badgeBg: "rgba(22,163,74,0.18)",
-              badgeBorder: "rgba(22,163,74,0.35)",
-              titulo: "TU RECAMBISTA\nCON IA",
-              subtitulo: "Dile la matrícula y lo que necesitas: te enseña las piezas compatibles con stock y precio, listas para la cesta. También te orienta con averías y códigos de error.",
-              href: "#asistente",
-              boton: "Probar el asistente →",
-              botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
-            }] : []),
-            {
-              bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))",
-              badge: "MARKETPLACE PROFESIONAL",
-              badgeColor: "#60a5fa",
-              badgeBg: "rgba(37,99,235,0.18)",
-              badgeBorder: "rgba(37,99,235,0.3)",
-              titulo: "ENCUENTRA\nRECAMBIOS",
-              subtitulo: "Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.",
-              href: "/dashboard/buscar",
-              boton: "Buscar ahora →",
-              botonBg: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-            },
-            {
-              bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
-              badge: "🆕 NUEVO SERVICIO",
-              badgeColor: "#4ade80",
-              badgeBg: "rgba(22,163,74,0.18)",
-              badgeBorder: "rgba(22,163,74,0.3)",
-              titulo: "CATÁLOGO DE\nVEHÍCULOS",
-              subtitulo: "Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles.",
-              href: "/dashboard/vehiculo",
-              boton: "Explorar vehículos →",
-              botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
-            },
-            {
-              bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1600&auto=format&fit=crop') center/cover",
-              overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
-              badge: "📚 CATÁLOGOS",
-              badgeColor: "#fbbf24",
-              badgeBg: "rgba(245,158,11,0.18)",
-              badgeBorder: "rgba(245,158,11,0.3)",
-              titulo: "CATÁLOGOS DE\nPROVEEDORES",
-              subtitulo: "Consulta los catálogos completos de los proveedores conectados y encuentra stock disponible al instante.",
-              href: "/dashboard/catalogos",
-              boton: "Ver catálogos →",
-              botonBg: "linear-gradient(135deg,#d97706,#b45309)",
-            },
-          ].map((slide, i) => (
-            <Link
-              key={i}
-              href={slide.href}
-              onClick={slide.href === "#asistente" ? abrirAsistente : undefined}
-              style={{
-                position: "absolute", inset: 0,
-                background: slide.bg,
-                display: "flex", alignItems: "center", padding: 70,
-                textDecoration: "none", color: "white",
-                opacity: slideActual === i ? 1 : 0,
-                transition: "opacity 0.8s ease-in-out",
-                pointerEvents: slideActual === i ? "auto" : "none",
-              }}
-            >
-              <div style={{ position: "absolute", inset: 0, background: slide.overlay }} />
-              <div style={{ position: "relative", zIndex: 2 }}>
-                <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: slide.badgeBg, border: `1px solid ${slide.badgeBorder}`, color: slide.badgeColor, fontWeight: 700, marginBottom: 16, fontSize: 14 }}>{slide.badge}</div>
-                <h1 style={{ fontSize: 72, lineHeight: 1, fontWeight: 900, marginBottom: 22, whiteSpace: "pre-line" }}>{slide.titulo}</h1>
-                <p style={{ fontSize: 20, lineHeight: 1.7, color: "#cbd5e1", maxWidth: 660, marginBottom: 28 }}>{slide.subtitulo}</p>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: slide.botonBg, borderRadius: 14, padding: "14px 28px", fontSize: 16, fontWeight: 800, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>{slide.boton}</span>
-              </div>
-            </Link>
-          ))}
-          {/* Dots de navegación */}
-          <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10, zIndex: 10 }}>
-            {Array.from({ length: totalSlides }, (_, i) => i).map((i) => (
-              <button
+        <div style={{ flex: 1, minHeight: 560, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gridTemplateRows: "minmax(230px, 1.35fr) minmax(140px, 0.8fr) minmax(170px, 1fr)", gap: 16, padding: "16px 24px 20px" }}>
+
+          {/* ═══ FILA 1 · CARRUSEL (2 columnas) ═══ */}
+          <div style={{ gridColumn: "span 2", position: "relative", overflow: "hidden", borderRadius: 20, border: "1px solid rgba(255,255,255,0.06)" }}>
+            {[
+              ...(mostrarPromoAsistente ? [{
+                bg: "linear-gradient(120deg,#020617 0%,#0b1736 45%,#1d4ed8 100%)",
+                overlay: "radial-gradient(circle at 85% 30%,rgba(34,197,94,0.18),transparent 45%)",
+                badge: "🤖 NUEVO · ASISTENTE DE RECAMBIOS",
+                badgeColor: "#86efac",
+                badgeBg: "rgba(22,163,74,0.18)",
+                badgeBorder: "rgba(22,163,74,0.35)",
+                titulo: "TU RECAMBISTA\nCON IA",
+                subtitulo: "Dile la matrícula y lo que necesitas: te enseña las piezas compatibles con stock y precio, listas para la cesta. También te orienta con averías y códigos de error.",
+                href: "#asistente",
+                boton: "Probar el asistente →",
+                botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
+              }] : []),
+              {
+                bg: "url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1600&auto=format&fit=crop') center/cover",
+                overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.65))",
+                badge: "MARKETPLACE PROFESIONAL",
+                badgeColor: "#60a5fa",
+                badgeBg: "rgba(37,99,235,0.18)",
+                badgeBorder: "rgba(37,99,235,0.3)",
+                titulo: "ENCUENTRA\nRECAMBIOS",
+                subtitulo: "Busca referencias OEM, IAM y equivalencias directamente entre proveedores conectados.",
+                href: "/dashboard/buscar",
+                boton: "Buscar ahora →",
+                botonBg: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+              },
+              {
+                bg: "url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop') center/cover",
+                overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
+                badge: "🆕 NUEVO SERVICIO",
+                badgeColor: "#4ade80",
+                badgeBg: "rgba(22,163,74,0.18)",
+                badgeBorder: "rgba(22,163,74,0.3)",
+                titulo: "CATÁLOGO DE\nVEHÍCULOS",
+                subtitulo: "Introduce una matrícula o bastidor (VIN), identifica el vehículo exacto y navega todas las piezas compatibles.",
+                href: "/dashboard/vehiculo",
+                boton: "Explorar vehículos →",
+                botonBg: "linear-gradient(135deg,#16a34a,#15803d)",
+              },
+              {
+                bg: "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1600&auto=format&fit=crop') center/cover",
+                overlay: "linear-gradient(90deg,rgba(2,6,23,0.95),rgba(2,6,23,0.6))",
+                badge: "📚 CATÁLOGOS",
+                badgeColor: "#fbbf24",
+                badgeBg: "rgba(245,158,11,0.18)",
+                badgeBorder: "rgba(245,158,11,0.3)",
+                titulo: "CATÁLOGOS DE\nPROVEEDORES",
+                subtitulo: "Consulta los catálogos completos de los proveedores conectados y encuentra stock disponible al instante.",
+                href: "/dashboard/catalogos",
+                boton: "Ver catálogos →",
+                botonBg: "linear-gradient(135deg,#d97706,#b45309)",
+              },
+            ].map((slide, i) => (
+              <Link
                 key={i}
-                aria-label={`Ver banner ${i + 1}`}
-                onClick={(e) => { e.preventDefault(); setSlideActual(i); }}
+                href={slide.href}
+                onClick={slide.href === "#asistente" ? abrirAsistente : undefined}
                 style={{
-                  width: slideActual === i ? 32 : 10, height: 10, borderRadius: 5, border: "none",
-                  background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)",
-                  cursor: "pointer", transition: "all 0.3s",
+                  position: "absolute", inset: 0,
+                  background: slide.bg,
+                  display: "flex", alignItems: "center", padding: "20px 72px",
+                  textDecoration: "none", color: "white",
+                  opacity: slideActual === i ? 1 : 0,
+                  transition: "opacity 0.8s ease-in-out",
+                  pointerEvents: slideActual === i ? "auto" : "none",
                 }}
-              />
+              >
+                <div style={{ position: "absolute", inset: 0, background: slide.overlay }} />
+                <div style={{ position: "relative", zIndex: 2 }}>
+                  <div style={{ display: "inline-block", padding: "5px 12px", borderRadius: 999, background: slide.badgeBg, border: `1px solid ${slide.badgeBorder}`, color: slide.badgeColor, fontWeight: 700, marginBottom: 10, fontSize: 12 }}>{slide.badge}</div>
+                  <h1 style={{ fontSize: "clamp(28px, 2.6vw, 48px)", lineHeight: 1, fontWeight: 900, marginBottom: 10, whiteSpace: "pre-line" }}>{slide.titulo}</h1>
+                  <p style={{ fontSize: 15, lineHeight: 1.55, color: "#cbd5e1", maxWidth: 600, marginBottom: 14, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{slide.subtitulo}</p>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: slide.botonBg, borderRadius: 12, padding: "10px 20px", fontSize: 14, fontWeight: 800, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>{slide.boton}</span>
+                </div>
+              </Link>
+            ))}
+            {/* Dots de navegación */}
+            <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
+              {Array.from({ length: totalSlides }, (_, i) => i).map((i) => (
+                <button
+                  key={i}
+                  aria-label={`Ver banner ${i + 1}`}
+                  onClick={(e) => { e.preventDefault(); setSlideActual(i); }}
+                  style={{
+                    width: slideActual === i ? 26 : 8, height: 8, borderRadius: 4, border: "none",
+                    background: slideActual === i ? "#2563eb" : "rgba(255,255,255,0.35)",
+                    cursor: "pointer", transition: "all 0.3s",
+                  }}
+                />
+              ))}
+            </div>
+            {/* Flechas */}
+            <button aria-label="Banner anterior" onClick={(e) => { e.preventDefault(); setSlideActual((slideActual - 1 + totalSlides) % totalSlides); }} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 38, height: 38, borderRadius: 19, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>‹</button>
+            <button aria-label="Banner siguiente" onClick={(e) => { e.preventDefault(); setSlideActual((slideActual + 1) % totalSlides); }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 38, height: 38, borderRadius: 19, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>›</button>
+          </div>
+
+          {/* ═══ FILA 1 · RD PAGO ═══ */}
+          <div style={{ minHeight: 0 }}><BloqueRDPago /></div>
+
+          {/* ═══ FILA 2 · BANNERS VEHÍCULOS + CATÁLOGOS ═══ */}
+          <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 10, textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 20, padding: "16px 20px", position: "relative", overflow: "hidden", minHeight: 0 }}>
+            <div style={{ position: "absolute", top: -6, right: -6, fontSize: 64, opacity: 0.07 }}>🚗</div>
+            <div style={{ position: "relative", zIndex: 2 }}>
+              <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>🆕 NUEVO</div>
+              <h3 style={{ fontSize: 19, fontWeight: 900, marginBottom: 4, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
+              <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.45 }}>Matrícula o VIN → piezas compatibles con stock y precio.</p>
+            </div>
+            <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Explorar vehículos →</span>
+          </Link>
+          <Link href="/dashboard/catalogos" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 10, textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 20, padding: "16px 20px", position: "relative", overflow: "hidden", minHeight: 0 }}>
+            <div style={{ position: "absolute", top: -6, right: -6, fontSize: 64, opacity: 0.07 }}>📚</div>
+            <div style={{ position: "relative", zIndex: 2 }}>
+              <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800, marginBottom: 8, letterSpacing: "0.5px" }}>📚 CATÁLOGOS</div>
+              <h3 style={{ fontSize: 19, fontWeight: 900, marginBottom: 4, lineHeight: 1.2 }}>Catálogos de Proveedores</h3>
+              <p style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.45 }}>Referencias, catálogos PDF y stock directo.</p>
+            </div>
+            <span style={{ position: "relative", zIndex: 2, display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(217,119,6,0.3)" }}>Ver catálogos →</span>
+          </Link>
+
+          {/* ═══ FILA 2 · STATS ═══ */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, minHeight: 0 }}>
+            {[
+              { label: "PEDIDOS MES", value: pedidosMes.length },
+              { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
+              { label: "MIS PIEZAS", value: piezasTaller.length },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ ...card, borderRadius: 16, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
+                <p style={{ color: "#94a3b8", marginBottom: 4, fontSize: 11, fontWeight: 700 }}>{label}</p>
+                <h2 style={{ fontSize: "clamp(22px, 1.8vw, 34px)", fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</h2>
+              </div>
             ))}
           </div>
-          {/* Flechas */}
-          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual - 1 + totalSlides) % totalSlides); }} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>‹</button>
-          <button onClick={(e) => { e.preventDefault(); setSlideActual((slideActual + 1) % totalSlides); }} style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", zIndex: 10, width: 44, height: 44, borderRadius: 22, border: "none", background: "rgba(0,0,0,0.4)", color: "white", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>›</button>
-        </div>
-        {/* BANNERS VEHÍCULOS + CATÁLOGOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: "40px 50px 24px" }}>
-          <Link href="/dashboard/vehiculo" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.08) 100%)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>🚗</div>
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <div style={{ display: "inline-block", background: "rgba(22,163,74,0.25)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>🆕 NUEVO</div>
-              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogo de Vehículos</h3>
-              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Busca por matrícula o bastidor (VIN), identifica el vehículo y navega piezas compatibles con stock y precios en tiempo real.</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {["🔍 Matrícula / VIN", "🔧 Datos motor", "📦 Stock real"].map(t => (
-                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
-                ))}
+
+          {/* ═══ FILA 3 · ACTIVIDAD RECIENTE (2 columnas) ═══ */}
+          <div style={{ ...card, gridColumn: "span 2", padding: "16px 22px", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 900 }}>ACTIVIDAD RECIENTE</h2>
+              <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 800, fontSize: 13 }}>VER TODOS →</Link>
+            </div>
+            {pedidos.length === 0 ? (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", fontSize: 14 }}>Todavía no tienes pedidos. Busca por matrícula o pregúntale al asistente para empezar.</div>
+            ) : (
+              <div style={{ overflowY: "auto", minHeight: 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,0.9fr) minmax(0,0.8fr)", gap: 12, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#64748b", fontSize: 11, fontWeight: 700 }}>
+                  <span>PEDIDO</span><span>TRANSPORTE</span><span>PAGO</span><span>ESTADO</span><span style={{ textAlign: "right" }}>TOTAL</span>
+                </div>
+                {pedidos.slice(0, 3).map((pedido) => {
+                  const est = estadoColor(pedido.estado_envio);
+                  return (
+                    <Link key={pedido.id} href="/dashboard/pedidos" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,0.9fr) minmax(0,0.8fr)", gap: 12, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", fontSize: 13, textDecoration: "none", color: "white" }}>
+                      <span style={{ minWidth: 0 }}>
+                        <strong style={{ fontSize: 14 }}>Pedido #{pedido.id}</strong>
+                        <span style={{ display: "block", color: "#94a3b8", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pedido.codigo}{pedido.created_at ? ` · ${new Date(pedido.created_at).toLocaleDateString("es-ES")}` : ""}</span>
+                      </span>
+                      <span style={{ color: "#cbd5e1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pedido.transporte || pedido.agencia || "-"}</span>
+                      <span style={{ color: "#cbd5e1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pedido.metodo_pago || "-"}</span>
+                      <span><span style={{ padding: "4px 10px", borderRadius: 999, fontWeight: 700, fontSize: 11, background: est.bg, color: est.color, whiteSpace: "nowrap" }}>{pedido.estado_envio || "pendiente"}</span></span>
+                      <span style={{ textAlign: "right", fontWeight: 800, color: "#22c55e" }}>{pedido.total}€</span>
+                    </Link>
+                  );
+                })}
               </div>
-            </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(37,99,235,0.3)" }}>Explorar vehículos →</span>
-          </Link>
-          <Link href="/dashboard/catalogos" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", color: "white", background: "linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 28, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 80, opacity: 0.07 }}>📚</div>
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <div style={{ display: "inline-block", background: "rgba(245,158,11,0.25)", color: "#fbbf24", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: "0.5px" }}>📚 CATÁLOGOS</div>
-              <h3 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>Catálogos de Proveedores</h3>
-              <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>Consulta los catálogos completos de los proveedores conectados, busca referencias y comprueba el stock disponible al instante.</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {["🔎 Buscar referencias", "📋 Catálogos PDF", "✅ Stock directo"].map(t => (
-                  <span key={t} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "linear-gradient(135deg,#d97706,#b45309)", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 800, width: "fit-content", boxShadow: "0 4px 15px rgba(217,119,6,0.3)" }}>Ver catálogos →</span>
-          </Link>
-        </div>
-        {/* STATS + ACCESOS RÁPIDOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
-          {[
-            { label: "PEDIDOS MES", value: pedidosMes.length },
-            { label: "FACTURACIÓN", value: `${facturacion.toFixed(0)}€` },
-            { label: "MIS PIEZAS", value: piezasTaller.length },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ background: "rgba(15,23,42,0.92)", padding: 34, borderRadius: 28, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p style={{ color: "#94a3b8", marginBottom: 8, fontSize: 14 }}>{label}</p>
-              <h2 style={{ fontSize: 54, fontWeight: 900 }}>{value}</h2>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, padding: "0 50px", marginBottom: 24 }}>
-          {[
-            { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
-            { href: "/dashboard/mis-piezas", title: "MIS PIEZAS", text: "Publica piezas sueltas para vender a otros talleres." },
-            { href: "/perfil", title: "MI CUENTA", text: "Gestiona tus datos y empresa." },
-          ].map(({ href, title, text }) => (
-            <Link key={href} href={href} style={{ background: "rgba(15,23,42,0.92)", borderRadius: 28, padding: 38, textDecoration: "none", color: "white", border: "1px solid rgba(255,255,255,0.06)", display: "block" }}>
-              <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 18 }}>{title}</h2>
-              <p style={{ color: "#94a3b8", lineHeight: 1.7, fontSize: 15 }}>{text}</p>
-            </Link>
-          ))}
-        </div>
-        {/* RD PAGO */}
-        <div style={{ padding: "0 50px", marginBottom: 32 }}><BloqueRDPago /></div>
-        {pedidos.length > 0 && (
-          <div style={{ background: "rgba(15,23,42,0.92)", borderRadius: 32, padding: 40, margin: "0 50px", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 40 }}>
-              <h2 style={{ fontSize: 40, fontWeight: 900 }}>ACTIVIDAD RECIENTE</h2>
-              <Link href="/dashboard/pedidos" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 800 }}>VER TODOS</Link>
-            </div>
-            <div style={{ display: "grid", gap: 16 }}>
-              {pedidos.slice(0, 5).map((pedido) => {
-                const est = estadoColor(pedido.estado_envio);
-                return (
-                  <div key={pedido.id} style={{ background: "#0f172a", borderRadius: 24, padding: 30, border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-                      <div>
-                        <h3 style={{ fontSize: 28, fontWeight: 900 }}>Pedido #{pedido.id}</h3>
-                        <p style={{ color: "#60a5fa", marginTop: 4, fontWeight: 700, fontSize: 13 }}>{pedido.codigo}</p>
-                        <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>{pedido.created_at ? new Date(pedido.created_at).toLocaleDateString("es-ES") : ""}</p>
-                      </div>
-                      <span style={{ padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 12, background: est.bg, color: est.color }}>{pedido.estado_envio || "pendiente"}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
-                      {[
-                        { l: "Transporte", v: pedido.transporte || pedido.agencia || "-" },
-                        { l: "Pago", v: pedido.metodo_pago || "-" },
-                        { l: "Total", v: `${pedido.total}€`, green: true },
-                        { l: "Estado", v: pedido.estado_envio || "pendiente" },
-                      ].map(({ l, v, green }) => (
-                        <div key={l}>
-                          <p style={{ color: "#94a3b8", marginBottom: 6, fontSize: 11 }}>{l}</p>
-                          <h3 style={{ fontSize: 22, fontWeight: 800, color: green ? "#22c55e" : "white" }}>{v}</h3>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            )}
           </div>
-        )}
-        <button onClick={cerrarSesion} style={{ margin: "40px 50px", background: "linear-gradient(135deg,#dc2626,#991b1b)", border: "none", color: "white", padding: "18px 28px", borderRadius: 18, cursor: "pointer", fontWeight: 800 }}>CERRAR SESIÓN</button>
+
+          {/* ═══ FILA 3 · ACCESOS RÁPIDOS ═══ */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+            {[
+              { href: "/dashboard/pedidos", title: "MIS PEDIDOS", text: "Consulta pedidos, estados y tracking." },
+              { href: "/dashboard/mis-piezas", title: "MIS PIEZAS", text: "Publica piezas sueltas para vender a otros talleres." },
+              { href: "/perfil", title: "MI CUENTA", text: "Gestiona tus datos y empresa." },
+            ].map(({ href, title, text }) => (
+              <Link key={href} href={href} style={{ ...card, borderRadius: 16, flex: 1, padding: "10px 18px", textDecoration: "none", color: "white", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 900 }}>{title}</h2>
+                <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{text}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
       </section>
     </main>
   );
+
 }
