@@ -84,7 +84,7 @@ if (!provincia.trim()) { setError("No hemos encontrado la provincia para ese có
       try {
         await fetch("/api/enviar-email/send-registro", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nombreEmpresa: nombreEmpresa.trim(), cif: cif.trim().toUpperCase(), email: user.email, telefono: telefono.trim(), direccion: direccion.trim(), ciudad: ciudad.trim(), codigoPostal: codigoPostal.trim(), tipo }),
+          body: JSON.stringify({ userId: user.id, nombreEmpresa: nombreEmpresa.trim(), cif: cif.trim().toUpperCase(), email: user.email, telefono: telefono.trim(), direccion: direccion.trim(), ciudad: ciudad.trim(), codigoPostal: codigoPostal.trim(), tipo }),
         });
       } catch (e) { console.error(e); }
     }
