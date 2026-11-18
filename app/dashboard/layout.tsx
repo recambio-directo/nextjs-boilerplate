@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import AsistentePanel from "../asistente/AsistentePanel";
+// AsistentePanel movido a /dashboard/asistente (página completa)
 
 // Guarda en la pestaña el tipo de usuario y los datos del menú lateral para que,
 // al cambiar de página, el marco se pinte al instante (sin pantallazo azul mientras carga).
@@ -190,7 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/checkout",          icon: "🛒", label: "Cesta", badge: totalCesta },
     { href: "/dashboard/catalogos", icon: "📚", label: "Catálogos" },
     { href: "/dashboard/pedidos", icon: "📦", label: "Pedidos" },
-    { href: "/perfil",            icon: "👤", label: "Cuenta" },
+    { href: "/dashboard/asistente", icon: "🔧", label: "Asistente" },
   ];
 
   if (fueraDelPanel) {
@@ -208,6 +208,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/checkout", label: "🛒 Cesta", badge: totalCesta },
     { href: "/perfil", label: "👤 Mi Cuenta" },
     { href: "/chat", label: "💬 Chat" },
+    { href: "/dashboard/asistente", label: "🔧 Asistente" },
   ];
 
   if (esProveedor) {
@@ -331,6 +332,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
             <Link href="/perfil" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Mi Cuenta</Link>
             <Link href="/chat" style={{ textDecoration: "none", color: "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Chat</Link>
+            <Link href="/dashboard/asistente" style={{ textDecoration: "none", color: pathname.startsWith("/dashboard/asistente") ? "white" : "#e2e8f0", fontWeight: 700, fontSize: 15 }}>Asistente</Link>
             <div ref={notifRef} style={{ position: "relative" }}>
               <button onClick={() => { setShowNotifs(!showNotifs); if (!showNotifs) marcarLeidas(); }} style={{ width: 46, height: 46, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)", color: "white", cursor: "pointer", fontSize: 20, position: "relative" }}>
                 🔔
@@ -453,8 +455,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       )}
 
-      {/* Asistente de recambios (módulo aislado en app/asistente) */}
-      <AsistentePanel />
+      {/* Asistente de recambios: ahora es una página en /dashboard/asistente */}
     </div>
   );
 }
