@@ -4,11 +4,8 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-export const revalidate = 86400;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
+// Lee ?p= (paginación), así que se renderiza en cada visita (son 2 consultas rápidas)
+export const dynamic = "force-dynamic";
 
 const BASE = "https://www.recambio-directo.com";
 const POR_PAGINA = 100;
