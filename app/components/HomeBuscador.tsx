@@ -11,9 +11,8 @@ interface Resultado {
 
 interface Stats {
   referencias: number;
-  proveedores: number;
-  talleres: number;
-  pedidos: number;
+  marcas: number;
+  equivalencias: number;
 }
 
 // ── Animated counter ──
@@ -45,7 +44,7 @@ export default function HomeBuscador() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [buscado, setBuscado] = useState(false);
-  const [stats, setStats] = useState<Stats>({ referencias: 0, proveedores: 0, talleres: 0, pedidos: 0 });
+  const [stats, setStats] = useState<Stats>({ referencias: 0, marcas: 0, equivalencias: 0 });
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Fetch stats on mount
@@ -191,10 +190,9 @@ export default function HomeBuscador() {
       {stats.referencias > 0 && (
         <div className="home-contadores">
           {[
-            { label: "Referencias", value: stats.referencias, color: "#60a5fa" },
-            { label: "Proveedores", value: stats.proveedores, color: "#4ade80" },
-            { label: "Talleres", value: stats.talleres, color: "#a78bfa" },
-            { label: "Pedidos", value: stats.pedidos, color: "#fbbf24" },
+            { label: "Referencias con stock", value: stats.referencias, color: "#60a5fa" },
+            { label: "Marcas", value: stats.marcas, color: "#4ade80" },
+            { label: "Equivalencias OEM/IAM", value: stats.equivalencias, color: "#fbbf24" },
           ].map(({ label, value, color }) => (
             <div
               key={label}
