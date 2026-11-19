@@ -80,6 +80,12 @@ export default function RecambiosInaPage() {
           </ul>
         </div>
 
+        <div style={ { ...card, marginTop: 24, textAlign: "center" } }>
+          <h2 style={ { fontSize: 24, fontWeight: 900, marginBottom: 12 } }>Referencias INA con stock</h2>
+          <p style={ { color: "#94a3b8", fontSize: 15, lineHeight: 1.7, marginBottom: 16 } }>Consulta cada referencia INA disponible en nuestros proveedores y sus equivalencias OEM e IAM.</p>
+          <a href="/referencia/ina" style={ { color: "#60a5fa", textDecoration: "none", fontWeight: 800, fontSize: 16 } }>Ver todas las referencias INA →</a>
+        </div>
+
         <div style={ { textAlign: "center", marginTop: 48 } }>
           <h2 style={ { fontSize: 28, fontWeight: 900, marginBottom: 16 } }>Empieza a comprar INA hoy</h2>
           <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>

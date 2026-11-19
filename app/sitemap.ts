@@ -55,6 +55,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
+      url: `${base}/referencia`,
+      lastModified: ahora,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${base}/gestion-pedidos-recambios`,
+      lastModified: ahora,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${base}/quienes-somos`,
       lastModified: ahora,
       changeFrequency: "monthly",

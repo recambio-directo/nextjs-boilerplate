@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Automoción en Baleares",
-  description: "Compra recambios de automoción en Baleares al mejor precio. Marketplace B2B para talleres y proveedores en Islas Baleares. Piezas OEM e IAM con entrega en 24h.",
+  title: "Recambios de Automoción en Mallorca y Baleares",
+  description: "Recambios de automoción en Palma, Mallorca e Islas Baleares al mejor precio. Marketplace B2B para talleres y proveedores. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-baleares" },
 };
 
@@ -54,7 +54,7 @@ export default function RecambiosBalearesPage() {
         <div style={ { textAlign: "center", marginBottom: 48 } }>
           <div style={badge}>RECAMBIOS EN BALEARES</div>
           <h1 style={ { fontSize: "clamp(36px, 5vw, 56px)", fontWeight: 900, marginBottom: 16, lineHeight: 1.1 } }>
-            Recambios de automoción en Baleares
+            Recambios de automoción en Mallorca y Baleares
           </h1>
           <p style={ { color: "#94a3b8", fontSize: 18, maxWidth: 650, margin: "0 auto", lineHeight: 1.7 } }>
             Encuentra piezas OEM e IAM para tu taller en Baleares y Islas Baleares. Compara precios entre proveedores y recibe en 24 horas.

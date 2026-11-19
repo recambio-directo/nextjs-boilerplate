@@ -11,8 +11,10 @@ Recambio Directo permite a los talleres buscar piezas por referencia OEM o IAM, 
 
 ## Para proveedores
 - [Vender recambios en Recambio Directo](https://www.recambio-directo.com/para-proveedores): canal B2B para distribuidores, 25 €/mes sin comisiones, carga de stock por FTP, CSV o API
+- [Gestión de pedidos de recambios](https://www.recambio-directo.com/gestion-pedidos-recambios): preparación de pedidos, albaranes, etiquetas de agencia y devoluciones
 
 ## Catálogo
+- [Referencias con stock por marca](https://www.recambio-directo.com/referencia): cada referencia con su descripción y equivalencias OEM e IAM
 - [Recambios por categoría](https://www.recambio-directo.com/recambios): frenos, filtros, embragues, suspensión, distribución, aceites, baterías, escape, dirección, encendido
 - [Marcas de recambios](https://www.recambio-directo.com/marcas): Bosch, Brembo, Valeo, MANN-FILTER, Sachs, LuK, TRW, febi bilstein, Monroe, NGK, Denso, Continental, SKF, INA, Gates
 

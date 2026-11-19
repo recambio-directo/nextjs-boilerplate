@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/dhl-endday",
       "schedule": "0 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/refs-seo",
+      "schedule": "30 5 * * *"
     }
   ],
   "functions": {

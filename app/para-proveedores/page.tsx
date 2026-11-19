@@ -142,6 +142,14 @@ export default function ParaProveedoresPage() {
           </div>
         </div>
 
+        <div style={card}>
+          <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Gestión de pedidos desde un solo panel</h2>
+          <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.8, margin: 0 }}>
+            Stock sincronizado por FTP, CSV o API, albaranes, etiquetas de 6 agencias y devoluciones, sin cambiar tu programa de gestión.{" "}
+            <a href="/gestion-pedidos-recambios" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 700 }}>Ver cómo funciona la gestión de pedidos →</a>
+          </p>
+        </div>
+
         {/* FAQ proveedores */}
         <div style={card}>
           <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 20 }}>Preguntas frecuentes para proveedores</h2>

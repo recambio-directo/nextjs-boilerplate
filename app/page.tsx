@@ -272,6 +272,9 @@ export default function Home() {
             <a key={href} href={href} style={{ ...chipStyle, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e2e8f0" }}>{nombre}</a>
           ))}
         </div>
+        <p style={{ textAlign: "center", marginTop: 24 }}>
+          <a href="/referencia" style={{ color: "#60a5fa", textDecoration: "none", fontWeight: 700 }}>Ver todas las referencias con stock por marca →</a>
+        </p>
       </section>
 
       {/* ── ZONAS ── */}
