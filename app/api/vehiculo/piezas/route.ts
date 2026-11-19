@@ -8,8 +8,55 @@ const supabase = createClient(
 );
 
 // Normaliza una referencia para comparar: quita espacios, guiones, puntos, barras y pasa a mayúsculas
+// (misma normalización que referencia_normalizada en piezas_publicadas)
 function normalizarRef(ref: string): string {
-  return ref.toUpperCase().replace(/[\s\-_./]/g, "");
+  return (ref || "").toUpperCase().replace(/[\s\-_./]/g, "");
+}
+
+// Normaliza una marca: solo letras y números en mayúsculas ("Febi Bilstein" → "FEBIBILSTEIN")
+function normalizarMarca(marca: string): string {
+  return (marca || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// ¿Son la misma marca? Igual, o una contiene a la otra (p.ej. "CEVAM" / "CEVAMSA").
+// Si alguna viene vacía o es demasiado corta, NO se considera coincidencia.
+function mismaMarca(a: string, b: string): boolean {
+  const x = normalizarMarca(a);
+  const y = normalizarMarca(b);
+  if (x.length < 2 || y.length < 2) return false;
+  if (x === y) return true;
+  if (x.length >= 3 && y.length >= 3) return x.includes(y) || y.includes(x);
+  return false;
+}
+
+// Referencias a partir de esta longitud se aceptan con coincidencia exacta aunque
+// la marca esté escrita distinto o vacía (es muy raro que dos fabricantes compartan
+// un número tan largo). Por debajo se exige también la marca (caso "3519").
+const MIN_LONGITUD_SIN_MARCA = 7;
+
+// ¿Vale esta pieza publicada para la referencia/marca buscada?
+function coincidePieza(refNorm: string, marcaPieza: string, marcaBuscada: string): boolean {
+  if (refNorm.length >= MIN_LONGITUD_SIN_MARCA) return true;
+  return mismaMarca(marcaPieza, marcaBuscada);
+}
+
+// Las referencias OEM equivalentes solo se usan si son suficientemente largas
+// (evita que números cortos genéricos crucen con cualquier cosa)
+const MIN_LONGITUD_OEM = 6;
+
+const COLUMNAS_PIEZA =
+  "id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre";
+
+// Ejecuta tareas en paralelo por bloques para no saturar Supabase
+async function enBloques<T, R>(items: T[], tam: number, paralelo: number, fn: (lote: T[]) => Promise<R[]>): Promise<R[]> {
+  const lotes: T[][] = [];
+  for (let i = 0; i < items.length; i += tam) lotes.push(items.slice(i, i + tam));
+  let resultado: R[] = [];
+  for (let i = 0; i < lotes.length; i += paralelo) {
+    const partes = await Promise.all(lotes.slice(i, i + paralelo).map(fn));
+    for (const p of partes) resultado = resultado.concat(p);
+  }
+  return resultado;
 }
 
 // GET /api/vehiculo/piezas?vehicleId=135598&nodoId=100260&genericoId=8&nombre=Filtro+de+aire
@@ -175,117 +222,183 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── PASO 2: Recoger todas las referencias para buscar en stock ──
-    // Cada ref de IPDA tiene: referencia, refpropia, refprove, ref_ean
-    const refsParaBuscar = new Set<string>();
-    const refMap = new Map<string, any>(); // refNormalizada → datos TecDoc
+    // ── PASO 2: Datos clave de cada artículo TecDoc (referencia + marca) ──
+    const claves = refsTecdoc.map((ref: any) => {
+      const refsArticulo = [ref.referencia, ref.refprove, ref.refpropia]
+        .filter(Boolean)
+        .map((r: string) => normalizarRef(r))
+        .filter((r: string) => r.length >= 2);
+      return {
+        refs: Array.from(new Set<string>(refsArticulo)),
+        refPrincipal: normalizarRef(ref.referencia || ref.refprove || ""),
+        marca: ref.nombreDlnr || "",
+      };
+    });
 
-    for (const ref of refsTecdoc) {
-      const refs = [
-        ref.referencia,
-        ref.refpropia,
-        ref.refprove,
-      ].filter(Boolean);
+    const refsTecdocNorm = Array.from(new Set<string>(claves.flatMap((c) => c.refs)));
 
-      for (const r of refs) {
-        const norm = normalizarRef(r);
-        if (norm.length >= 4) {
-          refsParaBuscar.add(norm);
-          if (!refMap.has(norm)) {
-            refMap.set(norm, ref);
-          }
-        }
+    // ── PASO 3: Equivalencias desde cruces_referencias ──
+    // 3a) IAM del artículo → OEM (solo filas cuya marca IAM es la del artículo)
+    const filasIamOem = await enBloques<string, any>(
+      Array.from(new Set(claves.map((c) => c.refPrincipal).filter((r) => r.length >= 2))),
+      40, 6,
+      async (lote) => {
+        const { data, error } = await supabase
+          .from("cruces_referencias")
+          .select("marca_iam, referencia_iam_norm, marca_oem, referencia_oem, referencia_oem_norm")
+          .in("referencia_iam_norm", lote)
+          .limit(1000);
+        if (error) { console.error("[Piezas] Error cruces IAM→OEM:", error.message); return []; }
+        return data || [];
       }
+    );
+
+    // OEM por artículo (índice = posición en refsTecdoc)
+    const oemPorArticulo: Map<number, Map<string, { marca: string; referencia: string }>> = new Map();
+    claves.forEach((c, idx) => {
+      const mapa = new Map<string, { marca: string; referencia: string }>();
+      for (const f of filasIamOem) {
+        if (f.referencia_iam_norm !== c.refPrincipal) continue;
+        if (!mismaMarca(f.marca_iam, c.marca)) continue; // el "3519" de otra marca no vale
+        const oemNorm = normalizarRef(f.referencia_oem_norm || f.referencia_oem || "");
+        if (oemNorm.length < MIN_LONGITUD_OEM) continue;
+        mapa.set(oemNorm, { marca: f.marca_oem || "", referencia: f.referencia_oem || oemNorm });
+      }
+      oemPorArticulo.set(idx, mapa);
+    });
+
+    const todosOem = Array.from(new Set<string>(
+      Array.from(oemPorArticulo.values()).flatMap((m) => Array.from(m.keys()))
+    ));
+
+    // 3b) OEM → otras marcas IAM equivalentes
+    const filasOemIam = await enBloques<string, any>(todosOem, 10, 6, async (lote) => {
+      const { data, error } = await supabase
+        .from("cruces_referencias")
+        .select("marca_iam, referencia_iam, referencia_iam_norm, referencia_oem_norm")
+        .in("referencia_oem_norm", lote)
+        .limit(1000);
+      if (error) { console.error("[Piezas] Error cruces OEM→IAM:", error.message); return []; }
+      return data || [];
+    });
+
+    // Equivalentes IAM por OEM
+    const iamPorOem = new Map<string, { marca: string; refNorm: string; referencia: string }[]>();
+    for (const f of filasOemIam) {
+      const oem = normalizarRef(f.referencia_oem_norm || "");
+      const refNorm = normalizarRef(f.referencia_iam_norm || f.referencia_iam || "");
+      if (!oem || refNorm.length < 2) continue;
+      if (!iamPorOem.has(oem)) iamPorOem.set(oem, []);
+      iamPorOem.get(oem)!.push({ marca: f.marca_iam || "", refNorm, referencia: f.referencia_iam || refNorm });
     }
 
-    console.log(`[Piezas] Refs únicas para buscar en stock: ${refsParaBuscar.size}`);
+    const refsEquivIam = Array.from(new Set<string>(filasOemIam
+      .map((f: any) => normalizarRef(f.referencia_iam_norm || f.referencia_iam || ""))
+      .filter((r: string) => r.length >= 2)));
 
-    // ── PASO 3: Buscar en piezas_publicadas por referencia_normalizada ──
-    const refsArr = Array.from(refsParaBuscar);
-    let todasLasPiezas: any[] = [];
+    console.log(`[Piezas] Equivalencias: ${todosOem.length} OEM, ${refsEquivIam.length} refs IAM`);
 
-    // Buscar en lotes de 30 (límite práctico para OR conditions en Supabase)
-    for (let i = 0; i < refsArr.length; i += 30) {
-      const lote = refsArr.slice(i, i + 30);
-      const orConditions = lote
-        .map((ref) => `referencia_normalizada.eq.${ref}`)
-        .join(",");
+    // ── PASO 4: Buscar en piezas_publicadas SOLO por coincidencia exacta ──
+    const refsABuscar = Array.from(new Set<string>([...refsTecdocNorm, ...todosOem, ...refsEquivIam]));
 
-      const { data: piezas, error: dbError } = await supabase
+    const todasLasPiezas: any[] = await enBloques<string, any>(refsABuscar, 100, 6, async (lote) => {
+      const { data, error } = await supabase
         .from("piezas_publicadas")
-        .select("id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre")
-        .or(orConditions)
+        .select(COLUMNAS_PIEZA)
+        .in("referencia_normalizada", lote)
         .order("precio", { ascending: true })
-        .limit(50);
+        .limit(1000);
+      if (error) { console.error("[Piezas] Error Supabase lote:", error.message); return []; }
+      return data || [];
+    });
 
-      if (dbError) {
-        console.error("Error Supabase lote:", dbError);
-        continue;
-      }
-
-      if (piezas && piezas.length > 0) {
-        todasLasPiezas = todasLasPiezas.concat(piezas);
-      }
+    // Índice por referencia normalizada
+    const piezasPorRef = new Map<string, any[]>();
+    for (const p of todasLasPiezas) {
+      const k = normalizarRef(p.referencia_normalizada || p.referencia || "");
+      if (!piezasPorRef.has(k)) piezasPorRef.set(k, []);
+      piezasPorRef.get(k)!.push(p);
     }
 
-    // ── PASO 3b: Buscar también por referencia original (no normalizada) ──
-    // Algunas piezas pueden no tener referencia_normalizada pero sí referencia
-    if (todasLasPiezas.length < refsTecdoc.length) {
-      const refsOriginales = refsTecdoc
-        .map((r: any) => r.referencia || r.refprove || "")
-        .filter((r: string) => r.length >= 4)
-        .slice(0, 20); // limitar
+    console.log(`[Piezas] Piezas en stock encontradas (exactas + equivalencias): ${todasLasPiezas.length}`);
 
-      for (let i = 0; i < refsOriginales.length; i += 10) {
-        const lote = refsOriginales.slice(i, i + 10);
-        const orConditions = lote
-          .map((ref: string) => {
-            const escaped = ref.replace(/'/g, "''");
-            return `referencia.ilike.%${escaped}%`;
-          })
-          .join(",");
+    // ── PASO 5: Coincidencias exactas (misma referencia + misma marca) ──
+    const exactasPorArticulo = new Map<number, any[]>();
+    const idsExactos = new Set<string>();
+    claves.forEach((c, idx) => {
+      const lista: any[] = [];
+      const vistos = new Set<string>();
+      for (const r of c.refs) {
+        for (const p of piezasPorRef.get(r) || []) {
+          if (vistos.has(p.id)) continue;
+          if (!coincidePieza(r, p.marca, c.marca)) continue;
+          vistos.add(p.id);
+          lista.push(p);
+          idsExactos.add(p.id);
+        }
+      }
+      exactasPorArticulo.set(idx, lista);
+    });
 
-        const { data: piezas } = await supabase
-          .from("piezas_publicadas")
-          .select("id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre")
-          .or(orConditions)
-          .order("precio", { ascending: true })
-          .limit(30);
+    // ── PASO 6: Equivalencias en stock (OEM y otras marcas IAM) ──
+    const equivPorArticulo = new Map<number, { pieza: any; via: string }[]>();
+    claves.forEach((c, idx) => {
+      const lista: { pieza: any; via: string }[] = [];
+      const vistos = new Set<string>();
+      const oems = oemPorArticulo.get(idx) || new Map<string, { marca: string; referencia: string }>();
 
-        if (piezas && piezas.length > 0) {
-          // Evitar duplicados
-          const idsExistentes = new Set(todasLasPiezas.map((p: any) => p.id));
-          for (const p of piezas) {
-            if (!idsExistentes.has(p.id)) {
-              todasLasPiezas.push(p);
-              idsExistentes.add(p.id);
-            }
+      for (const [oemNorm, oemInfo] of Array.from(oems.entries())) {
+        const via = `OEM ${oemInfo.marca ? oemInfo.marca + " " : ""}${oemInfo.referencia}`.trim();
+
+        // Piezas publicadas con esa referencia OEM (número largo y específico)
+        for (const p of piezasPorRef.get(oemNorm) || []) {
+          if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
+          vistos.add(p.id);
+          lista.push({ pieza: p, via });
+        }
+
+        // Otras marcas IAM que cruzan con ese OEM (referencia + marca)
+        for (const eq of iamPorOem.get(oemNorm) || []) {
+          for (const p of piezasPorRef.get(eq.refNorm) || []) {
+            if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
+            if (!coincidePieza(eq.refNorm, p.marca, eq.marca)) continue;
+            vistos.add(p.id);
+            lista.push({ pieza: p, via });
           }
         }
       }
-    }
+      equivPorArticulo.set(idx, lista);
+    });
 
-    console.log(`[Piezas] Piezas en stock encontradas: ${todasLasPiezas.length}`);
+    // ── PASO 7: Construir artículos ──
+    const mapearPieza = (s: any, equivalente: boolean, via = "") => ({
+      id: s.id,
+      referencia: s.referencia,
+      marca: s.marca,
+      nombre: s.descripcion || s.nombre || "",
+      tipo: s.tipo || "IAM",
+      precio: s.precio,
+      proveedor_id: s.proveedor_id,
+      proveedor_nombre: s.proveedor_nombre || "",
+      equivalente,
+      equivalente_via: via,
+    });
 
-    // ── PASO 4: Construir artículos combinando TecDoc + Stock ──
-    const articulos: any[] = [];
-
-    for (const ref of refsTecdoc) {
-      const refNorm = normalizarRef(ref.referencia || ref.refprove || "");
-      const refPropiaNorm = normalizarRef(ref.refpropia || "");
-
-      // Buscar piezas en stock que coincidan con esta referencia
-      const stockCoincidente = todasLasPiezas.filter((p: any) => {
-        const pRefNorm = normalizarRef(p.referencia_normalizada || p.referencia || "");
-        return pRefNorm === refNorm || pRefNorm === refPropiaNorm ||
-          (ref.referencia && normalizarRef(p.referencia || "").includes(normalizarRef(ref.referencia)));
-      });
+    const articulos: any[] = refsTecdoc.map((ref: any, idx: number) => {
+      const exactas = (exactasPorArticulo.get(idx) || []).sort((a, b) => (a.precio ?? 999999) - (b.precio ?? 999999));
+      const equivs = (equivPorArticulo.get(idx) || []).sort((a, b) => (a.pieza.precio ?? 999999) - (b.pieza.precio ?? 999999));
 
       const caracteristicas = (ref.caracteristicasList || [])
         .map((c: any) => `${c.txt}: ${c.value}${c.unit ? " " + c.unit : ""}`)
         .join(" | ");
 
-      const articulo: any = {
+      const stockMarketplace = [
+        ...exactas.map((s) => mapearPieza(s, false)),
+        ...equivs.map((e) => mapearPieza(e.pieza, true, e.via)),
+      ];
+      const precios = stockMarketplace.map((s) => s.precio).filter((p) => p != null);
+
+      return {
         referencia: ref.referencia || ref.refprove || "",
         referencia_propia: ref.refpropia || "",
         marca: ref.nombreDlnr || "",
@@ -302,29 +415,19 @@ export async function GET(req: NextRequest) {
           color: ref.stockColor || "",
           texto: ref.stockTexto || "",
         },
-        en_stock_marketplace: stockCoincidente.length > 0,
-        stock_marketplace: stockCoincidente.map((s: any) => ({
-          id: s.id,
-          referencia: s.referencia,
-          marca: s.marca,
-          nombre: s.descripcion || s.nombre || "",
-          tipo: s.tipo || "IAM",
-          precio: s.precio,
-          proveedor_id: s.proveedor_id,
-          proveedor_nombre: s.proveedor_nombre || "",
-        })),
-        precio_marketplace_desde: stockCoincidente.length > 0
-          ? Math.min(...stockCoincidente.map((s: any) => s.precio).filter(Boolean))
-          : null,
+        // "En stock" solo si está la pieza exacta (misma referencia y marca)
+        en_stock_marketplace: exactas.length > 0,
+        tiene_equivalentes: equivs.length > 0,
+        stock_marketplace: stockMarketplace,
+        precio_marketplace_desde: precios.length > 0 ? Math.min(...precios) : null,
       };
+    });
 
-      articulos.push(articulo);
-    }
-
-    // Ordenar: primero los que tienen stock en marketplace, luego por precio
+    // Ordenar: primero con stock exacto, luego con equivalentes, luego el resto; dentro, por precio
+    const rango = (a: any) => (a.en_stock_marketplace ? 0 : a.tiene_equivalentes ? 1 : 2);
     articulos.sort((a, b) => {
-      if (a.en_stock_marketplace && !b.en_stock_marketplace) return -1;
-      if (!a.en_stock_marketplace && b.en_stock_marketplace) return 1;
+      const r = rango(a) - rango(b);
+      if (r !== 0) return r;
       const precioA = a.precio_marketplace_desde || a.pvp_neto || 999999;
       const precioB = b.precio_marketplace_desde || b.pvp_neto || 999999;
       return precioA - precioB;
@@ -336,6 +439,7 @@ export async function GET(req: NextRequest) {
       nombre,
       total_tecdoc: refsTecdoc.length,
       total_en_stock: articulos.filter((a: any) => a.en_stock_marketplace).length,
+      total_con_equivalentes: articulos.filter((a: any) => !a.en_stock_marketplace && a.tiene_equivalentes).length,
       articulos,
       fuente: "ipda_tecdoc_stock",
     });

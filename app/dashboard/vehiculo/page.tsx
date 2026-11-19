@@ -60,6 +60,8 @@ interface PiezaStock {
   precio: number;
   proveedor_id: string;
   proveedor_nombre: string;
+  equivalente?: boolean;
+  equivalente_via?: string;
 }
 
 interface ArticuloCatalogo {
@@ -76,6 +78,7 @@ interface ArticuloCatalogo {
   ean: string;
   stock_ipda: { cantidad: number; color: string; texto: string };
   en_stock_marketplace: boolean;
+  tiene_equivalentes?: boolean;
   stock_marketplace: PiezaStock[];
   precio_marketplace_desde: number | null;
 }
@@ -1011,6 +1014,14 @@ export default function VehiculoPage() {
                                   }}>
                                     ✅ En stock
                                   </span>
+                                ) : art.tiene_equivalentes ? (
+                                  <span style={{
+                                    marginLeft: "auto", background: "rgba(168,85,247,0.15)",
+                                    borderRadius: "6px", padding: "3px 10px",
+                                    color: "#d8b4fe", fontSize: "12px", fontWeight: 700,
+                                  }}>
+                                    🔁 Equivalentes en stock
+                                  </span>
                                 ) : (
                                   <span style={{
                                     marginLeft: "auto", color: "#64748b", fontSize: "11px",
@@ -1080,6 +1091,17 @@ export default function VehiculoPage() {
                                     >
                                       <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>
                                         {s.proveedor_nombre || s.proveedor_id || "Proveedor"}
+                                        {s.equivalente && (
+                                          <span
+                                            title={s.equivalente_via ? `Equivalente vía ${s.equivalente_via}` : "Pieza equivalente"}
+                                            style={{
+                                              marginLeft: "8px", background: "rgba(168,85,247,0.15)", color: "#d8b4fe",
+                                              fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px",
+                                            }}
+                                          >
+                                            🔁 Equivalente{s.marca ? ` · ${s.marca}` : ""}
+                                          </span>
+                                        )}
                                       </span>
                                       <span style={{ color: "#94a3b8", fontSize: "12px", fontFamily: "monospace" }}>
                                         {s.referencia}
