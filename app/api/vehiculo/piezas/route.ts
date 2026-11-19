@@ -13,19 +13,79 @@ function normalizarRef(ref: string): string {
   return (ref || "").toUpperCase().replace(/[\s\-_./]/g, "");
 }
 
-// Normaliza una marca: solo letras y números en mayúsculas ("Febi Bilstein" → "FEBIBILSTEIN")
-function normalizarMarca(marca: string): string {
-  return (marca || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+// ── Comparación de marcas tolerante a cómo las escriben los proveedores ──
+// Ejemplos reales: "BOS-BOSCH", "CEV-CEVAM", "MAN-MANN", "PUR-PURFL", "MON-MONRO",
+// "TRW-", "FAR-FARE CAUCHO", "TYC ESPEJOS", "UNIADVANCE (NEW)", "KAY-KAYABA AMORTIGUADORES"
+
+// Palabras genéricas que no identifican una marca
+const PALABRAS_GENERICAS = new Set([
+  "FILTER", "FILTERS", "FILTRO", "FILTROS", "PARTS", "AUTO", "AUTOMOTIVE", "FRENOS", "CAUCHO",
+  "ESPEJOS", "ILUMINACION", "INDUSTRIAL", "SERVICIO", "HERRAMIENTA", "HERRAMIENTAS", "ESPANA",
+  "ESPAA", "ROTULAS", "BIELETAS", "AMORTIGUADORES", "GROUP", "GMBH", "NEW", "REMAND", "ORIGINAL",
+  "OEM", "THE", "AND", "RECAMBIOS", "TURBO", "ELECTRO", "SPAIN", "IBERICA", "SA", "SL", "SPA", "CO",
+]);
+
+// Alias conocidos (clave normalizada → marca canónica normalizada)
+const ALIAS_MARCAS: Record<string, string> = {
+  KAYABA: "KYB",
+  CONTITECH: "CONTINENTAL",
+  SWAGFEBI: "SWAG",
+  REINZ: "VICTORREINZ",
+  MEATDORIA: "MEAT",
+};
+
+function soloAlfanum(s: string): string {
+  return (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-// ¿Son la misma marca? Igual, o una contiene a la otra (p.ej. "CEVAM" / "CEVAMSA").
-// Si alguna viene vacía o es demasiado corta, NO se considera coincidencia.
+// Genera las "claves" que identifican una marca escrita de cualquier forma
+function clavesMarca(marca: string): string[] {
+  const limpia = (marca || "")
+    .toUpperCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\(.*?\)/g, " ")          // "(NEW)", "(REMAND)"
+    .replace(/&/g, " ");
+  const claves = new Set<string>();
+  const add = (k: string, minLen: number) => {
+    const n = soloAlfanum(k);
+    if (n.length < minLen || PALABRAS_GENERICAS.has(n)) return;
+    claves.add(ALIAS_MARCAS[n] || n);
+  };
+
+  // Si la marca entera es un alias conocido, manda el alias
+  const entera = soloAlfanum(limpia);
+  if (ALIAS_MARCAS[entera]) return [ALIAS_MARCAS[entera]];
+
+  add(limpia, 2); // la marca entera
+
+  // "BOS-BOSCH": código + nombre
+  let partes = limpia.split("-").map((p) => p.trim()).filter(Boolean);
+  if (partes.length >= 2) {
+    const cod = soloAlfanum(partes[0]);
+    const resto = soloAlfanum(partes[1].split(/\s+/)[0] || "");
+    // Si el nombre empieza por el código (BOS-BOSCH, MAN-MANN, PUR-PURFL), el código sobra
+    if (cod.length <= 4 && resto.startsWith(cod)) partes = partes.slice(1);
+  }
+  for (const parte of partes) {
+    add(parte, 2);
+    for (const palabra of parte.split(/\s+/)) add(palabra, 3);
+  }
+  return Array.from(claves);
+}
+
+// ¿Son la misma marca?
 function mismaMarca(a: string, b: string): boolean {
-  const x = normalizarMarca(a);
-  const y = normalizarMarca(b);
-  if (x.length < 2 || y.length < 2) return false;
-  if (x === y) return true;
-  if (x.length >= 3 && y.length >= 3) return x.includes(y) || y.includes(x);
+  const ka = clavesMarca(a);
+  const kb = clavesMarca(b);
+  if (ka.length === 0 || kb.length === 0) return false;
+  for (const x of ka) {
+    for (const y of kb) {
+      if (x === y) return true;
+      // Nombres cortados por el proveedor: "PURFL"/"PURFLUX", "MONRO"/"MONROE"
+      const [corta, larga] = x.length <= y.length ? [x, y] : [y, x];
+      if (corta.length >= 5 && larga.startsWith(corta)) return true;
+    }
+  }
   return false;
 }
 
