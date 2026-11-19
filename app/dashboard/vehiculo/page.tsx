@@ -62,6 +62,9 @@ interface PiezaStock {
   proveedor_nombre: string;
   equivalente?: boolean;
   equivalente_via?: string;
+  almacen_id?: string | null;
+  provincia?: string;
+  stock?: number | null;
 }
 
 interface ArticuloCatalogo {
@@ -1091,6 +1094,13 @@ export default function VehiculoPage() {
                                     >
                                       <span style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: 600 }}>
                                         {s.proveedor_nombre || s.proveedor_id || "Proveedor"}
+                                        {(s.provincia || (s.stock != null && s.stock > 0)) && (
+                                          <span style={{ display: "block", color: "#64748b", fontSize: "11px", fontWeight: 500, marginTop: "2px" }}>
+                                            {s.provincia ? `📍 ${s.provincia}` : ""}
+                                            {s.provincia && s.stock != null && s.stock > 0 ? " · " : ""}
+                                            {s.stock != null && s.stock > 0 ? `${s.stock} ud${s.stock === 1 ? "" : "s"}` : ""}
+                                          </span>
+                                        )}
                                         {s.equivalente && (
                                           <span
                                             title={s.equivalente_via ? `Equivalente vía ${s.equivalente_via}` : "Pieza equivalente"}

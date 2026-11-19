@@ -138,7 +138,7 @@ function coincidePieza(refNorm: string, marcaPieza: string, marcaBuscada: string
 const MIN_LONGITUD_OEM = 6;
 
 const COLUMNAS_PIEZA =
-  "id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre";
+  "id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, proveedor_id, proveedor_nombre, almacen_id, provincia, stock";
 
 // Ejecuta tareas en paralelo por bloques para no saturar Supabase
 async function enBloques<T, R>(items: T[], tam: number, paralelo: number, fn: (lote: T[]) => Promise<R[]>): Promise<R[]> {
@@ -505,6 +505,9 @@ export async function GET(req: NextRequest) {
       precio: s.precio,
       proveedor_id: s.proveedor_id,
       proveedor_nombre: s.proveedor_nombre || "",
+      almacen_id: s.almacen_id || null,
+      provincia: s.provincia || "",
+      stock: s.stock ?? null,
       equivalente,
       equivalente_via: via,
     });
@@ -517,13 +520,14 @@ export async function GET(req: NextRequest) {
         .map((c: any) => `${c.txt}: ${c.value}${c.unit ? " " + c.unit : ""}`)
         .join(" | ");
 
-      // Quitar ofertas repetidas (mismo proveedor, referencia y precio)
+      // Quitar ofertas repetidas: mismo proveedor, MISMA delegación (almacén), referencia y precio.
+      // Delegaciones distintas del mismo proveedor (p.ej. las tiendas de Elektra) se mantienen.
       const ofertasVistas = new Set<string>();
       const stockMarketplace = [
         ...exactas.map((s) => mapearPieza(s, false)),
         ...equivs.map((e) => mapearPieza(e.pieza, true, e.via)),
       ].filter((s) => {
-        const k = `${s.proveedor_id}|${normalizarRef(s.referencia || "")}|${s.precio}`;
+        const k = `${s.proveedor_id}|${s.almacen_id || "-"}|${normalizarRef(s.referencia || "")}|${s.precio}`;
         if (ofertasVistas.has(k)) return false;
         ofertasVistas.add(k);
         return true;
