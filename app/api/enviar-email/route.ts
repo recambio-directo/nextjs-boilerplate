@@ -453,7 +453,7 @@ export async function POST(request: Request) {
     try {
       await fetch("https://www.recambio-directo.com/api/send-nuevo-pedido-admin", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabeceraInterna() },
         body: JSON.stringify({
           pedidoCodigo: codigo,
           pedidoId,
