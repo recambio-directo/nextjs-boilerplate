@@ -431,21 +431,30 @@ export async function GET(req: NextRequest) {
     console.log(`[Piezas] Piezas en stock encontradas (exactas + equivalencias): ${todasLasPiezas.length}`);
 
     // ── PASO 5: Coincidencias exactas (misma referencia + misma marca) ──
+    // Si la marca no cuadra pero la referencia es larga e idéntica (p.ej. correas "6PK1180"),
+    // se muestra como equivalente "misma referencia", no como la pieza exacta.
     const exactasPorArticulo = new Map<number, any[]>();
+    const mismaRefOtraMarca = new Map<number, any[]>();
     const idsExactos = new Set<string>();
     claves.forEach((c, idx) => {
       const lista: any[] = [];
+      const otras: any[] = [];
       const vistos = new Set<string>();
       for (const r of c.refs) {
         for (const p of piezasPorRef.get(r) || []) {
           if (vistos.has(p.id)) continue;
-          if (!coincidePieza(r, p.marca, c.marca)) continue;
-          vistos.add(p.id);
-          lista.push(p);
-          idsExactos.add(p.id);
+          if (mismaMarca(p.marca, c.marca)) {
+            vistos.add(p.id);
+            lista.push(p);
+            idsExactos.add(p.id);
+          } else if (r.length >= MIN_LONGITUD_SIN_MARCA) {
+            vistos.add(p.id);
+            otras.push(p);
+          }
         }
       }
       exactasPorArticulo.set(idx, lista);
+      mismaRefOtraMarca.set(idx, otras);
     });
 
     // ── PASO 6: Equivalencias en stock (OEM y otras marcas IAM) ──
@@ -453,6 +462,11 @@ export async function GET(req: NextRequest) {
     claves.forEach((c, idx) => {
       const lista: { pieza: any; via: string }[] = [];
       const vistos = new Set<string>();
+      for (const p of mismaRefOtraMarca.get(idx) || []) {
+        if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
+        vistos.add(p.id);
+        lista.push({ pieza: p, via: `misma referencia (${p.marca || "marca sin indicar"})` });
+      }
       const oems = oemPorArticulo.get(idx) || new Map<string, { marca: string; referencia: string; grupo: string }>();
 
       for (const [claveOem, oemInfo] of Array.from(oems.entries())) {
@@ -503,10 +517,17 @@ export async function GET(req: NextRequest) {
         .map((c: any) => `${c.txt}: ${c.value}${c.unit ? " " + c.unit : ""}`)
         .join(" | ");
 
+      // Quitar ofertas repetidas (mismo proveedor, referencia y precio)
+      const ofertasVistas = new Set<string>();
       const stockMarketplace = [
         ...exactas.map((s) => mapearPieza(s, false)),
         ...equivs.map((e) => mapearPieza(e.pieza, true, e.via)),
-      ];
+      ].filter((s) => {
+        const k = `${s.proveedor_id}|${normalizarRef(s.referencia || "")}|${s.precio}`;
+        if (ofertasVistas.has(k)) return false;
+        ofertasVistas.add(k);
+        return true;
+      });
       const precios = stockMarketplace.map((s) => s.precio).filter((p) => p != null);
 
       return {
