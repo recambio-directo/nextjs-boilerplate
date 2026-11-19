@@ -89,6 +89,39 @@ function mismaMarca(a: string, b: string): boolean {
   return false;
 }
 
+// ── Fabricantes de vehículo ──
+// En cruces_referencias la columna "OEM" mezcla números de fabricante de coche con números
+// de otras marcas aftermarket (CIFAM, METELLI, NK, MINTEX...). Esos últimos se repiten entre
+// productos distintos (un disco y un termostato con el mismo "800574"), así que las
+// equivalencias SOLO cruzan por números de fabricante de vehículo, dentro del mismo grupo.
+const GRUPOS_FABRICANTE: Record<string, string> = {
+  VAG: "VAG", VW: "VAG", VOLKSWAGEN: "VAG", AUDI: "VAG", SEAT: "VAG", SKODA: "VAG", CUPRA: "VAG", PORSCHE: "PORSCHE",
+  PSA: "PSA", PEUGEOT: "PSA", CITROEN: "PSA", DS: "PSA", STELLANTIS: "PSA",
+  RENAULT: "RENAULT", DACIA: "RENAULT", ALPINE: "RENAULT",
+  GM: "GM", OPEL: "GM", VAUXHALL: "GM", CHEVROLET: "GM", DAEWOO: "GM", CADILLAC: "GM", SAAB: "SAAB",
+  FORD: "FORD",
+  FIAT: "FIAT", ALFAROMEO: "FIAT", ALFA: "FIAT", LANCIA: "FIAT", ABARTH: "FIAT",
+  BMW: "BMW", MINI: "BMW",
+  MERCEDES: "MERCEDES", MERCEDESBENZ: "MERCEDES", SMART: "MERCEDES",
+  LANDROVER: "ROVER", ROVER: "ROVER", MG: "ROVER", JAGUAR: "JAGUAR",
+  TOYOTA: "TOYOTA", LEXUS: "TOYOTA", DAIHATSU: "TOYOTA",
+  NISSAN: "NISSAN", INFINITI: "NISSAN",
+  HONDA: "HONDA", MAZDA: "MAZDA", MITSUBISHI: "MITSUBISHI", SUBARU: "SUBARU", SUZUKI: "SUZUKI", ISUZU: "ISUZU",
+  HYUNDAI: "HYUNDAI", KIA: "HYUNDAI", SSANGYONG: "SSANGYONG", KGMOBILITY: "SSANGYONG",
+  VOLVO: "VOLVO", CHRYSLER: "CHRYSLER", JEEP: "CHRYSLER", DODGE: "CHRYSLER",
+  TESLA: "TESLA", LADA: "LADA", TATA: "TATA", IVECO: "IVECO", MAN: "MAN", DAF: "DAF", SCANIA: "SCANIA",
+};
+
+// Devuelve el grupo de fabricante de vehículo de una marca, o null si es una marca de recambio
+function grupoFabricante(marca: string): string | null {
+  const entera = soloAlfanum(marca);
+  if (GRUPOS_FABRICANTE[entera]) return GRUPOS_FABRICANTE[entera];
+  for (const k of clavesMarca(marca)) {
+    if (GRUPOS_FABRICANTE[k]) return GRUPOS_FABRICANTE[k];
+  }
+  return null;
+}
+
 // Referencias a partir de esta longitud se aceptan con coincidencia exacta aunque
 // la marca esté escrita distinto o vacía (es muy raro que dos fabricantes compartan
 // un número tan largo). Por debajo se exige también la marca (caso "3519").
@@ -282,6 +315,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Quitar artículos TecDoc duplicados (IPDA a veces devuelve la misma marca+referencia varias veces)
+    {
+      const vistosTecdoc = new Set<string>();
+      refsTecdoc = refsTecdoc.filter((ref: any) => {
+        const k = `${soloAlfanum(ref.nombreDlnr || "")}|${normalizarRef(ref.referencia || ref.refprove || "")}`;
+        if (vistosTecdoc.has(k)) return false;
+        vistosTecdoc.add(k);
+        return true;
+      });
+    }
+
     // ── PASO 2: Datos clave de cada artículo TecDoc (referencia + marca) ──
     const claves = refsTecdoc.map((ref: any) => {
       const refsArticulo = [ref.referencia, ref.refprove, ref.refpropia]
@@ -314,28 +358,30 @@ export async function GET(req: NextRequest) {
     );
 
     // OEM por artículo (índice = posición en refsTecdoc)
-    const oemPorArticulo: Map<number, Map<string, { marca: string; referencia: string }>> = new Map();
+    const oemPorArticulo: Map<number, Map<string, { marca: string; referencia: string; grupo: string }>> = new Map();
     claves.forEach((c, idx) => {
-      const mapa = new Map<string, { marca: string; referencia: string }>();
+      const mapa = new Map<string, { marca: string; referencia: string; grupo: string }>();
       for (const f of filasIamOem) {
         if (f.referencia_iam_norm !== c.refPrincipal) continue;
         if (!mismaMarca(f.marca_iam, c.marca)) continue; // el "3519" de otra marca no vale
+        const grupo = grupoFabricante(f.marca_oem || "");
+        if (!grupo) continue; // solo números de fabricante de vehículo (no CIFAM, METELLI, NK...)
         const oemNorm = normalizarRef(f.referencia_oem_norm || f.referencia_oem || "");
         if (oemNorm.length < MIN_LONGITUD_OEM) continue;
-        mapa.set(oemNorm, { marca: f.marca_oem || "", referencia: f.referencia_oem || oemNorm });
+        mapa.set(`${oemNorm}|${grupo}`, { marca: f.marca_oem || "", referencia: f.referencia_oem || oemNorm, grupo });
       }
       oemPorArticulo.set(idx, mapa);
     });
 
     const todosOem = Array.from(new Set<string>(
-      Array.from(oemPorArticulo.values()).flatMap((m) => Array.from(m.keys()))
+      Array.from(oemPorArticulo.values()).flatMap((m) => Array.from(m.keys()).map((k) => k.split("|")[0]))
     ));
 
     // 3b) OEM → otras marcas IAM equivalentes
     const filasOemIam = await enBloques<string, any>(todosOem, 10, 6, async (lote) => {
       const { data, error } = await supabase
         .from("cruces_referencias")
-        .select("marca_iam, referencia_iam, referencia_iam_norm, referencia_oem_norm")
+        .select("marca_iam, referencia_iam, referencia_iam_norm, marca_oem, referencia_oem_norm")
         .in("referencia_oem_norm", lote)
         .limit(1000);
       if (error) { console.error("[Piezas] Error cruces OEM→IAM:", error.message); return []; }
@@ -344,17 +390,19 @@ export async function GET(req: NextRequest) {
 
     // Equivalentes IAM por OEM
     const iamPorOem = new Map<string, { marca: string; refNorm: string; referencia: string }[]>();
+    const refsEquivIamSet = new Set<string>();
     for (const f of filasOemIam) {
       const oem = normalizarRef(f.referencia_oem_norm || "");
       const refNorm = normalizarRef(f.referencia_iam_norm || f.referencia_iam || "");
-      if (!oem || refNorm.length < 2) continue;
-      if (!iamPorOem.has(oem)) iamPorOem.set(oem, []);
-      iamPorOem.get(oem)!.push({ marca: f.marca_iam || "", refNorm, referencia: f.referencia_iam || refNorm });
+      const grupo = grupoFabricante(f.marca_oem || "");
+      if (!oem || !grupo || refNorm.length < 2) continue;
+      const clave = `${oem}|${grupo}`;
+      if (!iamPorOem.has(clave)) iamPorOem.set(clave, []);
+      iamPorOem.get(clave)!.push({ marca: f.marca_iam || "", refNorm, referencia: f.referencia_iam || refNorm });
+      refsEquivIamSet.add(refNorm);
     }
 
-    const refsEquivIam = Array.from(new Set<string>(filasOemIam
-      .map((f: any) => normalizarRef(f.referencia_iam_norm || f.referencia_iam || ""))
-      .filter((r: string) => r.length >= 2)));
+    const refsEquivIam = Array.from(refsEquivIamSet);
 
     console.log(`[Piezas] Equivalencias: ${todosOem.length} OEM, ${refsEquivIam.length} refs IAM`);
 
@@ -405,20 +453,23 @@ export async function GET(req: NextRequest) {
     claves.forEach((c, idx) => {
       const lista: { pieza: any; via: string }[] = [];
       const vistos = new Set<string>();
-      const oems = oemPorArticulo.get(idx) || new Map<string, { marca: string; referencia: string }>();
+      const oems = oemPorArticulo.get(idx) || new Map<string, { marca: string; referencia: string; grupo: string }>();
 
-      for (const [oemNorm, oemInfo] of Array.from(oems.entries())) {
+      for (const [claveOem, oemInfo] of Array.from(oems.entries())) {
+        const oemNorm = claveOem.split("|")[0];
         const via = `OEM ${oemInfo.marca ? oemInfo.marca + " " : ""}${oemInfo.referencia}`.trim();
 
-        // Piezas publicadas con esa referencia OEM (número largo y específico)
+        // Piezas publicadas con ese número de fabricante (p.ej. ARVIGO NAD100580).
+        // Número corto: la marca publicada debe ser del mismo fabricante.
         for (const p of piezasPorRef.get(oemNorm) || []) {
           if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
+          if (oemNorm.length < MIN_LONGITUD_SIN_MARCA && grupoFabricante(p.marca) !== oemInfo.grupo) continue;
           vistos.add(p.id);
           lista.push({ pieza: p, via });
         }
 
         // Otras marcas IAM que cruzan con ese OEM (referencia + marca)
-        for (const eq of iamPorOem.get(oemNorm) || []) {
+        for (const eq of iamPorOem.get(claveOem) || []) {
           for (const p of piezasPorRef.get(eq.refNorm) || []) {
             if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
             if (!coincidePieza(eq.refNorm, p.marca, eq.marca)) continue;
