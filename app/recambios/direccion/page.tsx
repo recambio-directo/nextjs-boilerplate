@@ -68,9 +68,9 @@ export default function Page() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               <a key={"TRW"} href="/marcas/trw" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>TRW</a>
               <a key={"Bosch"} href="/marcas/bosch" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Bosch</a>
-              <a key={"ZF"} href="/marcas/zf" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>ZF</a>
+              <span key={"ZF"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>ZF</span>
               <a key={"Lemförder"} href="/marcas/lemförder" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Lemförder</a>
-              <a key={"Meyle"} href="/marcas/meyle" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Meyle</a>
+              <span key={"Meyle"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Meyle</span>
               <a key={"Febi Bilstein"} href="/marcas/febi-bilstein" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Febi Bilstein</a>
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function Page() {
 
           <div style={{ textAlign: "center", marginTop: 48 }}>
             <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 16 }}>Compara precios entre proveedores</h2>
-            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Primer mes gratis. Sin permanencia. Solo 25 €/mes después.</p>
+            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
             <a href="/registro" style={{ display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 }}>
               REGISTRARME GRATIS →
             </a>

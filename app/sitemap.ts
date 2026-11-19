@@ -5,7 +5,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.recambio-directo.com";
   // Fecha del último cambio real de contenido. Actualízala al publicar cambios:
   // con new Date() Google veía "modificado hoy" en todas las URLs y dejaba de fiarse.
-  const ahora = new Date("2026-11-13");
+  const ahora = new Date("2026-11-19");
 
   // Slugs que coinciden EXACTAMENTE con las carpetas /app/recambios-{slug}/
   const provincias = [

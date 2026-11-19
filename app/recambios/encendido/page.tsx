@@ -69,9 +69,9 @@ export default function Page() {
               <a key={"NGK"} href="/marcas/ngk" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>NGK</a>
               <a key={"Denso"} href="/marcas/denso" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Denso</a>
               <a key={"Bosch"} href="/marcas/bosch" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Bosch</a>
-              <a key={"Beru"} href="/marcas/beru" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Beru</a>
-              <a key={"Delphi"} href="/marcas/delphi" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Delphi</a>
-              <a key={"Champion"} href="/marcas/champion" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Champion</a>
+              <span key={"Beru"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Beru</span>
+              <span key={"Delphi"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Delphi</span>
+              <span key={"Champion"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Champion</span>
             </div>
           </div>
 
@@ -84,7 +84,7 @@ export default function Page() {
 
           <div style={{ textAlign: "center", marginTop: 48 }}>
             <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 16 }}>Compara precios entre proveedores</h2>
-            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Primer mes gratis. Sin permanencia. Solo 25 €/mes después.</p>
+            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
             <a href="/registro" style={{ display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 }}>
               REGISTRARME GRATIS →
             </a>

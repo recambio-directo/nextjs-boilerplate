@@ -82,7 +82,7 @@ export default function RecambiosLukPage() {
 
         <div style={ { textAlign: "center", marginTop: 48 } }>
           <h2 style={ { fontSize: 28, fontWeight: 900, marginBottom: 16 } }>Empieza a comprar LuK hoy</h2>
-          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Primer mes gratuito. Sin permanencia. Solo 25€/mes después.</p>
+          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
           <a href="/registro" style={ { display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 } }>
             REGISTRARME GRATIS →
           </a>

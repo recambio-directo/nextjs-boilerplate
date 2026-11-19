@@ -1,0 +1,27 @@
+# Recambio Directo
+
+> Marketplace B2B de recambios de automoción en España. Conecta talleres mecánicos con distribuidores y proveedores de recambios. Gratis para talleres; los proveedores pagan 25 €/mes sin comisiones por venta. Requiere ser profesional (empresa o autónomo).
+
+Recambio Directo permite a los talleres buscar piezas por referencia OEM o IAM, por matrícula o por bastidor, ver equivalencias entre marcas, comparar precio y stock de varios proveedores a la vez y hacer el pedido con envío en 24-48 h. Los precios se muestran sin IVA. Incluye gestión de pedidos, albaranes, devoluciones, chat con el proveedor y pago aplazado (RD Pago).
+
+## Para talleres
+- [Recambios para talleres](https://www.recambio-directo.com/para-talleres): cómo comprar recambios B2B y comparar precios entre proveedores
+- [Buscar recambios por matrícula](https://www.recambio-directo.com/buscar-por-matricula): identificar la pieza correcta a partir de la matrícula o el bastidor
+- [Registro gratuito](https://www.recambio-directo.com/registro)
+
+## Para proveedores
+- [Vender recambios en Recambio Directo](https://www.recambio-directo.com/para-proveedores): canal B2B para distribuidores, 25 €/mes sin comisiones, carga de stock por FTP, CSV o API
+
+## Catálogo
+- [Recambios por categoría](https://www.recambio-directo.com/recambios): frenos, filtros, embragues, suspensión, distribución, aceites, baterías, escape, dirección, encendido
+- [Marcas de recambios](https://www.recambio-directo.com/marcas): Bosch, Brembo, Valeo, MANN-FILTER, Sachs, LuK, TRW, febi bilstein, Monroe, NGK, Denso, Continental, SKF, INA, Gates
+
+## Guías
+- [Cómo elegir entre recambios OEM e IAM](https://www.recambio-directo.com/blog/como-elegir-recambios-oem-o-iam)
+- [Cómo buscar recambios por referencia OEM](https://www.recambio-directo.com/blog/buscar-recambios-por-referencia-oem)
+- [Comparar precios de recambios online](https://www.recambio-directo.com/blog/comparar-precios-recambios-online)
+- [Marketplace B2B vs distribuidor tradicional](https://www.recambio-directo.com/blog/marketplace-b2b-vs-distribuidor-tradicional)
+
+## Empresa
+- [Quiénes somos](https://www.recambio-directo.com/quienes-somos)
+- Contacto: info@recambio-directo.com · +34 650 49 52 70 · Murcia, España

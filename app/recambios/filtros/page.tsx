@@ -68,10 +68,10 @@ export default function Page() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               <a key={"Mann-Filter"} href="/marcas/mann-filter" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Mann-Filter</a>
               <a key={"Bosch"} href="/marcas/bosch" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Bosch</a>
-              <a key={"Mahle"} href="/marcas/mahle" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Mahle</a>
-              <a key={"Hengst"} href="/marcas/hengst" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Hengst</a>
-              <a key={"Purflux"} href="/marcas/purflux" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Purflux</a>
-              <a key={"UFI"} href="/marcas/ufi" style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>UFI</a>
+              <span key={"Mahle"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Mahle</span>
+              <span key={"Hengst"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Hengst</span>
+              <span key={"Purflux"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>Purflux</span>
+              <span key={"UFI"}  style={{ color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 }}>UFI</span>
             </div>
           </div>
 
@@ -84,7 +84,7 @@ export default function Page() {
 
           <div style={{ textAlign: "center", marginTop: 48 }}>
             <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 16 }}>Compara precios entre proveedores</h2>
-            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Primer mes gratis. Sin permanencia. Solo 25 €/mes después.</p>
+            <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: 16 }}>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
             <a href="/registro" style={{ display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 }}>
               REGISTRARME GRATIS →
             </a>

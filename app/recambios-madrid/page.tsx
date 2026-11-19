@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import ProvinciaJsonLd from "../components/ProvinciaJsonLd";
 
 export const metadata: Metadata = {
-  title: "Recambios de Automoción en Madrid — Marketplace B2B",
+  title: "Recambios de Automoción en Madrid",
   description: "Compra recambios de automoción en Madrid al mejor precio. Marketplace B2B para talleres y proveedores en Comunidad de Madrid. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-madrid" },
   openGraph: {
-    title: "Recambios de Automoción en Madrid — Marketplace B2B",
+    title: "Recambios de Automoción en Madrid",
     description: "Marketplace B2B de recambios para talleres en Madrid. Compara precios entre proveedores y recibe piezas OEM e IAM en 24h.",
     url: "https://www.recambio-directo.com/recambios-madrid",
     type: "website",
@@ -79,9 +79,18 @@ export default function RecambiosMadridPage() {
           </ul>
         </div>
 
+        <div style={ { ...card, marginTop: 24 } }>
+          <h2 style={ { fontSize: 24, fontWeight: 900, marginBottom: 16 } }>Recambios por categoría en Madrid</h2>
+          <div style={ { display: "flex", flexWrap: "wrap", gap: 10 } }>
+            {[{ href: "/recambios/frenos", label: "Frenos" }, { href: "/recambios/filtros", label: "Filtros" }, { href: "/recambios/embragues", label: "Embragues" }, { href: "/recambios/suspension", label: "Suspensión" }, { href: "/recambios/distribucion", label: "Distribución" }, { href: "/recambios/aceites", label: "Aceites" }, { href: "/recambios/baterias", label: "Baterías" }, { href: "/recambios/escape", label: "Escape" }, { href: "/recambios/direccion", label: "Dirección" }, { href: "/recambios/encendido", label: "Encendido" }].map((c) => (
+              <a key={c.href} href={c.href} style={ { color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 } }>{c.label}</a>
+            ))}
+          </div>
+        </div>
+
         <div style={ { textAlign: "center", marginTop: 48 } }>
           <h2 style={ { fontSize: 28, fontWeight: 900, marginBottom: 16 } }>Empieza gratis en Madrid</h2>
-          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Primer mes gratuito. Sin permanencia. Solo 25€/mes después.</p>
+          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
           <a href="/registro" style={ { display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 } }>
             REGISTRARME GRATIS →
           </a>

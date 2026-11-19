@@ -1,9 +1,45 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recambios de Automoción en Valencia — Marketplace B2B",
+  title: "Recambios de Automoción en Valencia",
   description: "Compra recambios de automoción en Valencia al mejor precio. Marketplace B2B para talleres y proveedores en Comunitat Valenciana. Piezas OEM e IAM con entrega en 24h.",
   alternates: { canonical: "https://www.recambio-directo.com/recambios-valencia" },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": "Recambio Directo — Recambios en Valencia",
+  "description": "Marketplace B2B de recambios de automoción para talleres y proveedores en Valencia, Comunidad Valenciana.",
+  "url": "https://www.recambio-directo.com/recambios-valencia",
+  "areaServed": {
+    "@type": "AdministrativeArea",
+    "name": "Valencia",
+    "containedInPlace": {
+      "@type": "Country",
+      "name": "España"
+    }
+  },
+  "provider": {
+    "@type": "Organization",
+    "name": "Recambio Directo",
+    "url": "https://www.recambio-directo.com",
+    "logo": "https://www.recambio-directo.com/icons/manifest-icon-512.maskable.png",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+34650495270",
+      "contactType": "customer service",
+      "availableLanguage": "Spanish"
+    }
+  },
+  "serviceType": "Marketplace B2B de recambios de automoción",
+  "offers": {
+    "@type": "Offer",
+    "description": "Gratis para talleres. Proveedores: suscripción mensual sin comisiones",
+    "price": "25",
+    "priceCurrency": "EUR",
+    "priceValidUntil": "2027-12-31"
+  }
 };
 
 const badge: React.CSSProperties = { display: "inline-block", background: "rgba(37,99,235,0.15)", color: "#60a5fa", padding: "8px 18px", borderRadius: 999, fontWeight: 700, marginBottom: 20, fontSize: 13, letterSpacing: "0.05em" };
@@ -12,6 +48,7 @@ const card: React.CSSProperties = { background: "rgba(15,23,42,0.92)", borderRad
 export default function RecambiosValenciaPage() {
   return (
     <main style={ { minHeight: "100vh", background: "linear-gradient(135deg,#020617,#020b2d)", color: "white", padding: "60px 20px" } }>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div style={ { maxWidth: 900, margin: "0 auto" } }>
 
         <div style={ { textAlign: "center", marginBottom: 48 } }>
@@ -56,9 +93,18 @@ export default function RecambiosValenciaPage() {
           </ul>
         </div>
 
+        <div style={ { ...card, marginTop: 24 } }>
+          <h2 style={ { fontSize: 24, fontWeight: 900, marginBottom: 16 } }>Recambios por categoría en Valencia</h2>
+          <div style={ { display: "flex", flexWrap: "wrap", gap: 10 } }>
+            {[{ href: "/recambios/frenos", label: "Frenos" }, { href: "/recambios/filtros", label: "Filtros" }, { href: "/recambios/embragues", label: "Embragues" }, { href: "/recambios/suspension", label: "Suspensión" }, { href: "/recambios/distribucion", label: "Distribución" }, { href: "/recambios/aceites", label: "Aceites" }, { href: "/recambios/baterias", label: "Baterías" }, { href: "/recambios/escape", label: "Escape" }, { href: "/recambios/direccion", label: "Dirección" }, { href: "/recambios/encendido", label: "Encendido" }].map((c) => (
+              <a key={c.href} href={c.href} style={ { color: "#60a5fa", textDecoration: "none", fontSize: 14, padding: "6px 16px", border: "1px solid rgba(96,165,250,0.3)", borderRadius: 999 } }>{c.label}</a>
+            ))}
+          </div>
+        </div>
+
         <div style={ { textAlign: "center", marginTop: 48 } }>
           <h2 style={ { fontSize: 28, fontWeight: 900, marginBottom: 16 } }>Empieza gratis en Valencia</h2>
-          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Primer mes gratuito. Sin permanencia. Solo 25€/mes después.</p>
+          <p style={ { color: "#94a3b8", marginBottom: 24, fontSize: 16 } }>Gratis para talleres, sin límites. Proveedores: 25 €/mes sin comisiones, primer mes gratis.</p>
           <a href="/registro" style={ { display: "inline-block", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "white", padding: "18px 48px", borderRadius: 14, fontWeight: 800, textDecoration: "none", fontSize: 17 } }>
             REGISTRARME GRATIS →
           </a>
