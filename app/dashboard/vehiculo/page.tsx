@@ -413,6 +413,7 @@ export default function VehiculoPage() {
         nodoId: cat.id,
         genericoId: cat.genericId || "",
         nombre: cat.nombre,
+        marcaVehiculo: varianteSeleccionada.marca || "",
       });
       const res = await fetch(`/api/vehiculo/piezas?${params.toString()}`);
       const json = await res.json();

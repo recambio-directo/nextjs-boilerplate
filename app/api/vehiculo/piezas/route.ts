@@ -42,7 +42,7 @@ function soloAlfanum(s: string): string {
 function clavesMarca(marca: string): string[] {
   const limpia = (marca || "")
     .toUpperCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/\(.*?\)/g, " ")          // "(NEW)", "(REMAND)"
     .replace(/&/g, " ");
   const claves = new Set<string>();
@@ -122,6 +122,69 @@ function grupoFabricante(marca: string): string | null {
   return null;
 }
 
+// ── Tipo de pieza a partir de un texto (nombre TecDoc o descripción del proveedor) ──
+// Solo sirve para DESCARTAR equivalencias claramente de otro tipo (p.ej. una rótula como
+// equivalente de un brazo, o un antirrobo como equivalente de un motor de arranque).
+// Si alguno de los dos textos no se reconoce, NO se descarta nada.
+const FAMILIAS_PIEZA: [string, RegExp][] = [
+  ["PASTILLA", /PASTILL|PLAQUETA|\bPLQ\b|J\.\s?PLQ|BRAKE PAD/],
+  ["DISCO_FRENO", /\bDISCOS?\b(?!.*EMBRAG)|\bDISCO FRN/],
+  ["ZAPATA", /ZAPATA|TAMBOR|MORDAZA/],
+  ["PINZA", /PINZA|ESTRIBO|CALIPER/],
+  ["AMORTIGUADOR", /AMORTIG|\bAMORT\b|SHOCK ABS/],
+  ["MUELLE", /MUELLE|RESORTE|BALLESTA/],
+  ["FILTRO_ACEITE", /FILTRO.{0,15}ACEITE|OIL FILTER/],
+  ["FILTRO_AIRE", /FILTRO.{0,15}AIRE(?!.{0,20}HABIT)|AIR FILTER/],
+  ["FILTRO_HABITACULO", /HABIT|POLEN|CABIN|CHARBON|CARBON ACTIV/],
+  ["FILTRO_COMBUSTIBLE", /COMBUST|GASOIL|GAS OIL|DIESEL|GASOLINA|FUEL/],
+  ["ROTULA", /ROTUL/],
+  ["BRAZO", /BRAZO|TRAPECIO|HORQUILLA|TIRANTE/],
+  ["BIELETA", /BIELETA|TIRANTE/],
+  ["SILENTBLOCK", /SILENT|CASQUILLO|COJINETE BRAZO/],
+  ["TERMOSTATO", /TERMOSTAT/],
+  ["SENSOR", /SENSOR|SONDA|TERMISTOR|CAPTADOR|TRANSMISOR|INTERRUPTOR/],
+  ["ALTERNADOR", /ALTERNAD|DINAMO|REGULADOR|GENERATORREGLER/],
+  ["ARRANQUE", /ARRANQUE|\bARRANQ|STARTER/],
+  ["EMBRAGUE", /EMBRAG|CLUTCH|VOLANTE BIMASA|COJINETE DE EMPUJE/],
+  ["CORREA", /CORREA|PK AUTO|POLI.?V|ACANALADA|DISTRIBUC|CADENA/],
+  ["RODILLO", /RODILLO|TENSOR|POLEA|\bGUIA\b/],
+  ["BOMBA_AGUA", /BOMBA.{0,10}AGUA(?!.{0,15}LAVAD)|WATER PUMP/],
+  ["LAVAPARABRISAS", /LAVAD|LAVAPARAB|LIMPIA ?PARABRISAS|LAVAVETRO|LAVAFAROS/],
+  ["RADIADOR", /RADIADOR|INTERCOOLER|CONDENSADOR|INTERCAMBIADOR/],
+  ["BUJIA", /BUJIA|CALENTADOR|PRECALENT|ESPIGA/],
+  ["ILUMINACION", /PILOTO|FARO|LAMPARA|XENON|BOMBILLA|INTERMITENTE|ILUMINAC/],
+  ["ELEVALUNAS", /ELEVALUNAS/],
+  ["CERRADURA", /ANTIRROBO|CERRADURA|BOMBIN DE PUERTA/],
+  ["ESPEJO", /ESPEJO|RETROVISOR/],
+  ["ESCOBILLA", /ESCOBILLA|LIMPIAPARAB|LIMPIA/],
+  ["JUNTA", /JUNTA|RETEN|ANILLO|ESTANQUEIDAD|TORICA/],
+  ["BATERIA", /BATERIA/],
+  ["RODAMIENTO", /RODAMIENTO|COJINETE DE RUEDA|BUJE|KIT RUEDA/],
+  ["INYECTOR", /INYECTOR/],
+  ["VALVULA", /VALVULA|EGR/],
+  ["TURBO", /TURBO/],
+  ["SOPORTE", /\bSOPORTE|\bTACO\b/],
+  ["TAPON", /TAPON/],
+  ["HERRAMIENTA", /HERRAMIENTA|LLAVE DE/],
+];
+
+function familiasPieza(texto: string): Set<string> {
+  const t = (texto || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const out = new Set<string>();
+  for (const [fam, re] of FAMILIAS_PIEZA) if (re.test(t)) out.add(fam);
+  return out;
+}
+
+// ¿La pieza publicada es del mismo tipo que la buscada? Solo es "no" si ambos textos
+// se reconocen y no comparten ningún tipo.
+function tipoCompatible(textoBuscado: string, textoPublicado: string): boolean {
+  const a = familiasPieza(textoBuscado);
+  const b = familiasPieza(textoPublicado);
+  if (a.size === 0 || b.size === 0) return true;
+  for (const f of Array.from(a)) if (b.has(f)) return true;
+  return false;
+}
+
 // Referencias a partir de esta longitud se aceptan con coincidencia exacta aunque
 // la marca esté escrita distinto o vacía (es muy raro que dos fabricantes compartan
 // un número tan largo). Por debajo se exige también la marca (caso "3519").
@@ -159,6 +222,10 @@ export async function GET(req: NextRequest) {
   const nodoId = searchParams.get("nodoId");
   const genericoId = searchParams.get("genericoId") || "";
   const nombre = searchParams.get("nombre") || "";
+  // Marca del vehículo (p.ej. "LAND ROVER", "AUDI"): las equivalencias solo cruzan por
+  // números OEM de ese fabricante. Si no llega o no se reconoce, se admite cualquier fabricante.
+  const marcaVehiculo = searchParams.get("marcaVehiculo") || "";
+  const grupoVehiculo = grupoFabricante(marcaVehiculo);
 
   if (!vehicleId || !nodoId) {
     return NextResponse.json(
@@ -345,7 +412,7 @@ export async function GET(req: NextRequest) {
     // 3a) IAM del artículo → OEM (solo filas cuya marca IAM es la del artículo)
     const filasIamOem = await enBloques<string, any>(
       Array.from(new Set(claves.map((c) => c.refPrincipal).filter((r) => r.length >= 2))),
-      40, 6,
+      15, 8,
       async (lote) => {
         const { data, error } = await supabase
           .from("cruces_referencias")
@@ -366,6 +433,7 @@ export async function GET(req: NextRequest) {
         if (!mismaMarca(f.marca_iam, c.marca)) continue; // el "3519" de otra marca no vale
         const grupo = grupoFabricante(f.marca_oem || "");
         if (!grupo) continue; // solo números de fabricante de vehículo (no CIFAM, METELLI, NK...)
+        if (grupoVehiculo && grupo !== grupoVehiculo) continue; // solo OEM de la marca del coche buscado
         const oemNorm = normalizarRef(f.referencia_oem_norm || f.referencia_oem || "");
         if (oemNorm.length < MIN_LONGITUD_OEM) continue;
         mapa.set(`${oemNorm}|${grupo}`, { marca: f.marca_oem || "", referencia: f.referencia_oem || oemNorm, grupo });
@@ -378,7 +446,7 @@ export async function GET(req: NextRequest) {
     ));
 
     // 3b) OEM → otras marcas IAM equivalentes
-    const filasOemIam = await enBloques<string, any>(todosOem, 10, 6, async (lote) => {
+    const filasOemIam = await enBloques<string, any>(todosOem, 5, 8, async (lote) => {
       const { data, error } = await supabase
         .from("cruces_referencias")
         .select("marca_iam, referencia_iam, referencia_iam_norm, marca_oem, referencia_oem_norm")
@@ -409,7 +477,9 @@ export async function GET(req: NextRequest) {
     // ── PASO 4: Buscar en piezas_publicadas SOLO por coincidencia exacta ──
     const refsABuscar = Array.from(new Set<string>([...refsTecdocNorm, ...todosOem, ...refsEquivIam]));
 
-    const todasLasPiezas: any[] = await enBloques<string, any>(refsABuscar, 100, 6, async (lote) => {
+    // Lotes pequeños: cada consulta devuelve como máximo 1000 filas y algunos proveedores
+    // tienen la misma referencia en muchas delegaciones (Elektra: hasta 10 filas por referencia)
+    const todasLasPiezas: any[] = await enBloques<string, any>(refsABuscar, 40, 8, async (lote) => {
       const { data, error } = await supabase
         .from("piezas_publicadas")
         .select(COLUMNAS_PIEZA)
@@ -462,8 +532,12 @@ export async function GET(req: NextRequest) {
     claves.forEach((c, idx) => {
       const lista: { pieza: any; via: string }[] = [];
       const vistos = new Set<string>();
+      // Texto del tipo de pieza buscada (nombre TecDoc + categoría)
+      const textoBuscado = `${refsTecdoc[idx]?.nombre || refsTecdoc[idx]?.txtrefpropia || ""} ${nombre}`;
+      const mismoTipo = (p: any) => tipoCompatible(textoBuscado, p.descripcion || p.nombre || "");
       for (const p of mismaRefOtraMarca.get(idx) || []) {
         if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
+        if (!mismoTipo(p)) continue;
         vistos.add(p.id);
         lista.push({ pieza: p, via: `misma referencia (${p.marca || "marca sin indicar"})` });
       }
@@ -478,6 +552,7 @@ export async function GET(req: NextRequest) {
         for (const p of piezasPorRef.get(oemNorm) || []) {
           if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
           if (oemNorm.length < MIN_LONGITUD_SIN_MARCA && grupoFabricante(p.marca) !== oemInfo.grupo) continue;
+          if (!mismoTipo(p)) continue;
           vistos.add(p.id);
           lista.push({ pieza: p, via });
         }
@@ -487,6 +562,7 @@ export async function GET(req: NextRequest) {
           for (const p of piezasPorRef.get(eq.refNorm) || []) {
             if (idsExactos.has(p.id) || vistos.has(p.id)) continue;
             if (!coincidePieza(eq.refNorm, p.marca, eq.marca)) continue;
+            if (!mismoTipo(p)) continue;
             vistos.add(p.id);
             lista.push({ pieza: p, via });
           }
