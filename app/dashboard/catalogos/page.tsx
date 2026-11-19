@@ -9613,7 +9613,7 @@ const CATALOGOS: Catalogo[] = [
     descripcion: "Catálogo 2026 — Aditivos, químicos de taller, limpieza DPF, radiadores, tratamientos de combustible y equipamiento profesional",
     color: "#d97706",
     categoriaFiltro: "lubricantes",
-    pdfUrl: "",
+    pdfUrl: "https://gharfhzqowuyxighnqbz.supabase.co/storage/v1/object/public/CATALOGOS/Catalogo_STA_-_recambio_directo_1.pdf",
     secciones: [
       { titulo: "Lubricación y motor", icon: "🛢️", productos: [
         { ref: "STA-2-100", nombre: "Motor PROTECT + Antifricción motor 250 ml", desc: "Tratamiento antifricción para motor. Reduce rozamiento, consumo y emisiones. 250 ml" },
