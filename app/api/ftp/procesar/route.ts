@@ -9,10 +9,11 @@ const supabase = createClient(
 );
 
 const ELEKTRA_ID = "72fe848e-3025-4e30-9dc6-1d883eb9aaca";
+const BATCH_SIZE = 500;
 
 function normalizarCabecera(header: string): string {
   const h = (header || "").toLowerCase().trim()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    .normalize("NFD").replace(/[̀-ͯ]/g, "");
   if (["referencia", "referencia cat logo", "referencia catalogo", "ref", "codigo", "cod", "partno", "part_no", "part number"].includes(h)) return "referencia";
   if (["descripcion", "description", "desc", "nombre", "articulo"].includes(h)) return "descripcion";
   if (["precio", "precio venta neto", "precio venta", "price", "pvp", "pvd", "tarifa", "p.venta", "pventa"].includes(h)) return "precio";
@@ -64,6 +65,65 @@ function procesarFilasConCasco(filas: any[]): any[] {
   return resultado;
 }
 
+/** Cargar todas las referencias existentes de un proveedor en un Map para evitar N queries */
+async function cargarExistentes(proveedorId: string): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  let desde = 0;
+  const PAGINA = 5000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("piezas_publicadas")
+      .select("id, referencia, tipo, almacen_id")
+      .eq("proveedor_id", proveedorId)
+      .range(desde, desde + PAGINA - 1);
+
+    if (error || !data || data.length === 0) break;
+
+    for (const row of data) {
+      const clave = `${row.referencia}|${row.tipo}|${row.almacen_id || "00000000-0000-0000-0000-000000000000"}`;
+      mapa.set(clave, row.id);
+    }
+
+    if (data.length < PAGINA) break;
+    desde += PAGINA;
+  }
+
+  return mapa;
+}
+
+/** Ejecutar upserts en lotes */
+async function batchUpsert(tabla: string, filas: any[], tamano: number = BATCH_SIZE) {
+  let ok = 0, errores = 0;
+  for (let i = 0; i < filas.length; i += tamano) {
+    const lote = filas.slice(i, i + tamano);
+    const { error } = await supabase.from(tabla).upsert(lote, { onConflict: "id", ignoreDuplicates: false });
+    if (error) {
+      console.error(`Error batch upsert (${i}-${i + lote.length}):`, error.message);
+      errores += lote.length;
+    } else {
+      ok += lote.length;
+    }
+  }
+  return { ok, errores };
+}
+
+/** Ejecutar inserts en lotes */
+async function batchInsert(tabla: string, filas: any[], tamano: number = BATCH_SIZE) {
+  let ok = 0, errores = 0;
+  for (let i = 0; i < filas.length; i += tamano) {
+    const lote = filas.slice(i, i + tamano);
+    const { error } = await supabase.from(tabla).insert(lote);
+    if (error) {
+      console.error(`Error batch insert (${i}-${i + lote.length}):`, error.message);
+      errores += lote.length;
+    } else {
+      ok += lote.length;
+    }
+  }
+  return { ok, errores };
+}
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const { searchParams } = new URL(request.url);
@@ -71,7 +131,6 @@ export async function GET(request: Request) {
 
   const esCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
   if (!esCron) {
-    // Lanzado a mano desde el panel: solo administradores
     const admin = await verificarAdmin(request);
     if (!admin.ok) return Response.json({ error: admin.error }, { status: admin.status });
   }
@@ -108,6 +167,7 @@ export async function GET(request: Request) {
         const tipoFtp: "OEM" | "IAM" = proveedor.tipo_referencias_ftp === "OEM" ? "OEM" : "IAM";
         const esElektra = proveedor.id === ELEKTRA_ID;
 
+        // ── Buscar archivo ──────────────────────────────────────────────
         let archivoPath: string | null = null;
         for (const ext of ["csv", "xlsx", "xls"]) {
           const { data } = await supabase.storage
@@ -124,6 +184,7 @@ export async function GET(request: Request) {
           continue;
         }
 
+        // ── Descargar y parsear ─────────────────────────────────────────
         const { data: fileData, error: downloadError } = await supabase.storage
           .from("ftp-stock")
           .download(archivoPath);
@@ -142,7 +203,13 @@ export async function GET(request: Request) {
           continue;
         }
 
-        let insertadas = 0, actualizadas = 0, errores = 0;
+        // ── Cargar existentes en una sola query (paginada) ──────────────
+        const existenteMap = await cargarExistentes(proveedor.id);
+
+        // ── Preparar lotes de insert y update ───────────────────────────
+        const paraInsertar: any[] = [];
+        const paraActualizar: any[] = [];
+        let errores = 0;
 
         for (const fila of filas) {
           const referencia = String(fila.referencia || "").toUpperCase().trim();
@@ -154,7 +221,7 @@ export async function GET(request: Request) {
 
           if (!referencia || isNaN(precio) || precio <= 0) { errores++; continue; }
 
-          // Para Elektra: obtener almacen_id y nombre de sucursal
+          // Elektra: obtener almacen_id y nombre de sucursal
           let almacenId: string | null = null;
           let proveedorNombre = proveedor.alias || proveedor.nombre_empresa;
 
@@ -163,34 +230,27 @@ export async function GET(request: Request) {
             const almacen = almacenMap.get(almacenCodigo);
             if (almacen) {
               almacenId = almacen.id;
-              proveedorNombre = almacen.nombre; // ej. "AUTOCENTRO ELEKTRA (ALICANTE)"
+              proveedorNombre = almacen.nombre;
             }
           }
 
-          const { data: existente } = await supabase
-            .from("piezas_publicadas")
-            .select("id")
-            .eq("proveedor_id", proveedor.id)
-            .eq("referencia", referencia)
-            .eq("tipo", tipoFtp)
-            .eq("almacen_id", almacenId || "00000000-0000-0000-0000-000000000000")
-            .maybeSingle();
+          const clave = `${referencia}|${tipoFtp}|${almacenId || "00000000-0000-0000-0000-000000000000"}`;
+          const existenteId = existenteMap.get(clave);
 
-          const campos: any = {
-            precio,
-            stock: isNaN(stock) ? 0 : stock,
-            descripcion: descripcion || undefined,
-            marca: marca || undefined,
-            proveedor_nombre: proveedorNombre,
-          };
-          if (precioCasco !== null) campos.precio_casco = precioCasco;
-          if (almacenId) campos.almacen_id = almacenId;
-
-          if (existente) {
-            await supabase.from("piezas_publicadas").update(campos).eq("id", existente.id);
-            actualizadas++;
+          if (existenteId) {
+            // Actualizar: incluir id para upsert por id
+            paraActualizar.push({
+              id: existenteId,
+              precio,
+              stock: isNaN(stock) ? 0 : stock,
+              descripcion: descripcion || undefined,
+              marca: marca || undefined,
+              proveedor_nombre: proveedorNombre,
+              ...(precioCasco !== null && { precio_casco: precioCasco }),
+              ...(almacenId && { almacen_id: almacenId }),
+            });
           } else {
-            await supabase.from("piezas_publicadas").insert({
+            paraInsertar.push({
               proveedor_id: proveedor.id,
               proveedor_nombre: proveedorNombre,
               referencia,
@@ -203,16 +263,31 @@ export async function GET(request: Request) {
               ...(precioCasco !== null && { precio_casco: precioCasco }),
               ...(almacenId && { almacen_id: almacenId }),
             });
-            insertadas++;
           }
         }
+
+        // ── Ejecutar batches ────────────────────────────────────────────
+        const resInsert = await batchInsert("piezas_publicadas", paraInsertar);
+        const resUpdate = await batchUpsert("piezas_publicadas", paraActualizar);
+
+        const insertadas = resInsert.ok;
+        const actualizadas = resUpdate.ok;
+        errores += resInsert.errores + resUpdate.errores;
 
         const resultado = `OK ${new Date().toLocaleDateString("es-ES")} — ${insertadas} nuevas, ${actualizadas} actualizadas, ${errores} errores (tipo ${tipoFtp})`;
         await supabase.from("usuarios")
           .update({ ftp_ultimo_proceso: new Date().toISOString(), ftp_ultimo_resultado: resultado })
           .eq("id", proveedor.id);
 
-        resultados.push({ proveedor: proveedor.nombre_empresa, tipo: tipoFtp, estado: "ok", filas: filas.length, insertadas, actualizadas, errores });
+        resultados.push({
+          proveedor: proveedor.nombre_empresa,
+          tipo: tipoFtp,
+          estado: "ok",
+          filas: filas.length,
+          insertadas,
+          actualizadas,
+          errores,
+        });
 
       } catch (provError) {
         console.error(`Error procesando ${proveedor.nombre_empresa}:`, provError);
