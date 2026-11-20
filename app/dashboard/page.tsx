@@ -91,11 +91,11 @@ export default function Dashboard() {
   }
 
   async function solicitarRDPago() {
-    if (!userId || !userEmail) return;
+    if (!userId || !userEmail || !iban.trim()) return;
     setSolicitandoRD(true);
     try {
-      // Marcar solicitud en Supabase
-      await supabase.from("usuarios").update({ rd_pago_solicitado: true }).eq("id", userId);
+      // Guardar IBAN y marcar solicitud en Supabase
+      await supabase.from("usuarios").update({ rd_pago_solicitado: true, iban: iban.trim() }).eq("id", userId);
       setRdPagoSolicitado(true);
 
       // Email a Vicente
@@ -191,7 +191,21 @@ export default function Dashboard() {
         <div style={{ display: "inline-block", background: "rgba(22,163,74,0.2)", color: "#4ade80", padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, marginBottom: 12 }}>✅ REQUISITOS CUMPLIDOS</div>
         <h3 style={{ fontSize: isMobile ? 22 : 22, fontWeight: 900, marginBottom: 8 }}>Solicitar RD Pago</h3>
         <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: isMobile ? 20 : 12, lineHeight: 1.5 }}>Ya puedes solicitar RD Pago. Con un crédito inicial de hasta <strong style={{ color: "white" }}>200€</strong>, compra ahora y paga en 15 días sin recargos.</p>
-        <button onClick={solicitarRDPago} disabled={solicitandoRD} style={{ background: solicitandoRD ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "12px 22px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: solicitandoRD ? "not-allowed" : "pointer", opacity: solicitandoRD ? 0.7 : 1 }}>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", color: "#94a3b8", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>IBAN (obligatorio para domiciliación)</label>
+          <input
+            type="text"
+            value={iban}
+            onChange={(e) => setIban(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            placeholder="ES00 0000 0000 0000 0000 0000"
+            maxLength={34}
+            style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: `1px solid ${iban.trim().length >= 20 ? "rgba(22,163,74,0.4)" : "rgba(255,255,255,0.1)"}`, borderRadius: 10, padding: "10px 14px", color: "white", fontSize: 15, fontFamily: "monospace", letterSpacing: 1, outline: "none", boxSizing: "border-box" }}
+          />
+          {iban.trim().length > 0 && iban.trim().length < 20 && (
+            <p style={{ color: "#fbbf24", fontSize: 12, marginTop: 4 }}>El IBAN debe tener entre 20 y 34 caracteres</p>
+          )}
+        </div>
+        <button onClick={solicitarRDPago} disabled={solicitandoRD || iban.trim().length < 20} style={{ background: (solicitandoRD || iban.trim().length < 20) ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#16a34a,#15803d)", border: "none", color: "white", padding: isMobile ? "14px 24px" : "12px 22px", borderRadius: 14, fontWeight: 900, fontSize: isMobile ? 14 : 16, cursor: (solicitandoRD || iban.trim().length < 20) ? "not-allowed" : "pointer", opacity: (solicitandoRD || iban.trim().length < 20) ? 0.5 : 1 }}>
           {solicitandoRD ? "Enviando solicitud..." : "💳 Solicitar RD Pago"}
         </button>
       </div>
