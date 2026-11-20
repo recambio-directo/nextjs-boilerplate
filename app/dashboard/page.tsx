@@ -25,7 +25,7 @@ export default function Dashboard() {
   // Banner del asistente: se muestra hasta esta fecha (cámbiala para alargarlo o quitarlo)
   const mostrarPromoAsistente = new Date() <= new Date("2026-12-31T23:59:59");
   const totalSlides = mostrarPromoAsistente ? 4 : 3;
-  const abrirAsistente = (e: React.MouseEvent) => { e.preventDefault(); window.dispatchEvent(new Event("rd-abrir-asistente")); };
+  const abrirAsistente = (e: React.MouseEvent) => { e.preventDefault(); window.location.href = "/dashboard/asistente"; };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
