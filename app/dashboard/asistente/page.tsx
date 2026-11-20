@@ -22,7 +22,7 @@ type Producto = {
 };
 type Bloque = { tipo: "productos"; titulo: string; items: Producto[] };
 type Vehiculo = { id: string; nombre: string; detalle: string };
-type Mensaje = { rol: "usuario" | "asistente"; texto: string; bloques?: Bloque[]; vehiculo?: Vehiculo | null; error?: boolean };
+type Mensaje = { rol: "usuario" | "asistente"; texto: string; imagen?: string; bloques?: Bloque[]; vehiculo?: Vehiculo | null; error?: boolean };
 
 type Consulta = {
   id: string;
@@ -89,8 +89,10 @@ export default function AsistentePage() {
   const [recienAnadida, setRecienAnadida] = useState(false);
   const [sidebarAbierta, setSidebarAbierta] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
   const entradaRef = useRef<HTMLTextAreaElement>(null);
+  const archivoRef = useRef<HTMLInputElement>(null);
   const iniciado = useRef(false);
 
   // Responsive
@@ -194,15 +196,57 @@ export default function AsistentePage() {
     setSidebarAbierta(false);
   }
 
+  /* ── Imagen: redimensionar y convertir a base64 ─────────────── */
+  function procesarImagen(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1024;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            const ratio = Math.min(MAX / w, MAX / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          const base64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+          resolve(base64);
+        };
+        img.onerror = () => reject(new Error("No se pudo leer la imagen"));
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => reject(new Error("Error leyendo archivo"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function seleccionarImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Solo se permiten imágenes"); return; }
+    if (file.size > 10 * 1024 * 1024) { alert("La imagen no puede superar 10 MB"); return; }
+    procesarImagen(file).then(b64 => {
+      setImagenPreview("data:image/jpeg;base64," + b64);
+    }).catch(() => alert("No se pudo procesar la imagen"));
+    e.target.value = "";
+  }
+
   /* ── Enviar pregunta ────────────────────────────────────────── */
   async function enviar(contenido?: string) {
     const pregunta = (contenido ?? texto).trim();
     if (!pregunta || cargando) return;
 
+    const imagenActual = imagenPreview ? imagenPreview.split(",")[1] : undefined;
     const historial = mensajes.filter((m) => !m.error).map((m) => ({ rol: m.rol, texto: m.texto }));
-    const nuevosMensajes: Mensaje[] = [...mensajes, { rol: "usuario", texto: pregunta }];
+    const nuevosMensajes: Mensaje[] = [...mensajes, { rol: "usuario", texto: pregunta, imagen: imagenPreview || undefined }];
     setMensajes(nuevosMensajes);
     setTexto("");
+    setImagenPreview(null);
     setCargando(true);
 
     // Si es una consulta nueva, crearla
@@ -233,7 +277,7 @@ export default function AsistentePage() {
       const r = await fetch("/api/asistente", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ pregunta, historial, vehiculo }),
+        body: JSON.stringify({ pregunta, historial, vehiculo, ...(imagenActual && { imagen: imagenActual }) }),
       });
       const d = await r.json().catch(() => ({}));
       if (typeof d?.restantes === "number") setRestantes(d.restantes);
@@ -480,6 +524,7 @@ export default function AsistentePage() {
             {mensajes.map((m, i) =>
               m.rol === "usuario" ? (
                 <div key={i} style={{ alignSelf: "flex-end", maxWidth: "80%", background: "#1d4ed8", color: "#fff", padding: "10px 16px", borderRadius: "16px 16px 4px 16px", fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {m.imagen && <img src={m.imagen} alt="Imagen adjunta" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, marginBottom: m.texto ? 8 : 0, display: "block" }} />}
                   {m.texto}
                 </div>
               ) : (
@@ -597,26 +642,40 @@ export default function AsistentePage() {
             </div>
           )}
           <form onSubmit={e => { e.preventDefault(); enviar(); }}
-            style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "#0b1736", border: "1px solid #334155", borderRadius: 14, padding: "10px 10px 10px 16px", maxWidth: 900, marginInline: "auto" }}>
-            <textarea
-              ref={entradaRef}
-              rows={1}
-              value={texto}
-              onChange={e => setTexto(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-              placeholder="Matrícula, bastidor, referencia o describe la avería…"
-              disabled={!disponible}
-              style={{ flex: 1, minWidth: 0, resize: "none", background: "transparent", border: "none", outline: "none", color: "#e2e8f0", fontFamily: "inherit", fontSize: 15, lineHeight: 1.5 }}
-            />
-            <button type="submit" aria-label="Enviar consulta" disabled={cargando || !texto.trim() || !disponible}
-              style={{
-                width: 44, height: 44, flexShrink: 0, border: "none", borderRadius: 10,
-                background: cargando || !texto.trim() ? "#1e3a8a" : "#2563eb",
-                cursor: cargando || !texto.trim() ? "default" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </button>
+            style={{ display: "flex", flexDirection: "column", gap: 0, background: "#0b1736", border: "1px solid #334155", borderRadius: 14, padding: "10px 10px 10px 16px", maxWidth: 900, marginInline: "auto" }}>
+            {imagenPreview && (
+              <div style={{ position: "relative", display: "inline-block", marginBottom: 8, maxWidth: 180 }}>
+                <img src={imagenPreview} alt="Vista previa" style={{ maxWidth: 180, maxHeight: 120, borderRadius: 8, display: "block" }} />
+                <button type="button" onClick={() => setImagenPreview(null)}
+                  style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", background: "#ef4444", border: "2px solid #0b1736", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <input ref={archivoRef} type="file" accept="image/*" onChange={seleccionarImagen} style={{ display: "none" }} />
+              <button type="button" aria-label="Adjuntar imagen" onClick={() => archivoRef.current?.click()} disabled={!disponible}
+                style={{ width: 40, height: 40, flexShrink: 0, border: "none", borderRadius: 10, background: imagenPreview ? "rgba(37,99,235,0.2)" : "transparent", cursor: disponible ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={imagenPreview ? "#60a5fa" : "#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
+              </button>
+              <textarea
+                ref={entradaRef}
+                rows={1}
+                value={texto}
+                onChange={e => setTexto(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+                placeholder="Matrícula, bastidor, referencia o describe la avería…"
+                disabled={!disponible}
+                style={{ flex: 1, minWidth: 0, resize: "none", background: "transparent", border: "none", outline: "none", color: "#e2e8f0", fontFamily: "inherit", fontSize: 15, lineHeight: 1.5 }}
+              />
+              <button type="submit" aria-label="Enviar consulta" disabled={cargando || (!texto.trim() && !imagenPreview) || !disponible}
+                style={{
+                  width: 44, height: 44, flexShrink: 0, border: "none", borderRadius: 10,
+                  background: cargando || (!texto.trim() && !imagenPreview) ? "#1e3a8a" : "#2563eb",
+                  cursor: cargando || (!texto.trim() && !imagenPreview) ? "default" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
           </form>
           <p style={{ margin: "8px auto 0", fontSize: 11, color: "#64748b", lineHeight: 1.4, maxWidth: 900, textAlign: "center" }}>
             Solo usa el catálogo de recambios y el stock publicado en Recambio Directo. Los diagnósticos son orientativos.

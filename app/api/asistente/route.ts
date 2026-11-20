@@ -457,7 +457,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const pregunta = String(body?.pregunta || "").trim().slice(0, 1500);
-  if (!pregunta) return NextResponse.json({ error: "Escribe tu consulta" }, { status: 400 });
+  const imagenBase64 = typeof body?.imagen === "string" && body.imagen.length > 100 ? body.imagen.replace(/^data:image\/\w+;base64,/, "") : null;
+  if (!pregunta && !imagenBase64) return NextResponse.json({ error: "Escribe tu consulta" }, { status: 400 });
 
   // Historial: solo texto, últimos 10 turnos, recortado
   const historial = (Array.isArray(body?.historial) ? body.historial : [])
@@ -467,9 +468,21 @@ export async function POST(req: NextRequest) {
   while (historial.length && historial[0].role !== "user") historial.shift();
   // La API exige alternar user/assistant: fusionamos turnos seguidos del mismo rol
   const mensajes: any[] = [];
-  for (const m of [...historial, { role: "user", content: pregunta }]) {
+  // Construir contenido del mensaje actual (con imagen si la hay)
+  const contenidoActual: any = imagenBase64
+    ? [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imagenBase64 } },
+        ...(pregunta ? [{ type: "text", text: pregunta }] : [{ type: "text", text: "¿Qué ves en esta imagen?" }]),
+      ]
+    : pregunta;
+
+  for (const m of [...historial, { role: "user", content: contenidoActual }]) {
     const ult = mensajes[mensajes.length - 1];
-    if (ult && ult.role === m.role) ult.content += "\n\n" + m.content;
+    if (ult && ult.role === m.role) {
+      // Fusionar turnos seguidos del mismo rol (solo texto con texto)
+      if (typeof ult.content === "string" && typeof m.content === "string") ult.content += "\n\n" + m.content;
+      else mensajes.push({ ...m });
+    }
     else mensajes.push({ ...m });
   }
 
