@@ -21,6 +21,17 @@ async function sitemapsReferencias(): Promise<string[]> {
 export default async function robots(): Promise<MetadataRoute.Robots> {
   return {
     rules: [
+      // Robots de herramientas SEO, scrapers y bots de IA: no traen clientes y consumen mucho
+      // (ISR Writes, CPU y transferencia en Vercel) recorriendo las páginas de referencias.
+      {
+        userAgent: [
+          "AhrefsBot", "SemrushBot", "MJ12bot", "DotBot", "BLEXBot", "PetalBot",
+          "DataForSeoBot", "serpstatbot", "Barkrowler", "SeekportBot",
+          "GPTBot", "ClaudeBot", "CCBot", "Bytespider", "Amazonbot", "meta-externalagent",
+          "Applebot-Extended", "Google-Extended", "anthropic-ai", "cohere-ai",
+        ],
+        disallow: "/",
+      },
       {
         userAgent: "*",
         allow: "/",

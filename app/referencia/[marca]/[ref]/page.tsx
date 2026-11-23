@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-export const revalidate = 86400; // se regenera como mucho una vez al día
+export const revalidate = 2592000; // se regenera como mucho una vez al mes (30 días) — ahorra ISR Writes y CPU en Vercel
 export const dynamicParams = true;
 export async function generateStaticParams() {
   return []; // se generan bajo demanda (300.000 páginas no caben en un build)

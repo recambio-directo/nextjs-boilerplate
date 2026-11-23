@@ -40,7 +40,8 @@ export default async function sitemap(props: { id: Promise<string | number> | st
       .order("rn", { ascending: true });
     if (error || !data) break;
     for (const r of data) {
-      urls.push({ url: `${BASE}/referencia/${r.marca_slug}/${r.ref_norm}`, lastModified: hoy, changeFrequency: "weekly", priority: 0.5 });
+      // Sin lastModified: si se pone "hoy", Google cree que todas cambian a diario y las vuelve a rastrear
+      urls.push({ url: `${BASE}/referencia/${r.marca_slug}/${r.ref_norm}`, changeFrequency: "monthly", priority: 0.5 });
     }
   }
 
