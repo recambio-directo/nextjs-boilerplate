@@ -320,6 +320,13 @@ async function crearEnvioCTT(dev: any, remitente: any, destinatario: any): Promi
     recipient_email_notify_address: destinatario.email || "",
     recipient_phones: [tel(destinatario.telefono) ? `+34 ${tel(destinatario.telefono)}` : "", ""],
     shipping_date: fechaHoy,
+    // Recogida automática en la dirección del remitente (taller)
+    pickup: {
+      has_pickup_asap: true,
+      comments: `Recogida devolucion ${dev.codigo}`.substring(0, 100),
+      date: fechaHoy,
+      time: [{ min_hourminute: "09:00", max_hourminute: "18:00" }],
+    },
     delivery: { contact_name: (destinatario.nombre_empresa || "").substring(0, 40), referral_name: "", comments: `Devolucion ${dev.codigo}` },
     items: [{ item_synonym_code: "", item_weight_declared: 2, item_length_declared: 30, item_width_declared: 20, item_height_declared: 15, item_comments: dev.referencia || dev.codigo }],
   };

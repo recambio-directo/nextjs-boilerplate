@@ -179,6 +179,15 @@ export async function POST(req: NextRequest) {
       recipient_email_notify_address: destinatario.email.substring(0, 75),
       recipient_phones:            [`+34 ${destinatario.telefono}`, ""],
       shipping_date:               fechaHoy,
+      // Recogida automática en la dirección del remitente (proveedor).
+      // Con has_pickup_asap=true CTT genera la recogida y, si la fecha/hora
+      // no es válida, la ajusta al primer hueco disponible.
+      pickup: {
+        has_pickup_asap: true,
+        comments:        `Recogida pedido RD ${codigo}`.substring(0, 100),
+        date:            fechaHoy,
+        time: [{ min_hourminute: "09:00", max_hourminute: "18:00" }],
+      },
       delivery: {
         contact_name:  nomDest,
         referral_name: "",
