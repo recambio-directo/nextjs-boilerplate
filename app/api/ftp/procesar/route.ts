@@ -1,7 +1,23 @@
 // app/api/ftp/procesar/route.ts
+// Importa el catálogo FTP de cada proveedor (cron diario 05:00 UTC).
+//
+// CÓMO FUNCIONA (24/11/2026):
+//   1. Lee el fichero (detecta UTF-8 o Windows-1252 para no romper tildes/Ñ).
+//   2. Inserta TODAS las piezas del fichero como filas nuevas (origen = 'ftp').
+//   3. Solo si TODO se ha insertado bien → borra las filas FTP anteriores de ese proveedor.
+//      Si algo falla → borra lo recién insertado y deja intacto el stock del día anterior.
+//   Así nunca hay duplicados y desaparece el stock que ya no viene en el fichero.
+//   Las piezas subidas a mano por el proveedor (origen distinto de 'ftp') NO se tocan.
+//
+// Antes se intentaba "actualizar" por id (falla: id es GENERATED ALWAYS) y solo se leían
+// 1.000 piezas existentes (límite de Supabase), lo que duplicaba todo el stock cada día.
+
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import iconv from "iconv-lite";
 import { verificarAdmin } from "@/app/lib/adminAuth";
+
+export const maxDuration = 300;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +26,7 @@ const supabase = createClient(
 
 const ELEKTRA_ID = "72fe848e-3025-4e30-9dc6-1d883eb9aaca";
 const BATCH_SIZE = 500;
+const TRAMO_BORRADO = 50000; // borrar por tramos de id para no pasar el timeout de 8 s
 
 function normalizarCabecera(header: string): string {
   const h = (header || "").toLowerCase().trim()
@@ -26,19 +43,36 @@ function normalizarCabecera(header: string): string {
   return h;
 }
 
+/** Decodifica texto: UTF-8 si el fichero es UTF-8 válido, si no Windows-1252 */
+function decodificarTexto(buffer: Buffer): string {
+  let b = buffer;
+  if (b.length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) b = b.subarray(3); // BOM UTF-8
+  const utf8 = b.toString("utf8");
+  const tieneMultibyte = /[^\x00-\x7f]/.test(utf8);
+  if (tieneMultibyte && !utf8.includes("�")) return utf8;
+  return iconv.decode(b, "win1252");
+}
+
 function parsearArchivo(buffer: Buffer): any[] {
   try {
-    const texto = buffer.toString("latin1");
-    const primeraLinea = texto.split("\n")[0];
-    const esTabulador = primeraLinea.includes("\t");
-    const esPuntoYComa = primeraLinea.includes(";");
+    const esExcel = buffer.length > 2 && buffer[0] === 0x50 && buffer[1] === 0x4b; // .xlsx (zip "PK")
+    const esXlsAntiguo = buffer.length > 2 && buffer[0] === 0xd0 && buffer[1] === 0xcf; // .xls (OLE)
 
-    const workbook = XLSX.read(buffer, {
-      type: "buffer",
-      codepage: 1252,
-      raw: false,
-      ...(esTabulador ? { FS: "\t" } : esPuntoYComa ? { FS: ";" } : {}),
-    });
+    let workbook: XLSX.WorkBook;
+    if (esExcel || esXlsAntiguo) {
+      workbook = XLSX.read(buffer, { type: "buffer", raw: false });
+    } else {
+      const texto = decodificarTexto(buffer);
+      const primeraLinea = texto.split("\n")[0];
+      const esTabulador = primeraLinea.includes("\t");
+      const esPuntoYComa = primeraLinea.includes(";");
+      workbook = XLSX.read(texto, {
+        type: "string",
+        raw: false,
+        ...(esTabulador ? { FS: "\t" } : esPuntoYComa ? { FS: ";" } : {}),
+      });
+    }
+
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
 
@@ -65,63 +99,49 @@ function procesarFilasConCasco(filas: any[]): any[] {
   return resultado;
 }
 
-/** Cargar todas las referencias existentes de un proveedor en un Map para evitar N queries */
-async function cargarExistentes(proveedorId: string): Promise<Map<string, string>> {
-  const mapa = new Map<string, string>();
-  let desde = 0;
-  const PAGINA = 5000;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from("piezas_publicadas")
-      .select("id, referencia, tipo, almacen_id")
-      .eq("proveedor_id", proveedorId)
-      .range(desde, desde + PAGINA - 1);
-
-    if (error || !data || data.length === 0) break;
-
-    for (const row of data) {
-      const clave = `${row.referencia}|${row.tipo}|${row.almacen_id || "00000000-0000-0000-0000-000000000000"}`;
-      mapa.set(clave, row.id);
-    }
-
-    if (data.length < PAGINA) break;
-    desde += PAGINA;
-  }
-
-  return mapa;
+/** id más alto y más bajo de las filas FTP actuales del proveedor (antes de importar) */
+async function rangoIdsFtp(proveedorId: string): Promise<{ min: number; max: number } | null> {
+  const { data: maxRow } = await supabase
+    .from("piezas_publicadas").select("id")
+    .eq("proveedor_id", proveedorId).eq("origen", "ftp")
+    .order("id", { ascending: false }).limit(1).maybeSingle();
+  if (!maxRow) return null;
+  const { data: minRow } = await supabase
+    .from("piezas_publicadas").select("id")
+    .eq("proveedor_id", proveedorId).eq("origen", "ftp")
+    .order("id", { ascending: true }).limit(1).maybeSingle();
+  return { min: Number(minRow?.id ?? maxRow.id), max: Number(maxRow.id) };
 }
 
-/** Ejecutar upserts en lotes */
-async function batchUpsert(tabla: string, filas: any[], tamano: number = BATCH_SIZE) {
-  let ok = 0, errores = 0;
-  for (let i = 0; i < filas.length; i += tamano) {
-    const lote = filas.slice(i, i + tamano);
-    const { error } = await supabase.from(tabla).upsert(lote, { onConflict: "id", ignoreDuplicates: false });
-    if (error) {
-      console.error(`Error batch upsert (${i}-${i + lote.length}):`, error.message);
-      errores += lote.length;
-    } else {
-      ok += lote.length;
-    }
+/** Borra filas FTP del proveedor con id en [desde, hasta], por tramos */
+async function borrarFtpPorRango(proveedorId: string, desde: number, hasta: number): Promise<string | null> {
+  for (let a = desde; a <= hasta; a += TRAMO_BORRADO) {
+    const b = Math.min(a + TRAMO_BORRADO - 1, hasta);
+    const { error } = await supabase
+      .from("piezas_publicadas").delete()
+      .eq("proveedor_id", proveedorId).eq("origen", "ftp")
+      .gte("id", a).lte("id", b);
+    if (error) return error.message;
   }
-  return { ok, errores };
+  return null;
 }
 
-/** Ejecutar inserts en lotes */
-async function batchInsert(tabla: string, filas: any[], tamano: number = BATCH_SIZE) {
+/** Inserta en lotes. Devuelve insertadas, errores y el primer error */
+async function batchInsert(filas: any[]) {
   let ok = 0, errores = 0;
-  for (let i = 0; i < filas.length; i += tamano) {
-    const lote = filas.slice(i, i + tamano);
-    const { error } = await supabase.from(tabla).insert(lote);
+  let primerError: string | null = null;
+  for (let i = 0; i < filas.length; i += BATCH_SIZE) {
+    const lote = filas.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase.from("piezas_publicadas").insert(lote);
     if (error) {
       console.error(`Error batch insert (${i}-${i + lote.length}):`, error.message);
       errores += lote.length;
+      primerError = primerError || error.message;
     } else {
       ok += lote.length;
     }
   }
-  return { ok, errores };
+  return { ok, errores, primerError };
 }
 
 export async function GET(request: Request) {
@@ -203,13 +223,11 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // ── Cargar existentes en una sola query (paginada) ──────────────
-        const existenteMap = await cargarExistentes(proveedor.id);
-
-        // ── Preparar lotes de insert y update ───────────────────────────
+        // ── Preparar filas (una por referencia + marca + sede) ──────────
         const paraInsertar: any[] = [];
-        const paraActualizar: any[] = [];
-        let errores = 0;
+        const vistas = new Set<string>();
+        let descartadas = 0;
+        let repetidasEnFichero = 0;
 
         for (const fila of filas) {
           const referencia = String(fila.referencia || "").toUpperCase().trim();
@@ -219,7 +237,7 @@ export async function GET(request: Request) {
           const marca = String(fila.marca || "").toUpperCase().trim();
           const precioCasco = fila.precio_casco ? parseFloat(String(fila.precio_casco).replace(",", ".")) : null;
 
-          if (!referencia || isNaN(precio) || precio <= 0) { errores++; continue; }
+          if (!referencia || isNaN(precio) || precio <= 0) { descartadas++; continue; }
 
           // Elektra: obtener almacen_id y nombre de sucursal
           let almacenId: string | null = null;
@@ -234,47 +252,50 @@ export async function GET(request: Request) {
             }
           }
 
-          const clave = `${referencia}|${tipoFtp}|${almacenId || "00000000-0000-0000-0000-000000000000"}`;
-          const existenteId = existenteMap.get(clave);
+          // Misma referencia + tipo + marca + sede repetida dentro del propio fichero → solo una
+          const clave = `${referencia}|${tipoFtp}|${marca}|${almacenId || "-"}`;
+          if (vistas.has(clave)) { repetidasEnFichero++; continue; }
+          vistas.add(clave);
 
-          if (existenteId) {
-            // Actualizar: incluir id para upsert por id
-            paraActualizar.push({
-              id: existenteId,
-              precio,
-              stock: isNaN(stock) ? 0 : stock,
-              descripcion: descripcion || undefined,
-              marca: marca || undefined,
-              proveedor_nombre: proveedorNombre,
-              ...(precioCasco !== null && { precio_casco: precioCasco }),
-              ...(almacenId && { almacen_id: almacenId }),
-            });
-          } else {
-            paraInsertar.push({
-              proveedor_id: proveedor.id,
-              proveedor_nombre: proveedorNombre,
-              referencia,
-              descripcion: descripcion || referencia,
-              precio,
-              stock: isNaN(stock) ? 0 : stock,
-              marca: marca || "",
-              provincia: proveedor.provincia || null,
-              tipo: tipoFtp,
-              ...(precioCasco !== null && { precio_casco: precioCasco }),
-              ...(almacenId && { almacen_id: almacenId }),
-            });
-          }
+          paraInsertar.push({
+            proveedor_id: proveedor.id,
+            proveedor_nombre: proveedorNombre,
+            referencia,
+            descripcion: descripcion || referencia,
+            precio,
+            stock: isNaN(stock) ? 0 : stock,
+            marca: marca || "",
+            provincia: proveedor.provincia || null,
+            tipo: tipoFtp,
+            origen: "ftp",
+            ...(precioCasco !== null && { precio_casco: precioCasco }),
+            ...(almacenId && { almacen_id: almacenId }),
+          });
         }
 
-        // ── Ejecutar batches ────────────────────────────────────────────
-        const resInsert = await batchInsert("piezas_publicadas", paraInsertar);
-        const resUpdate = await batchUpsert("piezas_publicadas", paraActualizar);
+        if (paraInsertar.length === 0) {
+          resultados.push({ proveedor: proveedor.nombre_empresa, estado: "sin_filas_validas", descartadas });
+          continue;
+        }
 
-        const insertadas = resInsert.ok;
-        const actualizadas = resUpdate.ok;
-        errores += resInsert.errores + resUpdate.errores;
+        // ── 1) Recordar qué filas FTP había antes ───────────────────────
+        const anteriores = await rangoIdsFtp(proveedor.id);
 
-        const resultado = `OK ${new Date().toLocaleDateString("es-ES")} — ${insertadas} nuevas, ${actualizadas} actualizadas, ${errores} errores (tipo ${tipoFtp})`;
+        // ── 2) Insertar el catálogo nuevo ───────────────────────────────
+        const resInsert = await batchInsert(paraInsertar);
+
+        let resultado: string;
+        if (resInsert.errores > 0) {
+          // ── 3a) Algo falló → deshacer lo nuevo y conservar el stock anterior
+          const desde = anteriores ? anteriores.max + 1 : 1;
+          const errDeshacer = await borrarFtpPorRango(proveedor.id, desde, Number.MAX_SAFE_INTEGER > 9e15 ? 9e15 : Number.MAX_SAFE_INTEGER);
+          resultado = `ERROR ${new Date().toLocaleDateString("es-ES")} — fallaron ${resInsert.errores} de ${paraInsertar.length} filas (${resInsert.primerError}). Se mantiene el stock anterior.${errDeshacer ? " Error al deshacer: " + errDeshacer : ""}`;
+        } else {
+          // ── 3b) Todo bien → borrar las filas FTP anteriores
+          const errBorrado = anteriores ? await borrarFtpPorRango(proveedor.id, anteriores.min, anteriores.max) : null;
+          resultado = `OK ${new Date().toLocaleDateString("es-ES")} — ${resInsert.ok} piezas cargadas (stock sustituido), ${descartadas} descartadas, ${repetidasEnFichero} repetidas en fichero (tipo ${tipoFtp})${errBorrado ? " — AVISO: no se pudo borrar el stock anterior: " + errBorrado : ""}`;
+        }
+
         await supabase.from("usuarios")
           .update({ ftp_ultimo_proceso: new Date().toISOString(), ftp_ultimo_resultado: resultado })
           .eq("id", proveedor.id);
@@ -282,11 +303,12 @@ export async function GET(request: Request) {
         resultados.push({
           proveedor: proveedor.nombre_empresa,
           tipo: tipoFtp,
-          estado: "ok",
+          estado: resInsert.errores > 0 ? "error_insercion" : "ok",
           filas: filas.length,
-          insertadas,
-          actualizadas,
-          errores,
+          insertadas: resInsert.ok,
+          errores: resInsert.errores,
+          descartadas,
+          repetidasEnFichero,
         });
 
       } catch (provError) {
