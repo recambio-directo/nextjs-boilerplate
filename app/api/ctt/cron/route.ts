@@ -4,6 +4,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { cabeceraInterna } from "@/app/lib/seguridad";
+import { verificarAdmin } from "@/app/lib/adminAuth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,8 +40,11 @@ async function crearPagoProveedorSiNoExiste(pedido: any) {
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Autorizado: el cron de Vercel (CRON_SECRET) o un administrador desde el panel Sistema
+  const esCron = !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  if (!esCron) {
+    const admin = await verificarAdmin(request);
+    if (!admin.ok) return Response.json({ error: admin.error }, { status: admin.status });
   }
 
   try {

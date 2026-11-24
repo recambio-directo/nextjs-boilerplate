@@ -1,4 +1,12 @@
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
+
+// Cabecera con la sesión del administrador (los crons que aceptan admin la usan para autorizar)
+async function cabeceraAdmin(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 import { kpiCard, kpiLabel, kpiNum, seccionCard, tableContainer, tableStyle, thStyle, trStyle, tdStyle } from "./types";
 
 const CRONS = [
@@ -27,11 +35,14 @@ export default function SeccionSistema() {
     setCronResults(prev => ({ ...prev, [cron.agencia]: { agencia: cron.agencia, status: "running", message: "Ejecutando..." } }));
     const start = Date.now();
     try {
-      const res = await fetch(cron.endpoint, { method: "GET" });
+      const res = await fetch(cron.endpoint, { method: "GET", headers: await cabeceraAdmin() });
       const data = await res.json().catch(() => ({}));
       const elapsed = Date.now() - start;
       if (res.ok) {
-        setCronResults(prev => ({ ...prev, [cron.agencia]: { agencia: cron.agencia, status: "ok", message: data.message || data.resultado || `OK (${res.status})`, time: elapsed } }));
+        const resumen = typeof data.procesados === "number"
+          ? `${data.procesados} revisados · ${data.actualizados ?? 0} actualizados · ${data.entregados ?? 0} entregados`
+          : null;
+        setCronResults(prev => ({ ...prev, [cron.agencia]: { agencia: cron.agencia, status: "ok", message: data.message || data.mensaje || data.resultado || resumen || `OK (${res.status})`, time: elapsed } }));
       } else {
         setCronResults(prev => ({ ...prev, [cron.agencia]: { agencia: cron.agencia, status: "error", message: data.error || `HTTP ${res.status}`, time: elapsed } }));
       }
@@ -51,7 +62,7 @@ export default function SeccionSistema() {
   async function ejecutarFTP() {
     setFtpResult({ status: "running", message: "Procesando catálogos FTP..." });
     try {
-      const res = await fetch(FTP_ENDPOINT);
+      const res = await fetch(FTP_ENDPOINT, { headers: await cabeceraAdmin() });
       const data = await res.json().catch(() => ({}));
       setFtpResult({ status: res.ok ? "ok" : "error", message: data.message || data.error || `HTTP ${res.status}` });
     } catch (e: any) {
