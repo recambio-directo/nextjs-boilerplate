@@ -27,7 +27,7 @@ export default function SeccionPedidos({ pedidos, usuarios, cargarDatos, crearPa
   const PEDIDOS_POR_PAGINA = 20;
 
   const TRACKING_URLS: Record<string, (t: string) => string> = {
-    "MRW": (t) => `https://www.mrw.es/seguimiento_envios/MRWEnvio_seguimiento.asp?codigo=${t}`,
+    "MRW": (t) => `/seguimiento-mrw?n=${encodeURIComponent(t)}`,
     "NACEX": (t) => `https://www.nacex.es/irSegupsimiento.do?agencia_org=&numero_albaran=${t}`,
     "SEUR": (t) => `https://www.seur.com/livetracking/?segOnlineIdentificador=${t}`,
     "CTT Express": (t) => `https://www.cttexpress.com/seguimiento?numero=${t}`,
