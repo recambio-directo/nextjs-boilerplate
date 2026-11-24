@@ -296,12 +296,17 @@ export default function ProveedorDashboard() {
 
   /* ── HELPERS PEDIDOS ── */
   function getTrackingInfo(pedido: any) {
-    if (pedido.tracking_nacex) return { tracking: pedido.tracking_nacex, url: `https://www.nacex.es/seguimiento-de-envios?n=${pedido.tracking_nacex}` };
-    if (pedido.tracking_seur) return { tracking: pedido.tracking_seur, url: `https://www.seur.com/livetracking/?segOnlineIdentificador=${pedido.tracking_seur}` };
-    if (pedido.tracking_gls) return { tracking: pedido.tracking_gls, url: `https://www.gls-spain.es/es/seguimiento-de-envios/?match=${pedido.tracking_gls}` };
-    if (pedido.tracking_ctt) return { tracking: pedido.tracking_ctt, url: `https://www.ctt.pt/feapl_2/app/open/cttexpresso/objectSearch/objectSearch.jspx?objects=${pedido.tracking_ctt}` };
-    if (pedido.tracking_dhl) return { tracking: pedido.tracking_dhl, url: `https://www.dhl.com/es-es/home/tracking.html?tracking-id=${pedido.tracking_dhl}` };
-    if (pedido.tracking) return { tracking: pedido.tracking, url: "" };
+    // /seguimiento (app/seguimiento/route.ts) lleva a la web oficial de cada agencia con el número ya puesto
+    const seg = (a: string, n: string) => `/seguimiento?a=${encodeURIComponent(a)}&n=${encodeURIComponent(n)}`;
+    if (pedido.tracking_nacex) return { tracking: pedido.tracking_nacex, url: seg("nacex", pedido.tracking_nacex) };
+    if (pedido.tracking_seur) return { tracking: pedido.tracking_seur, url: seg("seur", pedido.tracking_seur) };
+    if (pedido.tracking_gls) return { tracking: pedido.tracking_gls, url: seg("gls", pedido.tracking_gls) };
+    if (pedido.tracking_ctt) return { tracking: pedido.tracking_ctt, url: seg("ctt", pedido.tracking_ctt) };
+    if (pedido.tracking_dhl) return { tracking: pedido.tracking_dhl, url: seg("dhl", pedido.tracking_dhl) };
+    if (pedido.tracking) {
+      const agencia = (pedido.agencia || pedido.transporte || "").toString();
+      return { tracking: pedido.tracking, url: agencia ? seg(agencia, pedido.tracking) : "" };
+    }
     return null;
   }
 

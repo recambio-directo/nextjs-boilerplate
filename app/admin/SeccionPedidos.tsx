@@ -27,13 +27,14 @@ export default function SeccionPedidos({ pedidos, usuarios, cargarDatos, crearPa
   const PEDIDOS_POR_PAGINA = 20;
 
   const TRACKING_URLS: Record<string, (t: string) => string> = {
-    "MRW": (t) => `/seguimiento-mrw?n=${encodeURIComponent(t)}`,
-    "NACEX": (t) => `https://www.nacex.es/irSegupsimiento.do?agencia_org=&numero_albaran=${t}`,
-    "SEUR": (t) => `https://www.seur.com/livetracking/?segOnlineIdentificador=${t}`,
-    "CTT Express": (t) => `https://www.cttexpress.com/seguimiento?numero=${t}`,
-    "GLS": (t) => `https://www.gls-spain.es/es/seguimiento-de-envios/?match=${t}`,
-    "Correos Express": (t) => `https://www.correosexpress.com/web/correosexpress/seguimiento-online?envio=${t}`,
-    "DHL": (t) => `https://www.dhl.com/es-es/home/tracking/tracking-express.html?submit=1&tracking-id=${t}`,
+    // Todas pasan por /seguimiento (app/seguimiento/route.ts), que lleva a la web oficial de cada agencia
+    "MRW": (t) => `/seguimiento?a=mrw&n=${encodeURIComponent(t)}`,
+    "NACEX": (t) => `/seguimiento?a=nacex&n=${encodeURIComponent(t)}`,
+    "SEUR": (t) => `/seguimiento?a=seur&n=${encodeURIComponent(t)}`,
+    "CTT": (t) => `/seguimiento?a=ctt&n=${encodeURIComponent(t)}`,
+    "GLS": (t) => `/seguimiento?a=gls&n=${encodeURIComponent(t)}`,
+    "Correos": (t) => `/seguimiento?a=correos&n=${encodeURIComponent(t)}`,
+    "DHL": (t) => `/seguimiento?a=dhl&n=${encodeURIComponent(t)}`,
   };
 
   function getTrackingNumber(p: Pedido): string {
