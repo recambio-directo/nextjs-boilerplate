@@ -11,6 +11,32 @@ const supabase = createClient(
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Misma lógica que app/admin/page.tsx (crearPagoProveedorSiNoExiste + importesProveedor):
+// por proveedor, (precio + impuesto) × cantidad + IVA 21 %, pago a 7 días desde la entrega.
+async function crearPagoProveedorSiNoExiste(pedido: any) {
+  if (!pedido?.id || !Array.isArray(pedido.productos)) return;
+  const importes = new Map<string, number>();
+  for (const prod of pedido.productos) {
+    if (!prod?.proveedor_id) continue;
+    const base = (Number(prod.precio || 0) + Number(prod.impuesto || 0)) * Number(prod.cantidad || 1);
+    importes.set(prod.proveedor_id, (importes.get(prod.proveedor_id) || 0) + base);
+  }
+  const fechaEntrega = new Date().toISOString();
+  const fechaPago = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  for (const [provId, base] of importes) {
+    const importe = Math.round(base * 1.21 * 100) / 100;
+    if (importe <= 0) continue;
+    const { data: existe } = await supabase.from("pagos_proveedores").select("id")
+      .eq("pedido_id", pedido.id).eq("proveedor_id", provId).maybeSingle();
+    if (!existe) {
+      await supabase.from("pagos_proveedores").insert({
+        pedido_id: pedido.id, proveedor_id: provId, importe,
+        estado: "esperando_7dias", fecha_entrega: fechaEntrega, fecha_pago_programado: fechaPago,
+      });
+    }
+  }
+}
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -23,7 +49,8 @@ export async function GET(request: Request) {
       .from("pedidos")
       .select("id, codigo, tracking, estado_envio, cliente_email, cliente_nombre, productos, entregado_at, agencia, transporte")
       .not("tracking", "is", null)
-      .in("estado_envio", ["enviado", "preparando"])
+      // Incluye los estados que se pueden poner a mano desde el admin, para no dejar de revisarlos
+      .in("estado_envio", ["preparando", "recogido", "enviado", "en_transito", "incidencia"])
       .eq("anulado", false)
       .or("agencia.ilike.%ctt%,transporte.ilike.%ctt%");
 
@@ -43,14 +70,24 @@ export async function GET(request: Request) {
           body: JSON.stringify({ shippingCode: pedido.tracking }),
         });
         const trackingData = await trackingRes.json();
-        if (!trackingData.ok) continue;
+        if (!trackingData.ok || !trackingData.estadoRD) {
+          console.warn(`CTT cron ${pedido.codigo}: sin estado (${trackingData.detalle || trackingData.error || "sin información"})`);
+          continue;
+        }
 
         const nuevoEstado = trackingData.estadoRD;
-        if (nuevoEstado !== pedido.estado_envio) {
+        // No "retroceder": un estado puesto a mano (en tránsito, recogido, incidencia) solo cambia si CTT dice ENTREGADO
+        const estadoManual = ["recogido", "en_transito", "incidencia"].includes(pedido.estado_envio);
+        const cambia = nuevoEstado !== pedido.estado_envio
+          && !(estadoManual && nuevoEstado !== "entregado")
+          && !(pedido.estado_envio === "enviado" && nuevoEstado === "preparando");
+        console.log(`CTT cron ${pedido.codigo}: ${pedido.estado_envio} → CTT ${trackingData.ultimoEstadoCTT?.code || "?"} ${trackingData.ultimoEstadoCTT?.description || ""} (${nuevoEstado})${cambia ? " ACTUALIZADO" : ""}`);
+        if (cambia) {
           const updateData: any = { estado_envio: nuevoEstado };
 
           if (nuevoEstado === "entregado" && pedido.estado_envio !== "entregado") {
             updateData.entregado_at = new Date().toISOString();
+            updateData.fecha_entrega_confirmada = new Date().toISOString();
             entregados++;
 
             if (pedido.cliente_email) {
@@ -79,6 +116,12 @@ export async function GET(request: Request) {
 
           await supabase.from("pedidos").update(updateData).eq("id", pedido.id);
           actualizados++;
+
+          // Igual que al marcar "Entregado" en el admin: programar el pago al proveedor a 7 días
+          if (nuevoEstado === "entregado") {
+            try { await crearPagoProveedorSiNoExiste(pedido); }
+            catch (e) { console.error(`Error creando pago proveedor ${pedido.codigo}:`, e); }
+          }
         }
 
         if (pedido.estado_envio === "entregado" && pedido.entregado_at) {
