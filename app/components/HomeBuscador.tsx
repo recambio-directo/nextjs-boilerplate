@@ -190,7 +190,7 @@ export default function HomeBuscador() {
       {stats.referencias > 0 && (
         <div className="home-contadores">
           {[
-            { label: "Referencias con stock", value: stats.referencias, color: "#60a5fa" },
+            { label: "Piezas en catálogo", value: stats.referencias, color: "#60a5fa" },
             { label: "Marcas", value: stats.marcas, color: "#4ade80" },
             { label: "Equivalencias OEM/IAM", value: stats.equivalencias, color: "#fbbf24" },
           ].map(({ label, value, color }) => (

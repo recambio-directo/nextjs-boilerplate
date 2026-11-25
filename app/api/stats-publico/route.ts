@@ -13,8 +13,8 @@ export const revalidate = 3600; // cache 1 h
 export async function GET() {
   try {
     const [refs, marcas, cruces] = await Promise.all([
-      // Referencias distintas con stock (una por referencia + marca, aunque la tengan varios proveedores)
-      supabase.from("refs_seo").select("rn", { count: "exact", head: true }),
+      // Total de piezas publicadas por todos los proveedores (cada oferta cuenta)
+      supabase.from("piezas_publicadas").select("id", { count: "exact", head: true }),
       // Marcas con alguna referencia en stock
       supabase.from("refs_seo_marcas").select("marca_slug", { count: "exact", head: true }),
       // Equivalencias OEM↔IAM: tabla de millones de filas → recuento estimado de Postgres (rápido)
