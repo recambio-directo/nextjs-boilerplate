@@ -174,6 +174,85 @@ async function stockPorReferencias(ctx: Ctx, refs: string[], detallePorRef: Map<
   return productos;
 }
 
+// ── Búsqueda por texto en la descripción (productos que no dependen del vehículo) ──
+// Aceites (5W30, 10W40…), anticongelante, líquido de frenos, escobillas, bombillas, aditivos…
+const GENERICAS = new Set(["aceite", "aceit", "lubricante", "motor", "litro", "para", "con", "de", "del", "los", "las", "una", "uno"]);
+const VOCALES: Record<string, string> = { a: "[aá]", e: "[eé]", i: "[ií]", o: "[oó]", u: "[uúü]", n: "[nñ]" };
+
+// Convierte lo que escribe el taller en patrones de búsqueda (regex de Postgres, sin caracteres peligrosos)
+function patronesDeTexto(texto: string): string[] {
+  let t = sinTildes(texto);
+  const patrones: string[] = [];
+  // Viscosidad de aceite: 5w30, 5W-30, 5w 30 → casa con todas las formas, pero no con 15W30
+  const visc = /(\d{1,2})\s*w\s*-?\s*(\d{2})/g;
+  let m: RegExpExecArray | null;
+  let hayViscosidad = false;
+  while ((m = visc.exec(t))) {
+    patrones.push(`(^|[^0-9])${m[1]} ?w ?-? ?${m[2]}([^0-9]|$)`);
+    hayViscosidad = true;
+  }
+  t = t.replace(visc, " ");
+  for (let w of t.split(/[^a-z0-9]+/)) {
+    if (!w) continue;
+    // Medidas: "600mm", "55ah" → el número solo (las descripciones escriben "600 MM", "600", "55AH"…)
+    const medida = w.match(/^(\d{2,4})(mm|cm|ah|w|v|l|ml|lt)$/);
+    if (medida) { patrones.push(`(^|[^0-9])${medida[1]}([^0-9]|$)`); continue; }
+    // Códigos cortos con letras y números: H7, C3, DOT4, 5L → admite "DOT 4", "DOT-4"; sin casar dentro de otras palabras
+    if (/[a-z]/.test(w) && /\d/.test(w) && w.length <= 5) {
+      const flexible = w.replace(/([a-z])(?=\d)|(\d)(?=[a-z])/g, (_, a, b) => `${a || b} ?-?`);
+      patrones.push(`(^|[^a-z0-9])${flexible}([^a-z0-9]|$)`);
+      continue;
+    }
+    if (/^\d+$/.test(w)) { if (w.length >= 2) patrones.push(`(^|[^0-9])${w}([^0-9]|$)`); continue; }
+    if (w.length < 3) continue;
+    if (hayViscosidad && GENERICAS.has(w)) continue; // "aceite 5w30": muchas descripciones no dicen "aceite"
+    if (GENERICAS.has(w) && w.length <= 4) continue;
+    if (w.length > 5 && w.endsWith("es")) w = w.slice(0, -2);
+    else if (w.length > 3 && w.endsWith("s")) w = w.slice(0, -1);
+    patrones.push(w.split("").map((c) => VOCALES[c] || c).join(""));
+  }
+  return patrones.slice(0, 4);
+}
+
+async function stockPorTexto(ctx: Ctx, texto: string): Promise<{ productos: Producto[]; patrones: string[] }> {
+  const patrones = patronesDeTexto(texto);
+  if (!patrones.length) return { productos: [], patrones };
+  let q = db
+    .from("piezas_publicadas")
+    .select("id, referencia, referencia_normalizada, marca, nombre, descripcion, tipo, precio, impuesto, stock, proveedor_id, proveedor_nombre, poblacion, provincia")
+    .gt("stock", 0);
+  for (const p of patrones) q = q.filter("descripcion", "imatch", p);
+  const { data, error } = await conTiempo(q.order("precio", { ascending: true }).limit(120) as unknown as Promise<any>);
+  if (error) { console.error("[asistente] busqueda texto:", error.message); return { productos: [], patrones }; }
+
+  const productos: Producto[] = [];
+  const repetidos = new Set<string>(); // mismo artículo del mismo proveedor en varios almacenes
+  for (const p of data || []) {
+    if (p.proveedor_id === ctx.usuario.id) continue;
+    if (ctx.excluidos.includes(p.proveedor_id)) continue;
+    const clave = `${p.proveedor_id}|${normB(p.referencia || "")}|${p.precio}`;
+    if (repetidos.has(clave)) continue;
+    repetidos.add(clave);
+    const prod: Producto = {
+      id: String(p.id),
+      referencia: p.referencia || "",
+      marca: p.marca || "",
+      descripcion: (p.descripcion || p.nombre || "").slice(0, 140),
+      tipo: p.tipo || "",
+      precio: Number(p.precio) || 0,
+      impuesto: Number(p.impuesto) || 0,
+      stock: Number(p.stock) || 0,
+      proveedor_id: p.proveedor_id,
+      proveedor_nombre: p.proveedor_nombre || "",
+      poblacion: p.poblacion || p.provincia || "",
+      detalle: "",
+    };
+    productos.push(prod);
+    ctx.productosVistos.set(prod.id, prod);
+  }
+  return { productos, patrones };
+}
+
 // Lo que el modelo ve de cada producto (compacto, sin datos de contacto)
 const paraModelo = (p: Producto) => ({
   id: p.id, marca: p.marca, referencia: p.referencia, tipo: p.tipo, descripcion: p.descripcion,
@@ -249,6 +328,15 @@ const HERRAMIENTAS = [
       type: "object",
       properties: { referencia: { type: "string" } },
       required: ["referencia"],
+    },
+  },
+  {
+    name: "buscar_por_descripcion",
+    description: "Busca en stock por palabras de la descripción del producto, sin vehículo. Úsala para productos genéricos que no dependen del modelo de coche: aceite de motor por viscosidad (5W30, 10W40…), anticongelante, líquido de frenos, AdBlue, escobillas por medida, bombillas (H7, H4…), aditivos, limpiadores, grasas. También como último recurso si las otras búsquedas no encuentran nada. Escribe solo 1-3 palabras clave significativas (p. ej. '5W30', '5W30 C3', 'anticongelante 50%', 'escobilla 600', 'H7'). Devuelve productos ordenados por precio.",
+    input_schema: {
+      type: "object",
+      properties: { texto: { type: "string", description: "Palabras clave, p. ej. '5W30' o 'liquido frenos DOT4'" } },
+      required: ["texto"],
     },
   },
   {
@@ -371,6 +459,19 @@ async function ejecutarHerramienta(ctx: Ctx, nombre: string, input: any): Promis
       };
     }
 
+    case "buscar_por_descripcion": {
+      const texto = String(input?.texto || "").slice(0, 80);
+      const { productos, patrones } = await stockPorTexto(ctx, texto);
+      if (!patrones.length) return { error: "Indica al menos una palabra clave de 3 letras o una viscosidad (p. ej. 5W30)." };
+      return {
+        en_stock: productos.length,
+        productos: productos.slice(0, MAX_PRODUCTOS_TOOL).map(paraModelo),
+        mensaje: productos.length
+          ? "Comprueba en la descripción que cada producto encaja con lo pedido (p. ej. norma ACEA/fabricante en aceites) antes de mostrarlo."
+          : "No hay productos en stock con esas palabras. Prueba con menos palabras o sinónimos.",
+      };
+    }
+
     case "mostrar_productos": {
       const ids: string[] = Array.isArray(input?.ids) ? input.ids.map(String) : [];
       const items = ids.map((id) => ctx.productosVistos.get(id)).filter(Boolean).slice(0, 6) as Producto[];
@@ -388,6 +489,7 @@ function instrucciones(vehiculo: Vehiculo | null): string {
 
 QUÉ HACES
 1. Encontrar piezas: con matrícula o bastidor → identificar_vehiculo → buscar_categoria → buscar_piezas_vehiculo → mostrar_productos. Con una referencia → buscar_por_referencia → mostrar_productos.
+   Productos genéricos que no dependen del vehículo (aceite por viscosidad como 5W30 o 10W40, anticongelante, líquido de frenos, AdBlue, escobillas, bombillas, aditivos, limpiadores) → buscar_por_descripcion directamente, sin pedir matrícula → mostrar_productos. Si piden aceite sin viscosidad, pregunta la viscosidad o el vehículo. Si las demás búsquedas no dan resultado, prueba también buscar_por_descripcion antes de decir que no hay.
 2. Orientar averías: con síntomas o códigos OBD (P0401, P0300…), explica las causas más probables de más a menos frecuente y qué comprobar en cada una, y después busca en stock las piezas de la causa más probable si el taller te da el vehículo.
 
 REGLAS FIRMES
